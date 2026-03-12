@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Courier New', Courier, monospace;
+  background: #06080f;
+  color: #c8d8e8;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+button { cursor: pointer; font-family: inherit; }
+select { font-family: inherit; }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #060d18; }
+::-webkit-scrollbar-thumb { background: #0d2030; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #1e3040; }
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px currentColor; }
+  50%       { opacity: 0.3; box-shadow: none; }
+}
+.live-dot { animation: livePulse 1.5s ease-in-out infinite; }
