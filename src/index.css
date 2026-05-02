@@ -1,27 +1,140 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg:         #f4f6fb;
+  --surface:    #ffffff;
+  --surface-2:  #f8f9fd;
+  --border:     #e4e8f0;
+  --border-2:   #edf0f7;
+  --text:       #0f172a;
+  --text-2:     #475569;
+  --text-3:     #94a3b8;
+  --accent:     #2563eb;
+  --accent-bg:  #eff6ff;
+  --green:      #16a34a;
+  --green-bg:   #f0fdf4;
+  --red:        #dc2626;
+  --red-bg:     #fef2f2;
+  --yellow:     #d97706;
+  --yellow-bg:  #fffbeb;
+  --radius:     10px;
+  --radius-sm:  6px;
+  --shadow-sm:  0 1px 2px rgba(0,0,0,0.05);
+  --shadow:     0 1px 4px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:  0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg:  0 10px 24px rgba(0,0,0,0.09), 0 4px 8px rgba(0,0,0,0.05);
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: 'Courier New', Courier, monospace;
-  background: #06080f;
-  color: #c8d8e8;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
   min-height: 100vh;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
 button { cursor: pointer; font-family: inherit; }
-select { font-family: inherit; }
+select, input { font-family: inherit; }
 
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: #060d18; }
-::-webkit-scrollbar-thumb { background: #0d2030; border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: #1e3040; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--surface-2); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #c8cfe0; }
 
+/* ── Live pulse for camera dots ── */
 @keyframes livePulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 6px currentColor; }
-  50%       { opacity: 0.3; box-shadow: none; }
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(22,163,74,0.4); }
+  50%       { opacity: 0.8; box-shadow: 0 0 0 5px rgba(22,163,74,0); }
 }
-.live-dot { animation: livePulse 1.5s ease-in-out infinite; }
+.live-dot { animation: livePulse 2s ease-in-out infinite; }
+
+/* ── Alert row hover ── */
+.alert-row { transition: background 0.15s, box-shadow 0.15s; }
+.alert-row:hover { background: var(--surface-2) !important; }
+
+/* ── Analytics panel slide-in ── */
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.uc-analytics-panel { animation: slideDown 0.28s cubic-bezier(0.4,0,0.2,1); }
+
+/* ── Capacity alert pulse ── */
+@keyframes capacityPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.15); }
+  50%       { box-shadow: 0 0 0 6px rgba(220,38,38,0); }
+}
+.capacity-alert-banner { animation: capacityPulse 2.5s ease-in-out infinite; }
+
+/* ── Refresh spin ── */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Slide-in panel (old alert detail - kept for compat) ── */
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.alert-detail-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,23,42,0.4);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex; justify-content: flex-end;
+  animation: fadeIn 0.2s ease-out;
+}
+.alert-detail-panel {
+  width: 480px; max-width: 92vw;
+  height: 100vh; overflow-y: auto;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  padding: 28px;
+  position: relative;
+  animation: slideInRight 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ── Nav active indicator ── */
+.nav-active-bar {
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+}
+
+/* ── Card hover lift ── */
+.card-hover {
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.card-hover:hover {
+  box-shadow: var(--shadow-md) !important;
+  transform: translateY(-1px);
+}
+
+/* ── Status badge pulse ── */
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+.status-offline { animation: statusPulse 2s ease-in-out infinite; }
+
+/* ── Sidebar nav link ── */
+.nav-link {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 500; text-decoration: none;
+  color: var(--text-2); transition: all 0.15s;
+  cursor: pointer; border: none; background: transparent;
+  width: 100%; text-align: left;
+}
+.nav-link:hover { background: var(--surface-2); color: var(--text); }
+.nav-link.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; }

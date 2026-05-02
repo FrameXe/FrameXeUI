@@ -6,24 +6,76 @@ export default function TopBar() {
   useEffect(() => { const iv = setInterval(() => setT(new Date()), 1000); return () => clearInterval(iv) }, [])
 
   return (
-    <header style={{ background:'#060d18', borderBottom:'1px solid #0d1e2e', padding:'9px 22px', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
-      <div style={{ display:'flex', alignItems:'center', gap:16 }}>
-        <div>
-          <span style={{ fontSize:13, fontWeight:'bold', letterSpacing:3, color:'#c8d8e8' }}>VIDEO</span>
-          <span style={{ fontSize:13, fontWeight:'bold', letterSpacing:3, color:'#00cfff', marginLeft:6 }}>ANALYTICS</span>
+    <header style={{
+      background: 'var(--surface)',
+      borderBottom: '1px solid var(--border)',
+      padding: '0 28px',
+      height: 56,
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      flexShrink: 0,
+      boxShadow: 'var(--shadow-sm)',
+      zIndex: 100,
+    }}>
+      {/* Brand */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Logo mark */}
+          <div style={{
+            width: 32, height: 32, borderRadius: 8,
+            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(37,99,235,0.3)',
+          }}>
+            <span style={{ fontSize: 16 }}>🎯</span>
+          </div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', lineHeight: 1.1, letterSpacing: '-0.02em' }}>
+              vFrameXe
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 500, letterSpacing: '0.05em' }}>
+              AI Video Analytics
+            </div>
+          </div>
         </div>
-        <div style={{ height:14, width:1, background:'#0d2030' }}/>
-        <span style={{ fontSize:9, color:'#2a4050', letterSpacing:2 }}>ACME CORP</span>
-        <span style={{ fontSize:9, background: USE_MOCK ? 'rgba(255,214,0,0.12)' : 'rgba(0,255,136,0.12)', border:`1px solid ${USE_MOCK?'#ffd60044':'#00ff8844'}`, color: USE_MOCK?'#ffd600':'#00ff88', padding:'1px 8px', letterSpacing:2 }}>
-          {USE_MOCK ? 'MOCK' : 'LIVE API'}
+
+        <div style={{ width: 1, height: 28, background: 'var(--border)' }} />
+
+        <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 500 }}>
+          ACME Corporation
+        </div>
+
+        <span style={{
+          fontSize: 10, fontWeight: 600,
+          background: USE_MOCK ? 'var(--yellow-bg)' : 'var(--green-bg)',
+          border: `1px solid ${USE_MOCK ? '#fde68a' : '#bbf7d0'}`,
+          color: USE_MOCK ? 'var(--yellow)' : 'var(--green)',
+          padding: '3px 10px', borderRadius: 20, letterSpacing: '0.04em',
+        }}>
+          {USE_MOCK ? '⚡ DEMO' : '🟢 LIVE'}
         </span>
       </div>
-      <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-        <span style={{ fontSize:10, color:'#4a6070', letterSpacing:1 }}>{t.toLocaleTimeString()}</span>
-        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-          <div className="live-dot" style={{ width:6, height:6, borderRadius:'50%', background:'#00ff88', color:'#00ff88' }}/>
-          <span style={{ fontSize:10, color:'#00ff88', letterSpacing:2 }}>LIVE</span>
+
+      {/* Right side */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+        <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+          {t.toLocaleTimeString()}
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div className="live-dot" style={{
+            width: 8, height: 8, borderRadius: '50%',
+            background: 'var(--green)', color: 'var(--green)',
+          }} />
+          <span style={{ fontSize: 11, color: 'var(--green)', fontWeight: 600, letterSpacing: '0.04em' }}>
+            System Online
+          </span>
         </div>
+        {/* User avatar */}
+        <div style={{
+          width: 32, height: 32, borderRadius: '50%',
+          background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 13, fontWeight: 700, color: '#fff',
+        }}>A</div>
       </div>
     </header>
   )

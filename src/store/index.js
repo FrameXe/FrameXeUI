@@ -1,31 +1,22 @@
 import { create } from 'zustand'
 
-// ── Camera Store ───────────────────────────────────────────────
+// Simple stores — mostly hooks are self-managing now
 export const useCameraStore = create((set, get) => ({
   cameras: [], loading: false, error: null,
-  set: (cameras) => set({ cameras }),
+  set:        (c) => set({ cameras: c }),
   setLoading: (v) => set({ loading: v }),
   setError:   (v) => set({ error: v }),
-  byId:    (id) => get().cameras.find(c => c.id === id) || null,
-  byUC:    (uc) => get().cameras.filter(c => c.useCase === uc),
 }))
 
-// ── Alert Store ────────────────────────────────────────────────
 export const useAlertStore = create((set, get) => ({
-  alerts: [], loading: false,
-  set:        (alerts) => set({ alerts }),
+  alerts: [], total: 0, loading: false,
+  set:        ({ data, total }) => set({ alerts: data||[], total: total||0 }),
   setLoading: (v) => set({ loading: v }),
-  push:       (a) => set(s => ({ alerts: [a, ...s.alerts] })),
-  ack:        (id) => set(s => ({ alerts: s.alerts.map(a => a.id === id ? { ...a, acknowledged: true } : a) })),
-  ackAll:     ()   => set(s => ({ alerts: s.alerts.map(a => ({ ...a, acknowledged: true })) })),
-  unread:     ()   => get().alerts.filter(a => !a.acknowledged).length,
+  ack:        (id) => set(s => ({ alerts: s.alerts.map(a => a.id===id?{...a,acknowledged:true}:a) })),
+  ackAll:     ()  => set(s => ({ alerts: s.alerts.map(a => ({...a,acknowledged:true})) })),
+  unread:     ()  => get().alerts.filter(a => !a.acknowledged).length,
 }))
 
-// ── Detection Store (tables/reports ke liye) ───────────────────
-export const useDetStore = create((set, get) => ({
-  data: {}, loading: {},
-  set:        (type, d)  => set(s => ({ data:    { ...s.data,    [type]: d    } })),
-  setLoading: (type, v)  => set(s => ({ loading: { ...s.loading, [type]: v   } })),
-  get:        (type)     => get().data[type] || [],
-  isLoading:  (type)     => get().loading[type] || false,
+export const useAnalyticsStore = create((set) => ({
+  summary: null, setSummary: (d) => set({ summary: d }),
 }))

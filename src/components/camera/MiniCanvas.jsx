@@ -1,167 +1,169 @@
-// ══════════════════════════════════════════════════════════════
-//  MINI CANVAS — Camera grid tile ka preview
-//
-//  Yeh component kya karta hai:
-//  1. HLS stream hai → video frame canvas pe draw hota hai
-//  2. HLS nahi     → animated mock CCTV background
-//  3. Detection feed se boxes continuously draw hote hain
-//  4. Click pe CameraDetail (fullscreen) page pe jaate ho
-//
-//  HLS add karna: mockData.js mein camera.hlsUrl set karo
-// ══════════════════════════════════════════════════════════════
-
 import { useEffect, useRef } from 'react'
 import { attachHLS } from '../../services/hls.js'
 import { startLiveFeed } from '../../services/liveDetections.js'
 import { drawDetBox, drawMockBg } from '../../services/canvasDraw.js'
 import { UC_COLOR } from '../../constants/useCases.js'
 
-const ST_COLOR = { active:'#00ff88', inactive:'#4a6070', error:'#ff3b3b' }
+const ST = {
+  active: { color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', label: 'Active' },
+  inactive: { color: '#94a3b8', bg: '#f8fafc', border: '#e2e8f0', label: 'Offline' },
+  error: { color: '#dc2626', bg: '#fef2f2', border: '#fecaca', label: 'Error' },
+  offline: { color: '#94a3b8', bg: '#f8fafc', border: '#e2e8f0', label: 'Offline' },
+}
 
-export default function MiniCanvas({ camera, onClick }) {
-  const canvasRef  = useRef(null)
-  const videoRef   = useRef(null)
-  const animRef    = useRef(null)
-  const frameRef   = useRef(0)
-  // Detections stored in ref — no re-render needed, canvas reads directly
-  const detsRef    = useRef([])
+export default function MiniCanvas({ camera, onClick, onDoubleClick }) {
+  const canvasRef = useRef(null)
+  const videoRef = useRef(null)
+  const animRef = useRef(null)
+  const frameRef = useRef(0)
+  const detsRef = useRef([])
+
+  // YouTube detection
+  const ytRegex = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/
+  const ytMatch = camera.hlsUrl?.match(ytRegex)
+  const ytId = (ytMatch && ytMatch[2]?.length === 11) ? ytMatch[2] : null
+  const isYt = !!ytId
 
   const isActive = camera.status === 'active'
-  const ucColor  = UC_COLOR[camera.useCase] || '#00cfff'
+  const ucColor = UC_COLOR[camera.useCase] || '#2563eb'
+  const st = ST[camera.status] || ST.inactive
 
-  // ── Attach HLS ──────────────────────────────────────────────
   useEffect(() => {
-    if (!camera.hlsUrl) return
+    if (!camera.hlsUrl || isYt) return
     let hlsInst = null
     attachHLS(videoRef.current, camera.hlsUrl).then(h => { hlsInst = h })
     return () => hlsInst?.destroy()
-  }, [camera.hlsUrl])
+  }, [camera.hlsUrl, isYt])
 
-  // ── Start detection feed ────────────────────────────────────
   useEffect(() => {
     if (!isActive) return
-    const stop = startLiveFeed(camera, (det) => {
+    const stop = startLiveFeed(camera, camera.useCase, (det) => {
       detsRef.current = [...detsRef.current.slice(-10), det]
     })
     return stop
   }, [camera.id, camera.useCase, isActive])
 
-  // ── Render loop ─────────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || !isActive) return
     const ctx = canvas.getContext('2d')
     const W = canvas.width, H = canvas.height
     let running = true
-
     const render = () => {
       if (!running) return
       frameRef.current++
-
-      // 1. Draw video OR mock background
       const vid = videoRef.current
-      if (camera.hlsUrl && vid && vid.readyState >= 2) {
+      if (camera.hlsUrl && !isYt && vid && vid.readyState >= 2) {
         ctx.drawImage(vid, 0, 0, W, H)
-        // light scanline
         ctx.fillStyle = 'rgba(0,0,0,0.03)'
-        for (let y = (frameRef.current*2)%4; y < H; y += 4) ctx.fillRect(0, y, W, 1)
-      } else {
+        for (let y = (frameRef.current * 2) % 4; y < H; y += 4) ctx.fillRect(0, y, W, 1)
+      } else if (!isYt) {
         drawMockBg(ctx, W, H, frameRef.current, null)
+      } else {
+        // YouTube mode → Clear canvas for overlay
+        ctx.clearRect(0, 0, W, H)
       }
-
-      // 2. Age detections + draw boxes
       detsRef.current = detsRef.current
-        .map(d => ({ ...d, age: d.age+1, alpha: Math.max(0, 1 - d.age/70) }))
+        .map(d => ({ ...d, age: d.age + 1, alpha: Math.max(0, 1 - d.age / 70) }))
         .filter(d => d.alpha > 0.05)
       detsRef.current.forEach(d => drawDetBox(ctx, d, W, H))
-
-      // 3. Detection count badge
       if (detsRef.current.length > 0) {
-        ctx.font = `bold 10px 'Courier New'`
-        ctx.fillStyle = ucColor + 'cc'
-        ctx.fillText(`${detsRef.current.length}`, W - 18, H - 8)
+        ctx.font = `bold 11px Inter, sans-serif`
+        ctx.fillStyle = ucColor + 'ee'
+        ctx.fillText(`${detsRef.current.length}`, W - 20, H - 10)
       }
-
       animRef.current = requestAnimationFrame(render)
     }
-
     animRef.current = requestAnimationFrame(render)
     return () => { running = false; cancelAnimationFrame(animRef.current) }
-  }, [camera, isActive, ucColor])
+  }, [camera, isActive, ucColor, isYt])
 
   return (
     <div
       onClick={isActive ? onClick : undefined}
+      onDoubleClick={isActive ? onDoubleClick : undefined}
+      className={isActive ? 'card-hover' : ''}
       style={{
-        background: '#0a111e',
-        border: `1px solid ${isActive ? '#0d2030' : ST_COLOR[camera.status]+'33'}`,
+        background: '#fff', border: '1px solid var(--border)',
+        borderRadius: 'var(--radius)', overflow: 'hidden',
+        boxShadow: 'var(--shadow)',
         cursor: isActive ? 'pointer' : 'not-allowed',
-        overflow: 'hidden',
-        transition: 'all 0.18s',
-      }}
-      onMouseEnter={e => {
-        if (!isActive) return
-        e.currentTarget.style.borderColor = ucColor + '88'
-        e.currentTarget.style.transform = 'scale(1.02)'
-        e.currentTarget.style.boxShadow = `0 0 18px ${ucColor}22`
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.borderColor = isActive ? '#0d2030' : ST_COLOR[camera.status]+'33'
-        e.currentTarget.style.transform = 'scale(1)'
-        e.currentTarget.style.boxShadow = 'none'
+        opacity: isActive ? 1 : 0.65,
+        transition: 'all 0.2s',
       }}
     >
-      {/* Hidden video — HLS plays here */}
-      <video ref={videoRef} style={{ display:'none' }} muted playsInline autoPlay />
+      <video ref={videoRef} style={{ display: 'none' }} muted playsInline autoPlay />
 
-      {/* Canvas — video frame + detection boxes */}
-      <div style={{ position:'relative', aspectRatio:'16/9' }}>
-        {isActive
-          ? (
-            <canvas
-              ref={canvasRef}
-              width={640} height={360}
-              style={{ width:'100%', height:'100%', display:'block' }}
-            />
-          ) : (
-            <div style={{ width:'100%', height:'100%', aspectRatio:'16/9', background:'#050a14', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:6 }}>
-              <span style={{ fontSize:22, opacity:.12 }}>📷</span>
-              <span style={{ fontSize:9, color:'#1e3040', letterSpacing:2 }}>
-                {camera.status === 'error' ? 'SIGNAL LOST' : 'OFFLINE'}
-              </span>
-            </div>
-          )
-        }
+      {/* Canvas area */}
+      <div style={{ position: 'relative', aspectRatio: '16/9', background: '#0f172a', borderRadius: 'var(--radius) var(--radius) 0 0', overflow: 'hidden' }}>
+        {isYt && isActive && (
+          <iframe
+            src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&modestbranding=1`}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', pointerEvents: 'none' }}
+            allow="autoplay; encrypted-media"
+          />
+        )}
+        
+        {isActive ? (
+          <canvas ref={canvasRef} width={640} height={360}
+            style={{ width: '100%', height: '100%', display: 'block', position: 'relative', zIndex: 1 }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 8 }}>
+            <span style={{ fontSize: 28, opacity: 0.2 }}>📷</span>
+            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.1em', fontWeight: 600 }}>
+              {camera.status === 'error' ? 'SIGNAL LOST' : 'OFFLINE'}
+            </span>
+          </div>
+        )}
 
         {/* Status badge */}
-        <div style={{ position:'absolute', top:7, right:7, background:`${ST_COLOR[camera.status]}15`, border:`1px solid ${ST_COLOR[camera.status]}44`, padding:'2px 7px', fontSize:9, letterSpacing:1, color:ST_COLOR[camera.status], display:'flex', alignItems:'center', gap:4 }}>
-          <div style={{ width:5, height:5, borderRadius:'50%', background:ST_COLOR[camera.status], boxShadow: isActive?`0 0 5px ${ST_COLOR[camera.status]}`:'none' }}/>
-          {camera.status.toUpperCase()}
+        <div style={{
+          position: 'absolute', top: 8, right: 8,
+          background: isActive ? 'rgba(22,163,74,0.85)' : 'rgba(15,23,42,0.7)',
+          backdropFilter: 'blur(4px)',
+          border: `1px solid ${isActive ? '#16a34a44' : 'rgba(255,255,255,0.1)'}`,
+          padding: '3px 9px', borderRadius: 12,
+          fontSize: 9, fontWeight: 700,
+          color: '#fff', display: 'flex', alignItems: 'center', gap: 4,
+          letterSpacing: '0.05em',
+        }}>
+          <div style={{
+            width: 5, height: 5, borderRadius: '50%', background: '#fff',
+            boxShadow: isActive ? '0 0 4px #fff' : 'none',
+          }} />
+          {st.label.toUpperCase()}
         </div>
 
-        {/* Alert badge */}
+        {/* Alert count */}
         {camera.alertCount > 0 && (
-          <div style={{ position:'absolute', top:7, left:7, background:'rgba(255,59,59,0.88)', color:'#fff', fontSize:9, fontWeight:'bold', padding:'2px 7px', letterSpacing:1 }}>
+          <div style={{
+            position: 'absolute', top: 8, left: 8,
+            background: 'rgba(220,38,38,0.9)', backdropFilter: 'blur(4px)',
+            color: '#fff', fontSize: 10, fontWeight: 700,
+            padding: '2px 8px', borderRadius: 10,
+          }}>
             ⚠ {camera.alertCount}
           </div>
         )}
 
-        {/* HLS indicator */}
+        {/* Source badge */}
         {camera.hlsUrl && isActive && (
-          <div style={{ position:'absolute', bottom:7, left:7, background:'rgba(0,200,255,0.15)', border:'1px solid #00cfff33', color:'#00cfff', fontSize:8, padding:'2px 6px', letterSpacing:1 }}>
-            HLS
-          </div>
+          <div style={{
+            position: 'absolute', bottom: 8, left: 8,
+            background: isYt ? 'rgba(255,0,0,0.8)' : 'rgba(37,99,235,0.8)', 
+            backdropFilter: 'blur(4px)',
+            color: '#fff', fontSize: 9, fontWeight: 700,
+            padding: '2px 7px', borderRadius: 8, letterSpacing: '0.05em',
+            zIndex: 10
+          }}>{isYt ? 'YOUTUBE' : 'LIVE'}</div>
         )}
       </div>
 
       {/* Info bar */}
-      <div style={{ padding:'7px 10px', display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'1px solid #0d2030' }}>
+      <div style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <div style={{ fontSize:11, fontWeight:'bold', color:'#c8d8e8' }}>{camera.name}</div>
-          <div style={{ fontSize:9, color:'#2a4050', marginTop:2 }}>{camera.location}</div>
-        </div>
-        <div style={{ fontSize:9, color:ucColor, background:`${ucColor}15`, border:`1px solid ${ucColor}30`, padding:'2px 7px', letterSpacing:1 }}>
-          {camera.useCase.toUpperCase()}
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{camera.name}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{camera.location}</div>
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useDetStore } from '../store/index.js'
-import { detectionAPI } from '../services/api.js'
+//import { detectionAPI } from '../services/api.js'
 
 export function useDetections(type) {
   const store = useDetStore()

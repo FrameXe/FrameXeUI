@@ -1,70 +1,83 @@
-import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Camera, FileText, AlertTriangle, ChevronDown } from 'lucide-react'
+import {
+  LayoutDashboard, Camera, AlertTriangle,
+  SlidersHorizontal, BarChart3, Shield
+} from 'lucide-react'
 import { USE_CASES } from '../../constants/useCases.js'
-import { useAlertStore } from '../../store/index.js'
+import { useAllAlerts } from '../../hooks/useAlerts.js'
+import { useCameras } from '../../hooks/useCameras.js'
 
-const lnk = (active, color='#4a6070') => ({
-  display:'flex', alignItems:'center', gap:10, padding:'8px 12px',
-  cursor:'pointer', borderRadius:2, marginBottom:2, textDecoration:'none',
-  background: active ? `${color}12` : 'transparent',
-  borderLeft: active ? `2px solid ${color}` : '2px solid transparent',
-  color: active ? color : '#4a6070',
-  transition:'all 0.15s', fontSize:11, letterSpacing:1,
-})
+const NAV_ITEMS = [
+  { to: '/', end: true,            icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/cameras',                icon: Camera,           label: 'Video Matrix' },
+  { to: '/camera-management',      icon: SlidersHorizontal,label: 'Configuration' },
+  { to: '/reports',                icon: BarChart3,        label: 'Intelligence Logs' },
+]
 
 export default function Sidebar() {
-  const loc    = useLocation()
-  const unread = useAlertStore(s => s.alerts.filter(a => !a.acknowledged).length)
-  const isEvt  = loc.pathname.startsWith('/use-case') || loc.pathname.startsWith('/events')
-  const [open, setOpen] = useState(isEvt)
+  const { cameras } = useCameras()
+  const { unread } = useAllAlerts(cameras)
 
   return (
-    <aside style={{ width:218, background:'#060d18', borderRight:'1px solid #0d1e2e', display:'flex', flexDirection:'column', flexShrink:0, overflowY:'auto' }}>
-      <nav style={{ padding:'12px 8px', flex:1 }}>
-        <NavLink to="/" end style={({ isActive }) => lnk(isActive, '#00cfff')}>
-          <LayoutDashboard size={14}/><span>Dashboard</span>
-        </NavLink>
-        <NavLink to="/cameras" style={({ isActive }) => lnk(isActive, '#00cfff')}>
-          <Camera size={14}/><span>Camera Explorer</span>
-        </NavLink>
-        <NavLink to="/reports" style={({ isActive }) => lnk(isActive, '#00cfff')}>
-          <FileText size={14}/><span>Reports</span>
-        </NavLink>
+    <aside style={{
+      width: 240, background: '#fff', borderRight: '1px solid var(--border)',
+      display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto',
+    }}>
+      <nav style={{ padding: '12px 10px', flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
 
-        {/* Events — collapsible */}
-        <div>
-          <div onClick={() => setOpen(o => !o)} style={{ ...lnk(isEvt, '#ff6b6b'), justifyContent:'space-between' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-              <AlertTriangle size={14}/><span>Events & Alerts</span>
-            </div>
-            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-              {unread > 0 && <span style={{ background:'#ff3b3b', color:'#fff', fontSize:8, fontWeight:'bold', padding:'1px 5px', borderRadius:2 }}>{unread}</span>}
-              <ChevronDown size={12} style={{ transform: open ? 'rotate(180deg)' : 'none', transition:'transform 0.2s', color:'#2a4050' }}/>
-            </div>
+        {/* Global Navigation */}
+        <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3)', letterSpacing: '0.12em', padding: '12px 10px 8px', textTransform: 'uppercase' }}>
+          Operations Overview
+        </div>
+        {NAV_ITEMS.map(item => (
+          <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
+            <item.icon size={16} />
+            <span>{item.label}</span>
+          </NavLink>
+        ))}
+
+        {/* Security & Alerts */}
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3)', letterSpacing: '0.12em', padding: '12px 10px 8px', textTransform: 'uppercase' }}>
+            Active Monitoring
           </div>
+          <NavLink to="/events" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} style={{ justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Shield size={16} />
+              <span>Safety Center</span>
+            </div>
+            {unread > 0 && (
+              <span style={{
+                background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 800, 
+                padding: '2px 8px', borderRadius: 20, minWidth: 20, textAlign: 'center'
+              }}>{unread}</span>
+            )}
+          </NavLink>
 
-          {open && (
-            <div style={{ paddingLeft:10, borderLeft:'1px solid #0d1e2e', marginLeft:18, marginBottom:4 }}>
-              <NavLink to="/events" style={({ isActive }) => ({ ...lnk(isActive, '#ff6b6b'), justifyContent:'space-between' })}>
-                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                  <span style={{ fontSize:11 }}>🔔</span><span>All Alerts</span>
-                </div>
-                {unread > 0 && <span style={{ background:'#ff3b3b', color:'#fff', fontSize:8, fontWeight:'bold', padding:'1px 5px', borderRadius:2 }}>{unread}</span>}
-              </NavLink>
+          {/* Intelligence Suites - FLAT LIST */}
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3)', letterSpacing: '0.12em', padding: '12px 10px 8px', textTransform: 'uppercase' }}>
+              Intelligence Suites
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {USE_CASES.map(uc => (
-                <NavLink key={uc.id} to={`/use-case/${uc.id}`} style={({ isActive }) => lnk(isActive, uc.color)}>
-                  <span style={{ fontSize:11 }}>{uc.emoji}</span><span>{uc.label}</span>
+                <NavLink 
+                  key={uc.id} 
+                  to={`/use-case/${uc.id}`} 
+                  className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+                >
+                  <span style={{ fontSize: 16 }}>{uc.emoji}</span>
+                  <span>{uc.label}</span>
                 </NavLink>
               ))}
             </div>
-          )}
+          </div>
         </div>
       </nav>
 
-      <div style={{ padding:'10px 16px', borderTop:'1px solid #0d1e2e', display:'flex', alignItems:'center', gap:8 }}>
-        <div className="live-dot" style={{ width:6, height:6, borderRadius:'50%', background:'#00ff88', color:'#00ff88' }}/>
-        <span style={{ fontSize:9, color:'#2a4050', letterSpacing:2 }}>SYSTEM LIVE</span>
+      <div style={{ padding: '16px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="live-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)' }} />
+        <div style={{ fontSize: 11, color: 'var(--text-2)', fontWeight: 700 }}>AI Vision Online</div>
       </div>
     </aside>
   )

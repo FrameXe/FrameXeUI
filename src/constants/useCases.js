@@ -1,67 +1,69 @@
-// ─── Naya use case add karna ho: bas yahan ek entry daao ───────
-// Sidebar, routing, pages — sab automatically update ho jaayenge
+// ══════════════════════════════════════════════════════════════
+//  INTELLIGENCE SUITE CONFIGURATION
+// ══════════════════════════════════════════════════════════════
 
 export const USE_CASES = [
-  {
-    id:        'people',
-    label:     'People Counting',
-    emoji:     '👥',
-    color:     '#00ff88',
-    unit:      'persons',
-    desc:      'Count people entering / exiting zones',
-    statFn:    (dets) => dets.length,
-    statLabel: 'Total Persons',
+  { 
+    id: 'people_count', 
+    label: 'People Counting', 
+    emoji: '👥', 
+    color: '#4f6df5', 
+    unit: 'persons', 
+    desc: 'Real-time occupancy and flow monitoring',
+    statFn: (dets) => dets.length, // Total count of people
+    mockTypes: ['person', 'face'] 
   },
-  {
-    id:        'vehicle',
-    label:     'Vehicle Count',
-    emoji:     '🚗',
-    color:     '#00cfff',
-    unit:      'vehicles',
-    desc:      'Track vehicle movement and volume',
-    statFn:    (dets) => dets.length,
-    statLabel: 'Total Vehicles',
+  { 
+    id: 'traffic', 
+    label: 'Traffic Intelligence', 
+    emoji: '🚥', 
+    color: '#0ea5e9', 
+    unit: 'incidents', 
+    desc: 'Wrong way, parking, congestion, and speed monitoring',
+    statFn: (dets) => dets.length,
+    mockTypes: ['car', 'truck', 'bike'] 
   },
-  {
-    id:        'speed',
-    label:     'Speed Detection',
-    emoji:     '⚡',
-    color:     '#ffd600',
-    unit:      'km/h',
-    desc:      'Detect over-speed violations',
-    statFn:    (dets) => dets.filter(d => Number(d.value) > 80).length,
-    statLabel: 'Violations >80 km/h',
+  { 
+    id: 'intrusion', 
+    label: 'Intrusion Detection', 
+    emoji: '🚨', 
+    color: '#ef4444', 
+    unit: 'alerts', 
+    desc: 'Protected zone breach monitoring',
+    statFn: (dets) => dets.length, 
+    mockTypes: ['person', 'intruder']
   },
-  {
-    id:        'lpr',
-    label:     'License Plate',
-    emoji:     '🔲',
-    color:     '#b97fff',
-    unit:      'plates',
-    desc:      'Automatic license plate recognition',
-    statFn:    (dets) => new Set(dets.map(d => d.value)).size,
-    statLabel: 'Unique Plates',
+  { 
+    id: 'crowd_alert', 
+    label: 'Crowd Intelligence', 
+    emoji: '⚠️', 
+    color: '#f59e0b', 
+    unit: 'clusters', 
+    desc: 'Density and crowd flow control',
+    statFn: (dets) => dets.length,
+    mockTypes: ['person'] 
   },
-  {
-    id:        'intrusion',
-    label:     'Intrusion',
-    emoji:     '🚨',
-    color:     '#ff3b3b',
-    unit:      'events',
-    desc:      'Detect unauthorized zone entry',
-    statFn:    (dets) => dets.length,
-    statLabel: 'Intrusion Events',
+  { 
+    id: 'vehicle_speed', 
+    label: 'Speed Monitoring', 
+    emoji: '⚡', 
+    color: '#10b981', 
+    unit: 'km/h', 
+    desc: 'Traffic speed enforcement analytics',
+    statFn: (dets) => dets.length > 0 ? 45 : 0, // Placeholder for speed logic
+    mockTypes: ['car'] 
   },
 ]
 
-export const UC_MAP   = Object.fromEntries(USE_CASES.map(u => [u.id, u]))
+export const UC_MAP = Object.fromEntries(USE_CASES.map(u => [u.id, u]))
 export const UC_COLOR = Object.fromEntries(USE_CASES.map(u => [u.id, u.color]))
 
-// Canvas box label/color per useCase
+// Canvas box colors per usecase
 export const UC_CANVAS = {
-  people:    { color: '#00ff88', label: 'Person'  },
-  vehicle:   { color: '#00cfff', label: 'Vehicle' },
-  speed:     { color: '#ffd600', label: 'Vehicle' },
-  lpr:       { color: '#b97fff', label: 'Plate'   },
-  intrusion: { color: '#ff3b3b', label: 'INTRUDER'},
+  people_count:    { color: '#00ff88', label: 'Person' },
+  traffic:         { color: '#00cfff', label: 'Vehicle' },
+  intrusion:       { color: '#ff3b3b', label: 'INTRUDER' },
+  crowd_alert:     { color: '#ff8c00', label: 'Person' },
+  vehicle_speed:   { color: '#ffd600', label: 'Vehicle' },
+  queue_detection: { color: '#ff9f43', label: 'Queue' },
 }
