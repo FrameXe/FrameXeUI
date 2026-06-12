@@ -5,6 +5,7 @@ import { drawDetBox, drawCountLine, drawMockBg, crossesLine } from '../../servic
 import { UC_COLOR, UC_MAP, UC_CANVAS } from '../../constants/useCases.js'
 import { useCameraAlerts } from '../../hooks/useAlerts.js'
 import { Btn, Tag, SEV_COLOR } from '../shared/index.jsx'
+import { cameraAPI } from '../../services/api.js'
 
 export default function CanvasEditor({ camera, onClose }) {
   const canvasRef = useRef(null)
@@ -43,6 +44,12 @@ export default function CanvasEditor({ camera, onClose }) {
   const [hlsReady, setHlsReady] = useState(false)
   const [totalDets, setTotalDets] = useState(0)
 
+  // ── ROI / Polygon Zone State ──────────────────────────────
+  const [zonePoints, setZonePoints] = useState([])      // finalized polygon vertices (canvas px)
+  const [zoneDraft, setZoneDraft]   = useState([])      // in-progress vertices while drawing
+  const [roiSaving, setRoiSaving]   = useState(false)   // loading indicator for save API
+  const [roiMsg,    setRoiMsg]      = useState(null)     // success / error message
+
   // YouTube detection
   const ytRegex = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/
   const ytMatch = camera.hlsUrl?.match(ytRegex)
@@ -53,6 +60,22 @@ export default function CanvasEditor({ camera, onClose }) {
   const primaryUC = [...activeUCs][0] || allUsecases[0] || 'people_count'
   const { alerts, loading: alertLoad, ack } = useCameraAlerts(camera.id, primaryUC)
   const unackedCount = alerts.filter(a => !a.acknowledged).length
+
+  // ── Load saved ROI from backend on mount ──────────────────
+  useEffect(() => {
+    cameraAPI.getROI(camera.id)
+      .then(data => {
+        if (data?.roi_area?.length >= 3) {
+          // Denormalize from 0-1 back to canvas pixel coordinates (1280x720)
+          const pts = data.roi_area.map(p => ({
+            x: p.x * 1280,
+            y: p.y * 720,
+          }))
+          setZonePoints(pts)
+        }
+      })
+      .catch(() => {}) // silently fail if no config yet
+  }, [camera.id])
 
   // HLS
   useEffect(() => {
@@ -96,6 +119,60 @@ export default function CanvasEditor({ camera, onClose }) {
     if (hit) { setLineCount(countRef.current); setFlashRed(true); setTimeout(() => setFlashRed(false), 400) }
   }, [detFeed])
 
+  // ── Draw polygon zone on canvas ───────────────────────────
+  const drawZone = useCallback((ctx, points, draft, cursorPos) => {
+    // Draw finalized zone polygon (filled + border)
+    if (points.length >= 2) {
+      ctx.save()
+      ctx.strokeStyle = '#00cfff'
+      ctx.lineWidth = 2
+      ctx.shadowColor = '#00cfff'
+      ctx.shadowBlur = 10
+      ctx.setLineDash([])
+      ctx.beginPath()
+      ctx.moveTo(points[0].x, points[0].y)
+      points.forEach(p => ctx.lineTo(p.x, p.y))
+      ctx.closePath()
+      ctx.fillStyle = 'rgba(0, 207, 255, 0.10)'
+      ctx.fill()
+      ctx.stroke()
+      // Vertex dots
+      points.forEach(p => {
+        ctx.fillStyle = '#00ff88'
+        ctx.shadowColor = '#00ff88'
+        ctx.shadowBlur = 6
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2)
+        ctx.fill()
+      })
+      ctx.restore()
+    }
+    // Draw in-progress draft polygon (dashed)
+    if (draft.length > 0 && cursorPos) {
+      ctx.save()
+      ctx.strokeStyle = '#ffd600'
+      ctx.lineWidth = 1.5
+      ctx.setLineDash([8, 5])
+      ctx.shadowColor = '#ffd600'
+      ctx.shadowBlur = 8
+      ctx.beginPath()
+      ctx.moveTo(draft[0].x, draft[0].y)
+      draft.forEach(p => ctx.lineTo(p.x, p.y))
+      ctx.lineTo(cursorPos.x, cursorPos.y)
+      ctx.stroke()
+      // Draft vertex dots
+      draft.forEach((p, i) => {
+        ctx.fillStyle = i === 0 ? '#00ff88' : '#ffd600'
+        ctx.shadowColor = ctx.fillStyle
+        ctx.shadowBlur = 4
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, i === 0 ? 7 : 4, 0, Math.PI * 2)
+        ctx.fill()
+      })
+      ctx.restore()
+    }
+  }, [])
+
   // Render loop
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return
@@ -113,28 +190,35 @@ export default function CanvasEditor({ camera, onClose }) {
       } else if (!isYt) {
         drawMockBg(ctx, W, H, frameRef.current, camera.name)
       } else {
-        // YouTube mode → Clear canvas for overlay
         ctx.clearRect(0, 0, W, H)
       }
       detsRef.current = detsRef.current.map(d => ({ ...d, age: d.age + 1, alpha: Math.max(0, 1 - d.age / 80) })).filter(d => d.alpha > 0.04)
       detsRef.current.forEach(d => drawDetBox(ctx, d, W, H))
       const draft = drawStart && mousePos ? { x1: drawStart.x, y1: drawStart.y, x2: mousePos.x, y2: mousePos.y } : null
       drawCountLine(ctx, lineRef.current, countRef.current, draft)
+
+      // Draw ROI polygon zone
+      drawZone(ctx, zonePoints, zoneDraft, mode === 'draw_zone' ? mousePos : null)
+
       if (flashRed) { ctx.fillStyle = 'rgba(255,0,0,0.1)'; ctx.fillRect(0, 0, W, H) }
 
-      // OSD — show all active usecases
+      // OSD
       ctx.font = "11px 'Courier New'"
       ctx.fillStyle = '#00cfff77'
       ctx.fillText(`${camera.name.toUpperCase()} | ${[...activeUCs].join(' + ').toUpperCase()}`, 12, 20)
       ctx.font = "9px 'Courier New'"; ctx.fillStyle = 'rgba(255,255,255,0.25)'
       const ucLabels = [...activeUCs].map(uc => (UC_CANVAS[uc]?.label || uc).toUpperCase()).join(' · ')
       ctx.fillText(ucLabels, 12, 34)
+      if (zonePoints.length >= 3) {
+        ctx.font = "9px 'Courier New'"; ctx.fillStyle = '#00cfff99'
+        ctx.fillText('● DETECTION ZONE ACTIVE', 12, 50)
+      }
 
       animRef.current = requestAnimationFrame(render)
     }
     animRef.current = requestAnimationFrame(render)
     return () => { running = false; cancelAnimationFrame(animRef.current) }
-  }, [camera, drawStart, mousePos, flashRed, activeUCs, isYt])
+  }, [camera, drawStart, mousePos, flashRed, activeUCs, isYt, zonePoints, zoneDraft, mode, drawZone])
 
   // Mouse handlers
   const getPos = useCallback((e) => {
@@ -150,6 +234,61 @@ export default function CanvasEditor({ camera, onClose }) {
     setDrawStart(null); setMode('view')
   }, [mode, drawStart, getPos])
   const clearLine = () => { lineRef.current = null; setCountLine(null); countRef.current = 0; crossedIds.current = new Set(); setLineCount(0); setCrossLog([]) }
+
+  // ── Polygon Zone Handlers ─────────────────────────────────
+  const onZoneClick = useCallback((e) => {
+    if (mode !== 'draw_zone') return
+    const pos = getPos(e)
+    setZoneDraft(prev => {
+      // Close polygon if user clicks near first point (within 15px)
+      if (prev.length >= 3) {
+        const first = prev[0]
+        if (Math.hypot(pos.x - first.x, pos.y - first.y) < 15) {
+          setZonePoints(prev)       // finalize
+          setMode('view')
+          return []                 // clear draft
+        }
+      }
+      return [...prev, pos]        // add vertex
+    })
+  }, [mode, getPos])
+
+  const onZoneDblClick = useCallback((e) => {
+    if (mode !== 'draw_zone') return
+    setZoneDraft(prev => {
+      if (prev.length >= 3) {
+        setZonePoints(prev)  // finalize on double-click
+        setMode('view')
+      }
+      return []
+    })
+  }, [mode])
+
+  const clearZone = () => {
+    setZonePoints([])
+    setZoneDraft([])
+    setRoiMsg(null)
+  }
+
+  // ── Save ROI to backend ───────────────────────────────────
+  const saveROI = async () => {
+    if (zonePoints.length < 3) return
+    setRoiSaving(true)
+    setRoiMsg(null)
+    try {
+      // Normalize canvas coords (1280x720) → 0.0 to 1.0
+      const normalized = zonePoints.map(p => ({
+        x: parseFloat((p.x / 1280).toFixed(4)),
+        y: parseFloat((p.y / 720).toFixed(4)),
+      }))
+      await cameraAPI.saveROI(camera.id, normalized)
+      setRoiMsg({ ok: true, text: 'Zone saved! Backend will apply filter.' })
+    } catch (err) {
+      setRoiMsg({ ok: false, text: 'Save failed: ' + err.message })
+    } finally {
+      setRoiSaving(false)
+    }
+  }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#04080f', display: 'flex', flexDirection: 'column', fontFamily: "'Courier New',monospace", color: '#c8d8e8', zIndex: 1000 }}>
@@ -195,9 +334,37 @@ export default function CanvasEditor({ camera, onClose }) {
         <Btn active={mode === 'draw'} color='#ffd600' onClick={() => setMode(m => m === 'draw' ? 'view' : 'draw')}>
           {mode === 'draw' ? '✏ DRAWING…' : '✏ DRAW LINE'}
         </Btn>
-        {countLine && <Btn color='#ff6b6b' onClick={clearLine}>✕ CLEAR</Btn>}
+        {countLine && <Btn color='#ff6b6b' onClick={clearLine}>✕ CLEAR LINE</Btn>}
         <div style={{ fontSize: 11, color: '#00ff88', background: 'rgba(0,255,136,0.08)', border: '1px solid #00ff8830', padding: '5px 14px', letterSpacing: 1 }}>
           CROSSINGS: <b>{lineCount}</b>
+        </div>
+
+        {/* ── ROI Zone Controls ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 8, borderLeft: '1px solid #0d1e2e', paddingLeft: 12 }}>
+          <span style={{ fontSize: 9, color: '#4a6070', letterSpacing: 1 }}>DETECTION ZONE</span>
+          <Btn
+            active={mode === 'draw_zone'}
+            color='#00cfff'
+            onClick={() => {
+              if (mode === 'draw_zone') { setMode('view'); setZoneDraft([]) }
+              else { setMode('draw_zone'); setZoneDraft([]) }
+            }}
+          >
+            {mode === 'draw_zone' ? '⬡ DRAWING ZONE…' : '⬡ DRAW ZONE'}
+          </Btn>
+          {zonePoints.length >= 3 && (
+            <>
+              <Btn color='#00ff88' onClick={saveROI} style={{ opacity: roiSaving ? 0.5 : 1 }}>
+                {roiSaving ? '⏳ SAVING…' : '💾 SAVE ZONE'}
+              </Btn>
+              <Btn color='#ff6b6b' onClick={clearZone}>✕ CLEAR ZONE</Btn>
+            </>
+          )}
+          {roiMsg && (
+            <span style={{ fontSize: 9, letterSpacing: 1, color: roiMsg.ok ? '#00ff88' : '#ff6b6b' }}>
+              {roiMsg.text}
+            </span>
+          )}
         </div>
       </div>
 
@@ -215,10 +382,21 @@ export default function CanvasEditor({ camera, onClose }) {
           )}
           <canvas ref={canvasRef} width={1280} height={720}
             onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp}
-            style={{ width: '100%', height: '100%', display: 'block', position: 'relative', zIndex: 1 }} />
+            onClick={onZoneClick} onDoubleClick={onZoneDblClick}
+            style={{ width: '100%', height: '100%', display: 'block', position: 'relative', zIndex: 1,
+              cursor: mode === 'draw' ? 'crosshair' : mode === 'draw_zone' ? 'cell' : 'default' }} />
           {mode === 'draw' && (
             <div style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,214,0,0.12)', border: '1px solid #ffd60055', color: '#ffd600', padding: '6px 22px', fontSize: 11, letterSpacing: 2, pointerEvents: 'none' }}>
               CLICK &amp; DRAG TO DRAW COUNT LINE
+            </div>
+          )}
+          {mode === 'draw_zone' && (
+            <div style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,207,255,0.10)', border: '1px solid #00cfff44', color: '#00cfff', padding: '6px 22px', fontSize: 11, letterSpacing: 2, pointerEvents: 'none', textAlign: 'center' }}>
+              {zoneDraft.length === 0
+                ? 'CLICK TO START DRAWING ZONE'
+                : zoneDraft.length < 3
+                ? `${zoneDraft.length} POINT${zoneDraft.length > 1 ? 'S' : ''} — ADD MORE (MIN 3)`
+                : 'CLICK FIRST POINT TO CLOSE · OR DOUBLE-CLICK TO FINISH'}
             </div>
           )}
           {flashRed && <div style={{ position: 'absolute', inset: 0, border: '3px solid #ff3b3b', boxShadow: 'inset 0 0 40px rgba(255,0,0,0.2)', pointerEvents: 'none' }} />}

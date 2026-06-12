@@ -129,7 +129,31 @@ export const cameraAPI = {
   assignUseCases: (id, use_cases) =>
     USE_MOCK
       ? Promise.resolve({ success: true, camera_id: id, enabled_usecases: use_cases })
-      : api(`/api/cameras/${id}/usecases`, { method: 'POST', body: JSON.stringify(use_cases) })
+      : api(`/api/cameras/${id}/usecases`, { method: 'POST', body: JSON.stringify(use_cases) }),
+
+  // ── ROI / Detection Area Config ───────────────────────────
+
+  // GET /api/cameras/{camera_id}/config
+  // → { camera_id, roi_area: [{x, y}, ...] }
+  // roi_area empty array means no zone set (detect full frame)
+  getROI: (cameraId) =>
+    USE_MOCK
+      ? Promise.resolve({ camera_id: cameraId, roi_area: [] })
+      : api(`/api/cameras/${cameraId}/config`),
+
+  // POST /api/cameras/{camera_id}/config
+  // body: { camera_id, roi_area: [{x:0.0-1.0, y:0.0-1.0}, ...] }
+  // → { success: true, message: "..." }
+  saveROI: (cameraId, roiPoints) =>
+    USE_MOCK
+      ? Promise.resolve({ success: true, message: 'ROI saved (mock)' })
+      : api(`/api/cameras/${cameraId}/config`, {
+          method: 'POST',
+          body: JSON.stringify({
+            camera_id: cameraId,
+            roi_area: roiPoints, // normalized 0.0-1.0 points array
+          }),
+        }),
 }
 
 // ════════════════════════════════════════════════════════════

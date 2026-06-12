@@ -4,6 +4,7 @@ import { useCameras } from '../hooks/useCameras.js'
 import { useAllAlerts } from '../hooks/useAlerts.js'
 import { USE_CASES, UC_MAP } from '../constants/useCases.js'
 import { Loading } from '../components/shared/index.jsx'
+import { useAuthStore } from '../store/index.js'
 import { 
   AlertTriangle, Shield, Camera, X, Users, Download, Maximize2, 
   CheckCircle2, Search, Filter
@@ -34,6 +35,8 @@ export default function EventsAlerts() {
   const nav = useNavigate()
   const { cameras, loading: camsLoading } = useCameras()
   const { alerts, loading: alertsLoading, ack, unread } = useAllAlerts(cameras)
+  const user = useAuthStore(s => s.user)
+  const allowedUsecases = user?.allowedUsecases || []
 
   const [selectedUCs, setSelectedUCs] = useState([]) // Array for multi-select
   const [camSearch, setCamSearch] = useState('')
@@ -56,12 +59,18 @@ export default function EventsAlerts() {
     }
     if (!urlAlertId) {
        autoOpenedRef.current = false
-    }
+     }
   }, [urlAlertId, alerts])
 
   const searchStr = camSearch.toLowerCase().trim()
   const filteredAlerts = alerts.filter(a => {
     if (urlAlertId) return a.id === urlAlertId;
+    
+    // Filter by allowed use cases
+    if (allowedUsecases.length > 0 && !allowedUsecases.includes(a.usecase)) {
+      return false
+    }
+
     return (
       (selectedUCs.length === 0 || selectedUCs.includes(a.usecase)) &&
       (!camIdFilter || a.cameraId === camIdFilter) &&
@@ -139,7 +148,7 @@ export default function EventsAlerts() {
            {selectedUCs.length > 0 && <button onClick={()=>setSelectedUCs([])} style={{ background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>CLEAR SELECTION</button>}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
-          {USE_CASES.map(u => {
+          {USE_CASES.filter(u => !user?.allowedUsecases || user.allowedUsecases.includes(u.id)).map(u => {
             const isActive = selectedUCs.includes(u.id)
             const ucAlerts = alerts.filter(a => a.usecase === u.id && !a.acknowledged).length
             return (

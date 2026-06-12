@@ -9,12 +9,14 @@ import { useCameras } from '../hooks/useCameras.js'
 import MiniCanvas from '../components/camera/MiniCanvas.jsx'
 import { Loading } from '../components/shared/index.jsx'
 import { trafficAPI } from '../services/api.js'
+import { useAuthStore } from '../store/index.js'
 
 export default function CameraAnalytics() {
   const { id } = useParams()
   const nav = useNavigate()
   const { cameras, loading } = useCameras()
-  
+  const hasCameraAccess = useAuthStore(s => s.hasCameraAccess)
+
   const [liveEvents, setLiveEvents] = useState([])
   const [activeFilters, setActiveFilters] = useState([])
   const [apiLoading, setApiLoading] = useState(true)
@@ -27,6 +29,12 @@ export default function CameraAnalytics() {
   })
   
   const cam = cameras.find(c => c.id === id || c.camera_id === id)
+
+  useEffect(() => {
+    if (!loading && !hasCameraAccess(id)) {
+      nav('/access-denied', { replace: true })
+    }
+  }, [id, loading, hasCameraAccess, nav])
 
   // Initialize filters once camera is loaded
   useEffect(() => {
@@ -113,6 +121,7 @@ export default function CameraAnalytics() {
   }, [cam])
 
   if (loading || apiLoading) return <Loading msg="Universal AI Telemetry Sync..." />
+  if (!hasCameraAccess(id)) return null
   if (!cam) return <div style={{ padding: 40, textAlign: 'center' }}>Stream Offline.</div>
 
   return (

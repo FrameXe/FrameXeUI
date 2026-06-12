@@ -4,6 +4,7 @@ import { reportAPI } from '../services/api.js'
 import { useCameras } from '../hooks/useCameras.js'
 import { Loading } from '../components/shared/index.jsx'
 import { BarChart3, Download, RefreshCw } from 'lucide-react'
+import { useAuthStore } from '../store/index.js'
 
 export default function Reports() {
   const { cameras, loading: camsLoading } = useCameras()
@@ -20,8 +21,38 @@ export default function Reports() {
   const [busy, setBusy]   = useState(false)
   const [ran, setRan]     = useState(false)
   const uc = UC_MAP[ucSel]
+  const user = useAuthStore(s => s.user)
+  const allowedUsecases = user?.allowedUsecases || []
 
-  useEffect(() => { if (cameras.length > 0 && !camSel) setCamSel(cameras[0].id) }, [cameras, camSel])
+  useEffect(() => { 
+    if (cameras.length > 0) {
+      const isAllowed = cameras.some(c => c.id === camSel)
+      if (!isAllowed || !camSel) {
+        setCamSel(cameras[0].id)
+        setRan(false)
+        setData(null)
+      }
+    } else {
+      setCamSel('')
+      setRan(false)
+      setData(null)
+    }
+  }, [cameras, camSel])
+
+  useEffect(() => {
+    if (allowedUsecases.length > 0) {
+      const isAllowed = allowedUsecases.includes(ucSel)
+      if (!isAllowed || !ucSel) {
+        setUcSel(allowedUsecases[0])
+        setRan(false)
+        setData(null)
+      }
+    } else {
+      setUcSel('')
+      setRan(false)
+      setData(null)
+    }
+  }, [allowedUsecases, ucSel])
 
   const generate = async () => {
     if (!camSel) return
@@ -86,7 +117,9 @@ export default function Reports() {
                 background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)',
                 padding: '8px 14px', fontSize: 12, borderRadius: 'var(--radius-sm)', minWidth: 160,
               }}>
-                {USE_CASES.map(u => <option key={u.id} value={u.id}>{u.emoji} {u.label}</option>)}
+                {USE_CASES.filter(u => allowedUsecases.includes(u.id)).map(u => (
+                  <option key={u.id} value={u.id}>{u.emoji} {u.label}</option>
+                ))}
               </select>
             )
           },

@@ -4,11 +4,14 @@ import { useCameras } from '../hooks/useCameras.js'
 import { useAllAlerts } from '../hooks/useAlerts.js'
 import { USE_CASES } from '../constants/useCases.js'
 import { KpiCard, Loading, SEV_STYLE } from '../components/shared/index.jsx'
+import { useAuthStore } from '../store/index.js'
 
 export default function Dashboard() {
   const nav = useNavigate()
   const { cameras, loading } = useCameras()
   const { alerts, unread } = useAllAlerts(cameras)
+  const user = useAuthStore(s => s.user)
+  const allowedUsecases = user?.allowedUsecases || []
 
   const active = cameras.filter(c => c.status === 'active').length
   const errors = cameras.filter(c => c.status === 'error').length
@@ -89,7 +92,7 @@ export default function Dashboard() {
             <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 500 }}>Click to explore suite analytics</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
-            {USE_CASES.map(uc => {
+            {USE_CASES.filter(uc => allowedUsecases.includes(uc.id)).map(uc => {
               const ucCams = ucGroups[uc.id] || []
               return (
                 <div key={uc.id}
