@@ -17,7 +17,7 @@ export default function Dashboard() {
   const errors = cameras.filter(c => c.status === 'error').length
   const health = cameras.length ? Math.round(active / cameras.length * 100) : 0
 
-  if (loading) return <Loading msg="Synchronizing Intelligence Data…" />
+  if (loading && cameras.length === 0) return <Loading msg="Synchronizing Intelligence Data…" />
 
   const ucGroups = {}
   cameras.forEach(cam => {

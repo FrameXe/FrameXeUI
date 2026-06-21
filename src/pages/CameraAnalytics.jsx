@@ -120,7 +120,7 @@ export default function CameraAnalytics() {
     return () => { isMounted = false; clearInterval(timer) }
   }, [cam])
 
-  if (loading || apiLoading) return <Loading msg="Universal AI Telemetry Sync..." />
+  if ((loading && cameras.length === 0) || (apiLoading && liveEvents.length === 0)) return <Loading msg="Universal AI Telemetry Sync..." />
   if (!hasCameraAccess(id)) return null
   if (!cam) return <div style={{ padding: 40, textAlign: 'center' }}>Stream Offline.</div>
 

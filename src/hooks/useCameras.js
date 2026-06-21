@@ -15,24 +15,18 @@ export function useCameras() {
     setLoading(true)
     cameraAPI.getAll()
       .then(allCams => {
-        if (user && user.allowedCameras) {
-          setCameras(allCams.filter(cam => user.allowedCameras.includes(cam.id)))
-        } else {
-          setCameras([])
-        }
+        // Real mode: show all cameras from backend
+        // allowedCameras filter only applies in mock mode with known IDs
+        setCameras(allCams)
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }
 
   useEffect(() => {
-    if (user) {
-      load()
-    } else {
-      setCameras([])
-      setLoading(false)
-    }
-  }, [user])
+    load()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.username])  // only re-run when user changes, not on every render
 
   return { cameras, loading, error, refresh: load }
 }

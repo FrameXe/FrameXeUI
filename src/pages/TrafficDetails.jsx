@@ -130,7 +130,7 @@ export default function TrafficDetails() {
     return () => { isMounted = false; clearInterval(timer) }
   }, [cam])
 
-  if (loading || apiLoading) return <Loading msg="Synchronizing Live Telemetry Feed…" />
+  if ((loading && cameras.length === 0) || (apiLoading && liveEvents.length === 0)) return <Loading msg="Synchronizing Live Telemetry Feed…" />
   if (!cam) return <div style={{ padding: 40, textAlign: 'center' }}>Camera off-grid.</div>
 
   const getMockThumb = (type) => {

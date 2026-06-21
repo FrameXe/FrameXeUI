@@ -9,17 +9,15 @@ export default defineConfig({
     proxy: {
       // Master Backend — all /api/* routes
       '/api': {
-        target: 'https://n22tx49p-5099.inc1.devtunnels.ms',
+        target: 'http://13.60.162.231:8000',
         changeOrigin: true,
         secure: false,
-        headers: { 'X-Tunnel-Skip-AntiPhishing-Page': 'true' },
       },
-      // Master Backend — ingest routes (internal, no auth)
+      // Master Backend — ingest routes
       '/ingest': {
-        target: 'https://n22tx49p-5099.inc1.devtunnels.ms',
+        target: 'http://13.60.162.231:8000',
         changeOrigin: true,
         secure: false,
-        headers: { 'X-Tunnel-Skip-AntiPhishing-Page': 'true' },
       },
       // HLS streams (Edge device — different host/port)
       '/hls': {

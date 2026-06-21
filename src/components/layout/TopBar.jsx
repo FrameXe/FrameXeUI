@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { USE_MOCK } from '../../config/index.js'
 import { useAuthStore } from '../../store/index.js'
 import { LogOut } from 'lucide-react'
 
@@ -52,12 +51,12 @@ export default function TopBar() {
 
         <span style={{
           fontSize: 10, fontWeight: 600,
-          background: USE_MOCK ? 'var(--yellow-bg)' : 'var(--green-bg)',
-          border: `1px solid ${USE_MOCK ? '#fde68a' : '#bbf7d0'}`,
-          color: USE_MOCK ? 'var(--yellow)' : 'var(--green)',
+          background: 'var(--green-bg)',
+          border: '1px solid #bbf7d0',
+          color: 'var(--green)',
           padding: '3px 10px', borderRadius: 20, letterSpacing: '0.04em',
         }}>
-          {USE_MOCK ? '⚡ DEMO' : '🟢 LIVE'}
+          🟢 LIVE
         </span>
       </div>
 

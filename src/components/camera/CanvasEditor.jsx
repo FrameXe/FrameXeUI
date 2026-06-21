@@ -50,11 +50,8 @@ export default function CanvasEditor({ camera, onClose }) {
   const [roiSaving, setRoiSaving]   = useState(false)   // loading indicator for save API
   const [roiMsg,    setRoiMsg]      = useState(null)     // success / error message
 
-  // YouTube detection
-  const ytRegex = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/
-  const ytMatch = camera.hlsUrl?.match(ytRegex)
-  const ytId = (ytMatch && ytMatch[2]?.length === 11) ? ytMatch[2] : null
-  const isYt = !!ytId
+  // HLS source type detection
+  const isMp4 = !!(camera.hlsUrl && camera.hlsUrl.match(/\.mp4(\?|$)/i))
 
   // Primary usecase for alerts (first active)
   const primaryUC = [...activeUCs][0] || allUsecases[0] || 'people_count'
@@ -77,20 +74,25 @@ export default function CanvasEditor({ camera, onClose }) {
       .catch(() => {}) // silently fail if no config yet
   }, [camera.id])
 
-  // HLS
+  // Video / HLS setup
   useEffect(() => {
-    if (!camera.hlsUrl || isYt) return
+    if (!camera.hlsUrl) return
+    const vid = videoRef.current
     let inst = null
-    attachHLS(videoRef.current, camera.hlsUrl).then(h => {
+    if (isMp4) {
+      vid.src = camera.hlsUrl; vid.loop = true; vid.muted = true; vid.preload = 'auto'
+      vid.play().catch(() => {})
+      const t = setInterval(() => { if (vid.readyState >= 1) { setHlsReady(true); clearInterval(t) } }, 200)
+      return () => { clearInterval(t); vid.pause(); vid.src = ''; setHlsReady(false) }
+    }
+    attachHLS(vid, camera.hlsUrl).then(h => {
       inst = h
-      const t = setInterval(() => {
-        if (videoRef.current?.readyState >= 2) { setHlsReady(true); clearInterval(t) }
-      }, 400)
+      const t = setInterval(() => { if (vid.readyState >= 2) { setHlsReady(true); clearInterval(t) } }, 400)
     })
     return () => { inst?.destroy(); setHlsReady(false) }
-  }, [camera.hlsUrl, isYt])
+  }, [camera.hlsUrl, isMp4])
 
-  // ── Detection feed — ALL active usecases simultaneously ─────
+  // Detection feed
   useEffect(() => {
     detsRef.current = []
     setDetFeed([])
@@ -176,28 +178,27 @@ export default function CanvasEditor({ camera, onClose }) {
   // Render loop
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return
-    const ctx = canvas.getContext('2d', { alpha: false })
+    const ctx = canvas.getContext('2d')
     let running = true
     const render = () => {
       if (!running) return
       frameRef.current++
       const W = canvas.width, H = canvas.height
       const vid = videoRef.current
-      if (camera.hlsUrl && !isYt && vid?.readyState >= 2) {
-        ctx.drawImage(vid, 0, 0, W, H)
+      if (camera.hlsUrl && vid?.readyState >= 1) {
+        try { ctx.drawImage(vid, 0, 0, W, H) } catch(e) {}
         ctx.fillStyle = 'rgba(0,0,0,0.025)'
         for (let y = (frameRef.current * 2) % 4; y < H; y += 4) ctx.fillRect(0, y, W, 1)
-      } else if (!isYt) {
-        drawMockBg(ctx, W, H, frameRef.current, camera.name)
       } else {
-        ctx.clearRect(0, 0, W, H)
+        drawMockBg(ctx, W, H, frameRef.current, camera.name)
       }
+
       detsRef.current = detsRef.current.map(d => ({ ...d, age: d.age + 1, alpha: Math.max(0, 1 - d.age / 80) })).filter(d => d.alpha > 0.04)
       detsRef.current.forEach(d => drawDetBox(ctx, d, W, H))
       const draft = drawStart && mousePos ? { x1: drawStart.x, y1: drawStart.y, x2: mousePos.x, y2: mousePos.y } : null
       drawCountLine(ctx, lineRef.current, countRef.current, draft)
 
-      // Draw ROI polygon zone
+      // ROI zone always on top
       drawZone(ctx, zonePoints, zoneDraft, mode === 'draw_zone' ? mousePos : null)
 
       if (flashRed) { ctx.fillStyle = 'rgba(255,0,0,0.1)'; ctx.fillRect(0, 0, W, H) }
@@ -217,8 +218,11 @@ export default function CanvasEditor({ camera, onClose }) {
       animRef.current = requestAnimationFrame(render)
     }
     animRef.current = requestAnimationFrame(render)
-    return () => { running = false; cancelAnimationFrame(animRef.current) }
-  }, [camera, drawStart, mousePos, flashRed, activeUCs, isYt, zonePoints, zoneDraft, mode, drawZone])
+    return () => { 
+      running = false
+      cancelAnimationFrame(animRef.current)
+    }
+  }, [camera, drawStart, mousePos, flashRed, activeUCs, zonePoints, zoneDraft, mode, drawZone])
 
   // Mouse handlers
   const getPos = useCallback((e) => {
@@ -292,7 +296,7 @@ export default function CanvasEditor({ camera, onClose }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#04080f', display: 'flex', flexDirection: 'column', fontFamily: "'Courier New',monospace", color: '#c8d8e8', zIndex: 1000 }}>
-      <video ref={videoRef} style={{ display: 'none' }} muted playsInline autoPlay />
+      <video ref={videoRef} style={{ display: 'none' }} muted playsInline autoPlay preload="auto" />
 
       {/* ── Toolbar ──────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px', borderBottom: '1px solid #0d1e2e', background: '#060d18', flexShrink: 0, flexWrap: 'wrap' }}>
@@ -323,9 +327,7 @@ export default function CanvasEditor({ camera, onClose }) {
         </div>
 
         {camera.hlsUrl
-          ? (isYt 
-              ? <Tag color='#ff0000'>● YOUTUBE LIVE</Tag>
-              : <Tag color={hlsReady ? '#00ff88' : '#ffd600'}>{hlsReady ? '● HLS LIVE' : '◌ HLS…'}</Tag>)
+          ? <Tag color={hlsReady ? '#00cfff' : '#ffd600'}>{hlsReady ? '● LIVE' : '◌ LOADING…'}</Tag>
           : <Tag color='#2a4050'>NO SOURCE</Tag>}
 
         {unackedCount > 0 && <Tag color='#ff3b3b'>⚠ {unackedCount} ALERTS</Tag>}
@@ -373,18 +375,14 @@ export default function CanvasEditor({ camera, onClose }) {
 
         {/* Canvas */}
         <div style={{ flex: 1, position: 'relative', cursor: mode === 'draw' ? 'crosshair' : 'default', background: '#000' }}>
-          {isYt && (
-            <iframe
-              src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&modestbranding=1`}
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', pointerEvents: 'none' }}
-              allow="autoplay; encrypted-media"
-            />
-          )}
+          {/* Video plays via hidden <video> element drawn onto canvas */}
           <canvas ref={canvasRef} width={1280} height={720}
             onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp}
             onClick={onZoneClick} onDoubleClick={onZoneDblClick}
-            style={{ width: '100%', height: '100%', display: 'block', position: 'relative', zIndex: 1,
-              cursor: mode === 'draw' ? 'crosshair' : mode === 'draw_zone' ? 'cell' : 'default' }} />
+            style={{
+              width: '100%', height: '100%', display: 'block', position: 'relative', zIndex: 1,
+              cursor: mode === 'draw' ? 'crosshair' : mode === 'draw_zone' ? 'cell' : 'default'
+            }} />
           {mode === 'draw' && (
             <div style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,214,0,0.12)', border: '1px solid #ffd60055', color: '#ffd600', padding: '6px 22px', fontSize: 11, letterSpacing: 2, pointerEvents: 'none' }}>
               CLICK &amp; DRAG TO DRAW COUNT LINE

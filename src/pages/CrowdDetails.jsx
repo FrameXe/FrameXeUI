@@ -72,7 +72,7 @@ export default function CrowdDetails() {
     }
   }, [cam])
 
-  if (loading || apiLoading) return <Loading msg={`Synchronizing ${config.label} Telemetry Feed…`} />
+  if ((loading && cameras.length === 0) || (apiLoading && liveEvents.length === 0)) return <Loading msg={`Synchronizing ${config.label} Telemetry Feed…`} />
   if (!cam) return <div style={{ padding: 40, textAlign: 'center' }}>Camera off-grid.</div>
 
   return (

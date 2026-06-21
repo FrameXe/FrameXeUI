@@ -94,7 +94,7 @@ export default function EventsAlerts() {
     link.click()
   }
 
-  if (camsLoading || alertsLoading) return <Loading msg="Synchronizing Intelligence Feed…" />
+  if ((camsLoading && cameras.length === 0) || (alertsLoading && alerts.length === 0)) return <Loading msg="Synchronizing Intelligence Feed…" />
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 28, paddingBottom: 60 }}>

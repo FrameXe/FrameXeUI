@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { alertAPI } from '../services/api.js'
 import { useAuthStore } from '../store/index.js'
 
@@ -6,23 +6,25 @@ import { useAuthStore } from '../store/index.js'
 export function useCameraAlerts(cameraId, usecase) {
   const [alerts, setAlerts] = useState([])
   const [loading, setLoading] = useState(false)
-  const hasCameraAccess = useAuthStore(s => s.hasCameraAccess)
+  const allowedCameras = useAuthStore(s => s.user?.allowedCameras)
+  const isFirstLoad = useRef(true)
+
+  useEffect(() => {
+    isFirstLoad.current = true
+  }, [cameraId, usecase])
 
   const load = useCallback(() => {
-    if (!cameraId || !hasCameraAccess(cameraId)) {
-      setAlerts([])
-      return
-    }
-    setLoading(true)
+    if (!cameraId) { setAlerts([]); return }
+    if (isFirstLoad.current) setLoading(true)
     alertAPI.getForCamera(cameraId, usecase)
-      .then(setAlerts)
+      .then(d => { setAlerts(d); isFirstLoad.current = false })
       .catch(() => setAlerts([]))
       .finally(() => setLoading(false))
-  }, [cameraId, usecase, hasCameraAccess])
+  }, [cameraId, usecase])  // removed hasCameraAccess — it changes every render
 
   useEffect(() => {
     load()
-    const intv = setInterval(load, 3000)
+    const intv = setInterval(load, 5000)  // 5s instead of 3s to reduce load
     return () => clearInterval(intv)
   }, [load])
 
@@ -38,18 +40,24 @@ export function useCameraAlerts(cameraId, usecase) {
 export function useAllAlerts(cameras = []) {
   const [alerts, setAlerts] = useState([])
   const [loading, setLoading] = useState(false)
+  const isFirstLoad = useRef(true)
 
   const load = useCallback(() => {
-    setLoading(true)
+    if (isFirstLoad.current) {
+      setLoading(true)
+    }
     alertAPI.getLive({ limit: 200 })
-      .then(setAlerts)
+      .then(d => {
+        setAlerts(d)
+        isFirstLoad.current = false
+      })
       .catch(() => setAlerts([]))
       .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
     load()
-    const intv = setInterval(load, 3000)
+    const intv = setInterval(load, 10000)  // 10s polling
     return () => clearInterval(intv)
   }, [load])
 
@@ -65,7 +73,7 @@ export function useAllAlerts(cameras = []) {
 
   return { 
     alerts: filteredAlerts, 
-    loading, 
+    loading: loading, 
     ack, 
     unread: filteredAlerts.filter(a => !a.acknowledged).length 
   }
