@@ -202,12 +202,18 @@ export default function CameraExplorer() {
                   camera={cam} 
                   onClick={() => {
                     // Navigate directly to the specialized Safety Center layout page
-                    const activeUc = useCaseId || ucFilter
+                    let activeUc = useCaseId || ucFilter
+                    if (activeUc === 'vehicle_count' || activeUc === 'vehicle_speed') {
+                      activeUc = 'traffic'
+                    }
                     if (['traffic', 'people_count', 'crowd_alert', 'intrusion'].includes(activeUc)) {
                       nav(`/camera/${cam.id}/${activeUc}`)
                     } else if (activeUc === 'all') {
                       // If on "All Use Cases", go to the camera's primary/first model
-                      const primaryUc = cam.enabled_usecases?.[0]
+                      let primaryUc = cam.enabled_usecases?.[0]
+                      if (primaryUc === 'vehicle_count' || primaryUc === 'vehicle_speed') {
+                        primaryUc = 'traffic'
+                      }
                       if (primaryUc && ['traffic', 'people_count', 'crowd_alert', 'intrusion'].includes(primaryUc)) {
                         nav(`/camera/${cam.id}/${primaryUc}`)
                       } else {

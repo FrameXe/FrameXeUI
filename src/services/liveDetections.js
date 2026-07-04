@@ -1,18 +1,25 @@
 // ══════════════════════════════════════════════════════════════
-//  LIVE DETECTION FEED — Real API only
+//  LIVE DETECTION FEED — SSE (Server-Sent Events)
 //
-//  Polls GET /api/cameras/{id}/detections/{usecase} every POLL_MS
-//  Response: { timestamp, usecase, objects:[{id,label,confidence,bbox:{x,y,width,height}}], count }
-//  bbox is in pixel coordinates (matches ORIG_W x ORIG_H)
+//  Endpoint: /api/sse/cameras/{id}/detections/{usecase}
+//  e.g.    : /api/sse/cameras/vid_cam_001/detections/vehicle_count
+//
+//  Backend sends SSE events. Event name can be:
+//    • named  → e.g.  event: vehicle_count  (or the usecase string)
+//    • unnamed → plain `data:` messages (caught by 'message')
+//
+//  Payload shape (expected):
+//    { timestamp, usecase, objects:[{id,label,confidence,bbox:{x,y,width,height}}], count }
+//  bbox in pixel coords matching ORIG_W × ORIG_H
 // ══════════════════════════════════════════════════════════════
 
-import { API_BASE, POLL_MS } from '../config/index.js'
-import { UC_CANVAS } from '../constants/useCases.js'
+import { sseManager } from '../lib/sseManager.js'
+import { UC_CANVAS }  from '../constants/useCases.js'
 
 const getColor = uc => UC_CANVAS[uc]?.color || '#00cfff'
 const getLabel = uc => UC_CANVAS[uc]?.label || 'Object'
 
-// Normalize one object from detection response → canvas shape
+// ── Normalize one detection object → canvas shape ────────────
 function normObject(obj, usecase) {
   const bbox   = obj.bbox || {}
   const x      = bbox.x      ?? obj.x      ?? 0
@@ -34,45 +41,80 @@ function normObject(obj, usecase) {
   }
 }
 
-// ── Real API polling ──────────────────────────────────────────
-function startApiFeed(camera, usecase, onDetection) {
-  let stopped = false
+// ── Normalize a full SSE payload ──────────────────────────────
+function normPayload(data, usecase) {
+  // data could be an array of objects OR { objects: [...], count, ... }
+  const list = Array.isArray(data)
+    ? data
+    : (data.objects ?? data.detections ?? [])
+  return list.map(obj => normObject(obj, usecase))
+}
 
-  const poll = async () => {
-    if (stopped) return
+// ── Map frontend usecase → backend usecase slug ───────────────
+// 'traffic' on frontend == 'vehicle_count' on backend
+function toBackendUsecase(uc) {
+  if (uc === 'traffic') return 'vehicle_count'
+  return uc
+}
+
+// ── SSE Detection Feed ────────────────────────────────────────
+// Subscribes to the SSE stream for one camera + usecase.
+// onDetection(normObject) is called for each detected object.
+// Returns stop() function.
+function startSseFeed(camera, usecase, onDetection) {
+  const backendUc = toBackendUsecase(usecase)
+  const url = `/api/sse/cameras/${camera.id}/detections/${backendUc}`
+
+  // Backend may send named events (e.g. event: vehicle_count)
+  // or plain unnamed `data:` messages → both handled below
+  const handleData = (data) => {
     try {
-      const url = `${API_BASE}/api/cameras/${camera.id}/detections/${usecase}`
-      const res = await fetch(url, {
-        headers: { 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(4000),
-      })
-      if (!res.ok) throw new Error(res.status)
-      const data    = await res.json()
-      const objects = data.objects ?? data.detections ?? []
-      objects.forEach(obj => onDetection(normObject(obj, usecase)))
+      const parsed = typeof data === 'string' ? JSON.parse(data) : data
+      normPayload(parsed, usecase).forEach(obj => onDetection(obj))
     } catch (err) {
-      console.warn(`[Detections] ${camera.id}/${usecase}:`, err.message)
+      console.warn(`[Detections SSE] Parse error ${camera.id}/${usecase}:`, err)
     }
-    if (!stopped) setTimeout(poll, POLL_MS)
   }
 
-  poll()
-  return () => { stopped = true }
+  // Subscribe to named event (usecase slug) AND generic 'message' fallback
+  const unsub1 = sseManager.subscribe(url, backendUc, handleData)
+  const unsub2 = sseManager.subscribe(url, 'message',  handleData)
+  // Some backends emit 'detection' as the event name
+  const unsub3 = sseManager.subscribe(url, 'detection', handleData)
+
+  console.log(`[Detections SSE] Subscribing: ${url}`)
+
+  return () => {
+    unsub1()
+    unsub2()
+    unsub3()
+  }
 }
 
 // ── Public API ────────────────────────────────────────────────
 export function startLiveFeed(camera, usecase, onDetection) {
-  if (camera.status !== 'active' || !usecase) return () => {}
-  return startApiFeed(camera, usecase, onDetection)
+  if (!camera || camera.status !== 'active' || !usecase) return () => {}
+  return startSseFeed(camera, usecase, onDetection)
 }
 
 export function startMultiUsecaseFeed(camera, usecases, onDetection) {
-  if (camera.status !== 'active' || !usecases?.length) return () => {}
+  if (!camera || camera.status !== 'active' || !usecases?.length) return () => {}
   const stops = usecases.map(uc => startLiveFeed(camera, uc, onDetection))
   return () => stops.forEach(fn => fn())
 }
 
+// Status helper — tells caller what the SSE connection state is
+// Returns: 'connected' | 'connecting' | 'disconnected'
+export function getSseStatus(cameraId, usecase) {
+  const backendUc = toBackendUsecase(usecase)
+  const url = `/api/sse/cameras/${cameraId}/detections/${backendUc}`
+  const state = sseManager.getStatus(url)
+  if (state === 1) return 'connected'
+  if (state === 0) return 'connecting'
+  return 'disconnected'
+}
+
 export function onWsStatus(cb) {
-  cb('polling')
+  cb('sse')
   return () => {}
 }

@@ -9,18 +9,18 @@ import { ORIG_W, ORIG_H } from '../config/index.js'
 export function sc(val, canvasDim, origDim) {
   return val * (canvasDim / origDim)
 }
-export function scBox(det, cW, cH) {
+export function scBox(det, cW, cH, origW = ORIG_W, origH = ORIG_H) {
   return {
-    x: sc(det.x, cW, ORIG_W),
-    y: sc(det.y, cH, ORIG_H),
-    w: sc(det.w, cW, ORIG_W),
-    h: sc(det.h, cH, ORIG_H),
+    x: sc(det.x, cW, origW),
+    y: sc(det.y, cH, origH),
+    w: sc(det.w, cW, origW),
+    h: sc(det.h, cH, origH),
   }
 }
 
 // Draw one detection bounding box
-export function drawDetBox(ctx, det, cW, cH) {
-  const { x, y, w, h } = scBox(det, cW, cH)
+export function drawDetBox(ctx, det, cW, cH, origW = ORIG_W, origH = ORIG_H) {
+  const { x, y, w, h } = scBox(det, cW, cH, origW, origH)
   const c  = det.crossed ? '#ff3b3b' : det.color
   const al = det.alpha ?? 1
   if (al < 0.05) return

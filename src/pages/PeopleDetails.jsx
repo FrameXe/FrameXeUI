@@ -6,6 +6,7 @@ import { useCameraAlerts } from '../hooks/useAlerts.js'
 import MiniCanvas from '../components/camera/MiniCanvas.jsx'
 import { Loading } from '../components/shared/index.jsx'
 import { trafficAPI } from '../services/api.js'
+import { sseManager } from '../lib/sseManager.js'
 
 export default function PeopleDetails() {
   const { id } = useParams()
@@ -24,55 +25,75 @@ export default function PeopleDetails() {
 
   useEffect(() => {
     if (!cam) return
-    let isMounted = true
 
-    const fetchAnalytics = async () => {
+    const BASE_URL = import.meta.env.VITE_API_URL || ''
+    const url = `${BASE_URL}/api/sse/analytics/${cam.id || cam.camera_id}`
+
+    // Low-frequency polling for aggregate metrics only
+    const fetchMetrics = async () => {
       try {
-        if (!isMounted) return
-
         const payload = await trafficAPI.getPeopleCount(cam.id || cam.camera_id)
-        if (!payload) return
-
-        if (payload.metrics) {
+        if (payload?.metrics) {
            setMetrics({
              total: payload.metrics.total,
              in: payload.metrics.count_in,
              out: payload.metrics.count_out
            })
         }
-
-        const rawDets = payload.detections || []
-        const freshEvents = rawDets.map(det => {
-          return {
-            ...det,
-            track_id: det.tracking_id || det.id,
-            timestamp: payload.timestamp || new Date().toISOString(),
-            _type: 'Boundary Cross',
-            icon: Users,
-            color: config.color,
-            title: det.direction ? `Direction: ${det.direction.toUpperCase()}` : 'In Frame',
-            highlight: det.crossed_line ? 'LINE CROSSED' : 'ACTIVE TRACK',
-            confidence: det.confidence,
-            raw_direction: det.direction
-          }
-        })
-
-        setLiveEvents(prev => {
-           const existingIds = new Set(prev.map(p => p.track_id))
-           const uniqueNew = freshEvents.filter(n => !existingIds.has(n.track_id))
-           if (uniqueNew.length === 0) return prev
-           return [...uniqueNew, ...prev].slice(0, 100) 
-        })
-
-        setApiLoading(false)
-      } catch (err) { }
+      } catch (e) {}
     }
+    fetchMetrics()
+    const metricsTimer = setInterval(fetchMetrics, 5000)
 
-    fetchAnalytics()
-    const timer = setInterval(fetchAnalytics, 1500)
-    return () => { 
-      isMounted = false
-      clearInterval(timer)
+    // Real-time SSE subscription for detection table
+    const unsub = sseManager.subscribe(url, 'analytics', (payload) => {
+      const uc     = payload?.usecase
+      if (uc !== config.route) return // config.route is 'people_count'
+
+      const tracks = payload?.data?.tracking_data?.tracks ?? []
+      const peopleDetail = payload?.data?.people_detail ?? []
+      const countedIds = new Set(peopleDetail.filter(p => p.counted).map(p => p.track_id))
+
+      const freshEvents = tracks.map(track => {
+        let conf = track.confidence
+        if (conf === undefined || conf === null) conf = 0.95
+        const confidenceVal = conf > 1 ? conf / 100 : conf
+
+        const isCounted = countedIds.has(track.track_id)
+
+        return {
+          id: `${uc}-${track.track_id}`,
+          track_id: track.track_id,
+          timestamp: payload.timestamp || new Date().toISOString(),
+          _type: 'Boundary Cross',
+          icon: Users,
+          color: config.color,
+          title: isCounted ? 'Line Crossed' : 'In Frame',
+          highlight: isCounted ? 'LINE CROSSED' : 'ACTIVE TRACK',
+          confidence: confidenceVal,
+          raw_direction: isCounted ? 'in' : null,
+          crossed_line: isCounted
+        }
+      })
+
+      setLiveEvents(prev => {
+        const existingIds = new Set(prev.map(p => p.track_id))
+        const uniqueNew = freshEvents.filter(n => !existingIds.has(n.track_id))
+        if (uniqueNew.length === 0) return prev
+        return [...uniqueNew, ...prev].slice(0, 100)
+      })
+
+      setApiLoading(false)
+    })
+
+    const timeout = setTimeout(() => {
+      setApiLoading(false)
+    }, 3000)
+
+    return () => {
+      unsub()
+      clearInterval(metricsTimer)
+      clearTimeout(timeout)
     }
   }, [cam])
 

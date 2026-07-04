@@ -1,84 +1,209 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { attachHLS } from '../../services/hls.js'
-import { startMultiUsecaseFeed } from '../../services/liveDetections.js'
-import { drawDetBox, drawCountLine, drawMockBg, crossesLine } from '../../services/canvasDraw.js'
+import { attachHLS }    from '../../services/hls.js'
+import { sseManager }   from '../../lib/sseManager.js'
+import { drawDetBox, drawMockBg, crossesLine } from '../../services/canvasDraw.js'
 import { UC_COLOR, UC_MAP, UC_CANVAS } from '../../constants/useCases.js'
-import { useCameraAlerts } from '../../hooks/useAlerts.js'
+import { useCameraAlerts }  from '../../hooks/useAlerts.js'
 import { Btn, Tag, SEV_COLOR } from '../shared/index.jsx'
-import { cameraAPI } from '../../services/api.js'
+import { cameraAPI }    from '../../services/api.js'
 
+// ── Line Config API ───────────────────────────────────────────
+const lineAPI = {
+  get:  (camId) => fetch(`/api/line/config?cam_id=${camId}`).then(r => r.ok ? r.json() : null).catch(() => null),
+  save: (body)  => fetch('/api/line/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then(r => r.json()),
+  del:  (camId) => fetch(`/api/line/config?cam_id=${camId}`, { method: 'DELETE' }).then(r => r.json()).catch(() => null),
+}
+
+// ── Draw Virtual Counting Line on canvas ──────────────────────
+// Supports: draft (placing_p2), placed (draggable), saved
+function drawVirtualLine(ctx, line, hoveredPt, draggingPt, mousePos, linePhase, direction) {
+  const LINE_COLOR  = '#00D4FF'
+  const PT_RADIUS   = 8
+  const PT_HOVER_R  = 11
+
+  // Draft: user placed P1, moving mouse toward P2
+  if (linePhase === 'placing_p2' && line?.p1 && mousePos) {
+    const { p1 } = line
+    ctx.save()
+    ctx.strokeStyle = `${LINE_COLOR}88`
+    ctx.lineWidth   = 2
+    ctx.setLineDash([10, 6])
+    ctx.shadowColor = LINE_COLOR; ctx.shadowBlur = 8
+    ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(mousePos.x, mousePos.y); ctx.stroke()
+    ctx.setLineDash([])
+    // P1 circle
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = LINE_COLOR; ctx.lineWidth = 2; ctx.shadowBlur = 12
+    ctx.beginPath(); ctx.arc(p1.x, p1.y, PT_RADIUS, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+    ctx.restore()
+    return
+  }
+
+  // Fully placed or saved line
+  if (!line?.p1 || !line?.p2) return
+  const { p1, p2 } = line
+
+  ctx.save()
+  ctx.strokeStyle = LINE_COLOR
+  ctx.lineWidth   = 3
+  ctx.shadowColor = LINE_COLOR
+  ctx.shadowBlur  = 16
+  ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke()
+  ctx.shadowBlur = 0
+
+  // Endpoints
+  ;[{ pt: p1, key: 'p1' }, { pt: p2, key: 'p2' }].forEach(({ pt, key }) => {
+    const isHov = hoveredPt === key || draggingPt === key
+    const r     = isHov ? PT_HOVER_R : PT_RADIUS
+    ctx.save()
+    if (isHov) { ctx.shadowColor = LINE_COLOR; ctx.shadowBlur = 20 }
+    ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2)
+    ctx.fillStyle   = isHov ? LINE_COLOR : '#fff'
+    ctx.strokeStyle = LINE_COLOR; ctx.lineWidth = 2.5
+    ctx.fill(); ctx.stroke()
+    ctx.restore()
+  })
+
+  // Direction arrow + label at midpoint
+  const mx  = (p1.x + p2.x) / 2
+  const my  = (p1.y + p2.y) / 2
+  const ang = Math.atan2(p2.y - p1.y, p2.x - p1.x)
+  const perp = ang + Math.PI / 2
+
+  // Arrow shaft
+  ctx.strokeStyle = LINE_COLOR; ctx.lineWidth = 2; ctx.shadowBlur = 0
+  if (direction === 'both' || direction === 'in') {
+    const ax = mx + Math.cos(perp) * 20, ay = my + Math.sin(perp) * 20
+    ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(ax, ay)
+    ctx.moveTo(ax, ay)
+    ctx.lineTo(ax + Math.cos(perp + Math.PI * 0.8) * 8, ay + Math.sin(perp + Math.PI * 0.8) * 8)
+    ctx.moveTo(ax, ay)
+    ctx.lineTo(ax + Math.cos(perp - Math.PI * 0.8) * 8, ay + Math.sin(perp - Math.PI * 0.8) * 8)
+    ctx.stroke()
+  }
+  if (direction === 'both' || direction === 'out') {
+    const bx = mx + Math.cos(perp + Math.PI) * 20, by = my + Math.sin(perp + Math.PI) * 20
+    ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(bx, by)
+    ctx.moveTo(bx, by)
+    ctx.lineTo(bx + Math.cos(perp + Math.PI + Math.PI * 0.8) * 8, by + Math.sin(perp + Math.PI + Math.PI * 0.8) * 8)
+    ctx.moveTo(bx, by)
+    ctx.lineTo(bx + Math.cos(perp + Math.PI - Math.PI * 0.8) * 8, by + Math.sin(perp + Math.PI - Math.PI * 0.8) * 8)
+    ctx.stroke()
+  }
+
+  // Label badge
+  const dirLabel = direction === 'both' ? '↕ BOTH' : direction === 'in' ? '↑ IN' : '↓ OUT'
+  ctx.font = "bold 10px 'Courier New'"
+  const tw = ctx.measureText(dirLabel).width
+  const bx = mx - tw / 2 - 8, by = my - 30
+  ctx.fillStyle = 'rgba(0,212,255,0.85)'
+  ctx.beginPath()
+  ctx.roundRect(bx, by, tw + 16, 18, 3)
+  ctx.fill()
+  ctx.fillStyle = '#000'
+  ctx.fillText(dirLabel, bx + 8, by + 13)
+
+  ctx.restore()
+}
+
+// ── Hit test: is mouse near endpoint? ────────────────────────
+function hitTestEndpoint(pos, line) {
+  if (!line?.p1 || !line?.p2 || !pos) return null
+  if (Math.hypot(pos.x - line.p1.x, pos.y - line.p1.y) < 14) return 'p1'
+  if (Math.hypot(pos.x - line.p2.x, pos.y - line.p2.y) < 14) return 'p2'
+  return null
+}
+
+// ═════════════════════════════════════════════════════════════
 export default function CanvasEditor({ camera, onClose }) {
-  const canvasRef = useRef(null)
-  const videoRef = useRef(null)
-  const animRef = useRef(null)
-  const frameRef = useRef(0)
-  const detsRef = useRef([])
-  const lineRef = useRef(null)
-  const countRef = useRef(0)
-  const crossedIds = useRef(new Set())
+  const canvasRef    = useRef(null)
+  const videoRef     = useRef(null)
+  const animRef      = useRef(null)
+  const frameRef     = useRef(0)
+  const detsRef      = useRef([])
+  const countRef     = useRef(0)
+  const crossedIds   = useRef(new Set())
 
   // All enabled usecases for this camera
   const allUsecases = camera.enabled_usecases || [camera.useCase] || []
-
-  // Active usecases — all ON by default (multi-toggle)
   const [activeUCs, setActiveUCs] = useState(new Set(allUsecases))
+  const toggleUC = (uc) => setActiveUCs(prev => {
+    const next = new Set(prev)
+    if (next.has(uc)) { if (next.size > 1) next.delete(uc) } else next.add(uc)
+    return next
+  })
 
-  const toggleUC = (uc) => {
-    setActiveUCs(prev => {
-      const next = new Set(prev)
-      if (next.has(uc)) { if (next.size > 1) next.delete(uc) } // keep at least 1
-      else next.add(uc)
-      return next
-    })
-  }
-
-  const [mode, setMode] = useState('view')
-  const [drawStart, setDrawStart] = useState(null)
-  const [mousePos, setMousePos] = useState(null)
-  const [countLine, setCountLine] = useState(null)
-  const [lineCount, setLineCount] = useState(0)
-  const [flashRed, setFlashRed] = useState(false)
-  const [crossLog, setCrossLog] = useState([])
-  const [detFeed, setDetFeed] = useState([])
-  const [tab, setTab] = useState('detections')
-  const [hlsReady, setHlsReady] = useState(false)
+  const [mode, setMode]           = useState('view')
+  const [mousePos, setMousePos]   = useState(null)
+  const [flashRed, setFlashRed]   = useState(false)
+  const [crossLog, setCrossLog]   = useState([])
+  const [detFeed, setDetFeed]     = useState([])
+  const [tab, setTab]             = useState('detections')
+  const [hlsReady, setHlsReady]   = useState(false)
   const [totalDets, setTotalDets] = useState(0)
+  const [lineCount, setLineCount] = useState(0)
+
+  // ── Virtual Line State ────────────────────────────────────
+  // linePhase: 'off' | 'placing_p1' | 'placing_p2' | 'placed' | 'saved'
+  const [linePhase,    setLinePhase]    = useState('off')
+  const [virtualLine,  setVirtualLine]  = useState(null)   // { p1:{x,y}, p2:{x,y} }
+  const [lineDir,      setLineDir]      = useState('both') // 'both'|'in'|'out'
+  const [hoveredPt,    setHoveredPt]    = useState(null)   // 'p1'|'p2'|null
+  const draggingPtRef  = useRef(null)                      // use ref to avoid stale closure
+  const [draggingPtSt, setDraggingPtSt] = useState(null)  // mirror for render deps
+  const [lineSaving,   setLineSaving]   = useState(false)
+  const [lineDeleting, setLineDeleting] = useState(false)
+  const [lineMsg,      setLineMsg]      = useState(null)
+  const virtualLineRef = useRef(null)   // mirror for render loop
+
+  // Keep virtualLineRef in sync
+  useEffect(() => { virtualLineRef.current = virtualLine }, [virtualLine])
 
   // ── ROI / Polygon Zone State ──────────────────────────────
-  const [zonePoints, setZonePoints] = useState([])      // finalized polygon vertices (canvas px)
-  const [zoneDraft, setZoneDraft]   = useState([])      // in-progress vertices while drawing
-  const [roiSaving, setRoiSaving]   = useState(false)   // loading indicator for save API
-  const [roiMsg,    setRoiMsg]      = useState(null)     // success / error message
+  const [zonePoints, setZonePoints] = useState([])
+  const [zoneDraft,  setZoneDraft]  = useState([])
+  const [roiSaving,  setRoiSaving]  = useState(false)
+  const [roiMsg,     setRoiMsg]     = useState(null)
 
-  // HLS source type detection
   const isMp4 = !!(camera.hlsUrl && camera.hlsUrl.match(/\.mp4(\?|$)/i))
-
-  // Primary usecase for alerts (first active)
   const primaryUC = [...activeUCs][0] || allUsecases[0] || 'people_count'
   const { alerts, loading: alertLoad, ack } = useCameraAlerts(camera.id, primaryUC)
   const unackedCount = alerts.filter(a => !a.acknowledged).length
 
-  // ── Load saved ROI from backend on mount ──────────────────
+  // ── Load ROI on mount ─────────────────────────────────────
   useEffect(() => {
     cameraAPI.getROI(camera.id)
       .then(data => {
         if (data?.roi_area?.length >= 3) {
-          // Denormalize from 0-1 back to canvas pixel coordinates (1280x720)
-          const pts = data.roi_area.map(p => ({
-            x: p.x * 1280,
-            y: p.y * 720,
-          }))
-          setZonePoints(pts)
+          setZonePoints(data.roi_area.map(p => ({ x: p.x * 1280, y: p.y * 720 })))
         }
-      })
-      .catch(() => {}) // silently fail if no config yet
+      }).catch(() => {})
   }, [camera.id])
 
-  // Video / HLS setup
+  // ── Load Line Config on mount ─────────────────────────────
+  useEffect(() => {
+    lineAPI.get(camera.id).then(cfg => {
+      if (cfg?.enabled && cfg.x1_ratio != null) {
+        const W = 1280, H = 720
+        const line = {
+          p1: { x: cfg.x1_ratio * W, y: cfg.y1_ratio * H },
+          p2: { x: cfg.x2_ratio * W, y: cfg.y2_ratio * H },
+        }
+        setVirtualLine(line)
+        setLineDir(cfg.direction || 'both')
+        setLinePhase('saved')
+      }
+    })
+  }, [camera.id])
+
+  // ── HLS setup ─────────────────────────────────────────────
   useEffect(() => {
     if (!camera.hlsUrl) return
     const vid = videoRef.current
-    let inst = null
+    let inst  = null
     if (isMp4) {
       vid.src = camera.hlsUrl; vid.loop = true; vid.muted = true; vid.preload = 'auto'
       vid.play().catch(() => {})
@@ -92,28 +217,81 @@ export default function CanvasEditor({ camera, onClose }) {
     return () => { inst?.destroy(); setHlsReady(false) }
   }, [camera.hlsUrl, isMp4])
 
-  // Detection feed
+  // ── Detection feed via SSE ────────────────────────────────
   useEffect(() => {
     detsRef.current = []
     setDetFeed([])
+    setTotalDets(0)
     const ucArray = [...activeUCs]
-    if (ucArray.length === 0) return
-    const stop = startMultiUsecaseFeed(camera, ucArray, (det) => {
-      detsRef.current = [...detsRef.current.slice(-30), det]
-      setDetFeed(p => [{ ...det, ts: new Date().toLocaleTimeString() }, ...p.slice(0, 79)])
-      setTotalDets(n => n + 1)
-    })
-    return stop
-  }, [camera, activeUCs])
+    if (ucArray.length === 0 || !camera.id) return
 
-  // Crossing check
+    const toBackend  = uc => uc === 'traffic' ? 'vehicle_count' : uc
+    const toFrontend = uc => uc === 'vehicle_count' ? 'traffic' : uc
+
+    const seenUrls = new Set()
+    const uniqueUcs = ucArray.filter(uc => {
+      const url = `/api/sse/cameras/${camera.id}/detections/${toBackend(uc)}`
+      if (seenUrls.has(url)) return false
+      seenUrls.add(url); return true
+    })
+
+    const handlePayload = (payload, frontendUc) => {
+      const ucKey   = toFrontend(frontendUc)
+      const objects = Array.isArray(payload) ? payload : (payload?.objects ?? payload?.detections ?? [])
+      const payloadUc = payload?.usecase ? toFrontend(payload.usecase) : ucKey
+      const color   = UC_CANVAS[ucKey]?.color || UC_CANVAS[payloadUc]?.color || '#00cfff'
+
+      const newDets = objects.map(obj => {
+        const bbox = obj.bbox || {}
+        const x = bbox.x ?? obj.x ?? 0, y = bbox.y ?? obj.y ?? 0
+        const w = bbox.width ?? bbox.w ?? obj.width ?? obj.w ?? 0
+        const h = bbox.height ?? bbox.h ?? obj.height ?? obj.h ?? 0
+        const conf = obj.confidence ?? 0
+        const confPct = conf > 1 ? Number(conf).toFixed(1) : (conf * 100).toFixed(1)
+        return {
+          id:         obj.id ? `${ucKey}-${obj.id}` : `${ucKey}-${Date.now()}-${Math.random().toString(36).slice(2,5)}`,
+          useCase:    ucKey, color,
+          label:      obj.label || UC_CANVAS[ucKey]?.label || ucKey,
+          confidence: confPct,
+          x, y, w, h, hasBbox: w > 0 && h > 0,
+          speedVal:   obj.speed ?? null, age: 0, alpha: 1,
+        }
+      })
+
+      detsRef.current = [...detsRef.current.filter(d => d.useCase !== ucKey), ...newDets]
+      if (newDets.length > 0) {
+        setDetFeed(prev => {
+          const existingIds = new Set(prev.slice(0, 20).map(d => d.id))
+          const fresh = newDets.filter(d => !existingIds.has(d.id))
+          if (fresh.length === 0) return prev
+          setTotalDets(n => n + fresh.length)
+          return [...fresh.map(d => ({ ...d, ts: new Date().toLocaleTimeString() })), ...prev].slice(0, 80)
+        })
+      }
+    }
+
+    const unsubs = uniqueUcs.map(frontendUc => {
+      const backendUc = toBackend(frontendUc)
+      const url = `/api/sse/cameras/${camera.id}/detections/${backendUc}`
+      const cb  = data => handlePayload(data, frontendUc)
+      const u1  = sseManager.subscribe(url, backendUc,   cb)
+      const u2  = sseManager.subscribe(url, 'detection', cb)
+      const u3  = sseManager.subscribe(url, 'message',   cb)
+      return () => { u1(); u2(); u3() }
+    })
+    return () => unsubs.forEach(fn => fn())
+  }, [camera.id, activeUCs])
+
+  // ── Crossing check (virtual line) ─────────────────────────
   useEffect(() => {
-    if (!lineRef.current) return
+    const line = virtualLineRef.current
+    if (!line?.p1 || !line?.p2) return
     const canvas = canvasRef.current; if (!canvas) return
+    const lineForCross = { x1: line.p1.x, y1: line.p1.y, x2: line.p2.x, y2: line.p2.y }
     let hit = false
     detsRef.current.forEach(det => {
       if (!det.hasBbox || crossedIds.current.has(det.id)) return
-      if (crossesLine(det, lineRef.current, canvas.width, canvas.height)) {
+      if (crossesLine(det, lineForCross, canvas.width, canvas.height)) {
         crossedIds.current.add(det.id); det.crossed = true; countRef.current++; hit = true
         setCrossLog(p => [{ label: det.label, confidence: det.confidence, speedVal: det.speedVal, ts: new Date().toLocaleTimeString() }, ...p.slice(0, 99)])
       }
@@ -121,61 +299,36 @@ export default function CanvasEditor({ camera, onClose }) {
     if (hit) { setLineCount(countRef.current); setFlashRed(true); setTimeout(() => setFlashRed(false), 400) }
   }, [detFeed])
 
-  // ── Draw polygon zone on canvas ───────────────────────────
+  // ── Draw polygon zone ─────────────────────────────────────
   const drawZone = useCallback((ctx, points, draft, cursorPos) => {
-    // Draw finalized zone polygon (filled + border)
     if (points.length >= 2) {
       ctx.save()
-      ctx.strokeStyle = '#00cfff'
-      ctx.lineWidth = 2
-      ctx.shadowColor = '#00cfff'
-      ctx.shadowBlur = 10
-      ctx.setLineDash([])
-      ctx.beginPath()
-      ctx.moveTo(points[0].x, points[0].y)
-      points.forEach(p => ctx.lineTo(p.x, p.y))
-      ctx.closePath()
-      ctx.fillStyle = 'rgba(0, 207, 255, 0.10)'
-      ctx.fill()
-      ctx.stroke()
-      // Vertex dots
+      ctx.strokeStyle = '#00cfff'; ctx.lineWidth = 2
+      ctx.shadowColor = '#00cfff'; ctx.shadowBlur = 10; ctx.setLineDash([])
+      ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y)
+      points.forEach(p => ctx.lineTo(p.x, p.y)); ctx.closePath()
+      ctx.fillStyle = 'rgba(0,207,255,0.10)'; ctx.fill(); ctx.stroke()
       points.forEach(p => {
-        ctx.fillStyle = '#00ff88'
-        ctx.shadowColor = '#00ff88'
-        ctx.shadowBlur = 6
-        ctx.beginPath()
-        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2)
-        ctx.fill()
+        ctx.fillStyle = '#00ff88'; ctx.shadowColor = '#00ff88'; ctx.shadowBlur = 6
+        ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2); ctx.fill()
       })
       ctx.restore()
     }
-    // Draw in-progress draft polygon (dashed)
     if (draft.length > 0 && cursorPos) {
       ctx.save()
-      ctx.strokeStyle = '#ffd600'
-      ctx.lineWidth = 1.5
-      ctx.setLineDash([8, 5])
-      ctx.shadowColor = '#ffd600'
-      ctx.shadowBlur = 8
-      ctx.beginPath()
-      ctx.moveTo(draft[0].x, draft[0].y)
-      draft.forEach(p => ctx.lineTo(p.x, p.y))
-      ctx.lineTo(cursorPos.x, cursorPos.y)
-      ctx.stroke()
-      // Draft vertex dots
+      ctx.strokeStyle = '#ffd600'; ctx.lineWidth = 1.5; ctx.setLineDash([8, 5])
+      ctx.shadowColor = '#ffd600'; ctx.shadowBlur = 8
+      ctx.beginPath(); ctx.moveTo(draft[0].x, draft[0].y)
+      draft.forEach(p => ctx.lineTo(p.x, p.y)); ctx.lineTo(cursorPos.x, cursorPos.y); ctx.stroke()
       draft.forEach((p, i) => {
-        ctx.fillStyle = i === 0 ? '#00ff88' : '#ffd600'
-        ctx.shadowColor = ctx.fillStyle
-        ctx.shadowBlur = 4
-        ctx.beginPath()
-        ctx.arc(p.x, p.y, i === 0 ? 7 : 4, 0, Math.PI * 2)
-        ctx.fill()
+        ctx.fillStyle = i === 0 ? '#00ff88' : '#ffd600'; ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 4
+        ctx.beginPath(); ctx.arc(p.x, p.y, i === 0 ? 7 : 4, 0, Math.PI * 2); ctx.fill()
       })
       ctx.restore()
     }
   }, [])
 
-  // Render loop
+  // ── Render loop ───────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return
     const ctx = canvas.getContext('2d')
@@ -192,122 +345,221 @@ export default function CanvasEditor({ camera, onClose }) {
       } else {
         drawMockBg(ctx, W, H, frameRef.current, camera.name)
       }
+      const origW = (camera.hlsUrl && vid?.videoWidth) ? vid.videoWidth : 1280
+      const origH = (camera.hlsUrl && vid?.videoHeight) ? vid.videoHeight : 720
 
       detsRef.current = detsRef.current.map(d => ({ ...d, age: d.age + 1, alpha: Math.max(0, 1 - d.age / 80) })).filter(d => d.alpha > 0.04)
-      detsRef.current.forEach(d => drawDetBox(ctx, d, W, H))
-      const draft = drawStart && mousePos ? { x1: drawStart.x, y1: drawStart.y, x2: mousePos.x, y2: mousePos.y } : null
-      drawCountLine(ctx, lineRef.current, countRef.current, draft)
+      detsRef.current.forEach(d => drawDetBox(ctx, d, W, H, origW, origH))
 
-      // ROI zone always on top
+      // Virtual counting line
+      drawVirtualLine(ctx, virtualLineRef.current, hoveredPt, draggingPtSt, mousePos, linePhase, lineDir)
+
+      // ROI zone on top
       drawZone(ctx, zonePoints, zoneDraft, mode === 'draw_zone' ? mousePos : null)
-
       if (flashRed) { ctx.fillStyle = 'rgba(255,0,0,0.1)'; ctx.fillRect(0, 0, W, H) }
 
       // OSD
-      ctx.font = "11px 'Courier New'"
-      ctx.fillStyle = '#00cfff77'
+      ctx.font = "11px 'Courier New'"; ctx.fillStyle = '#00cfff77'
       ctx.fillText(`${camera.name.toUpperCase()} | ${[...activeUCs].join(' + ').toUpperCase()}`, 12, 20)
       ctx.font = "9px 'Courier New'"; ctx.fillStyle = 'rgba(255,255,255,0.25)'
       const ucLabels = [...activeUCs].map(uc => (UC_CANVAS[uc]?.label || uc).toUpperCase()).join(' · ')
       ctx.fillText(ucLabels, 12, 34)
-      if (zonePoints.length >= 3) {
-        ctx.font = "9px 'Courier New'"; ctx.fillStyle = '#00cfff99'
-        ctx.fillText('● DETECTION ZONE ACTIVE', 12, 50)
+      if (zonePoints.length >= 3) { ctx.font = "9px 'Courier New'"; ctx.fillStyle = '#00cfff99'; ctx.fillText('● DETECTION ZONE ACTIVE', 12, 50) }
+      if (linePhase === 'placed' || linePhase === 'saved') {
+        ctx.font = "9px 'Courier New'"; ctx.fillStyle = '#00D4FF99'
+        ctx.fillText(`✦ COUNT LINE ACTIVE  CROSSINGS: ${lineCount}`, 12, linePhase === 'placed' || zonePoints.length >= 3 ? 66 : 50)
       }
 
       animRef.current = requestAnimationFrame(render)
     }
     animRef.current = requestAnimationFrame(render)
-    return () => { 
-      running = false
-      cancelAnimationFrame(animRef.current)
-    }
-  }, [camera, drawStart, mousePos, flashRed, activeUCs, zonePoints, zoneDraft, mode, drawZone])
+    return () => { running = false; cancelAnimationFrame(animRef.current) }
+  }, [camera, flashRed, activeUCs, zonePoints, zoneDraft, mode, drawZone, hoveredPt, draggingPtSt, mousePos, linePhase, lineDir, lineCount])
 
-  // Mouse handlers
+  // ── Mouse / Canvas interaction ────────────────────────────
   const getPos = useCallback((e) => {
     const r = canvasRef.current.getBoundingClientRect()
     return { x: (e.clientX - r.left) * (canvasRef.current.width / r.width), y: (e.clientY - r.top) * (canvasRef.current.height / r.height) }
   }, [])
-  const onDown = useCallback((e) => { if (mode !== 'draw') return; setDrawStart(getPos(e)); lineRef.current = null; setCountLine(null); countRef.current = 0; crossedIds.current = new Set(); setLineCount(0) }, [mode, getPos])
-  const onMove = useCallback((e) => setMousePos(getPos(e)), [getPos])
-  const onUp = useCallback((e) => {
-    if (mode !== 'draw' || !drawStart) return
-    const end = getPos(e)
-    if (Math.hypot(end.x - drawStart.x, end.y - drawStart.y) > 25) { const l = { x1: drawStart.x, y1: drawStart.y, x2: end.x, y2: end.y }; lineRef.current = l; setCountLine(l) }
-    setDrawStart(null); setMode('view')
-  }, [mode, drawStart, getPos])
-  const clearLine = () => { lineRef.current = null; setCountLine(null); countRef.current = 0; crossedIds.current = new Set(); setLineCount(0); setCrossLog([]) }
 
-  // ── Polygon Zone Handlers ─────────────────────────────────
-  const onZoneClick = useCallback((e) => {
-    if (mode !== 'draw_zone') return
+  const onMouseDown = useCallback((e) => {
     const pos = getPos(e)
-    setZoneDraft(prev => {
-      // Close polygon if user clicks near first point (within 15px)
-      if (prev.length >= 3) {
-        const first = prev[0]
-        if (Math.hypot(pos.x - first.x, pos.y - first.y) < 15) {
-          setZonePoints(prev)       // finalize
-          setMode('view')
-          return []                 // clear draft
-        }
-      }
-      return [...prev, pos]        // add vertex
-    })
-  }, [mode, getPos])
 
-  const onZoneDblClick = useCallback((e) => {
+    // Line endpoint drag
+    if ((linePhase === 'placed' || linePhase === 'saved') && virtualLineRef.current) {
+      const hit = hitTestEndpoint(pos, virtualLineRef.current)
+      if (hit) { draggingPtRef.current = hit; setDraggingPtSt(hit); return }
+    }
+
+    // Zone drawing
+    if (mode === 'draw_zone') return
+  }, [linePhase, mode, getPos])
+
+  const onMouseMove = useCallback((e) => {
+    const pos = getPos(e)
+    setMousePos(pos)
+
+    // Drag endpoint
+    if (draggingPtRef.current && virtualLineRef.current) {
+      setVirtualLine(prev => ({
+        ...prev,
+        [draggingPtRef.current]: pos,
+      }))
+      return
+    }
+
+    // Hover detection for endpoints
+    if ((linePhase === 'placed' || linePhase === 'saved') && virtualLineRef.current) {
+      setHoveredPt(hitTestEndpoint(pos, virtualLineRef.current))
+    }
+  }, [getPos, linePhase])
+
+  const onMouseUp = useCallback(() => {
+    if (draggingPtRef.current) {
+      draggingPtRef.current = null
+      setDraggingPtSt(null)
+      // If line was saved, mark as modified (placed) so user can re-save
+      if (linePhase === 'saved') setLinePhase('placed')
+    }
+  }, [linePhase])
+
+  // ── Canvas click handler ──────────────────────────────────
+  const onCanvasClick = useCallback((e) => {
+    const pos = getPos(e)
+
+    // Line: place P1
+    if (linePhase === 'placing_p1') {
+      setVirtualLine({ p1: pos, p2: null })
+      setLinePhase('placing_p2')
+      return
+    }
+
+    // Line: place P2
+    if (linePhase === 'placing_p2') {
+      if (Math.hypot(pos.x - (virtualLine?.p1?.x ?? 0), pos.y - (virtualLine?.p1?.y ?? 0)) < 20) return // too close
+      setVirtualLine(prev => ({ ...prev, p2: pos }))
+      setLinePhase('placed')
+      setLineMsg(null)
+      return
+    }
+
+    // Zone drawing
+    if (mode === 'draw_zone') {
+      setZoneDraft(prev => {
+        if (prev.length >= 3) {
+          const first = prev[0]
+          if (Math.hypot(pos.x - first.x, pos.y - first.y) < 15) {
+            setZonePoints(prev); setMode('view'); return []
+          }
+        }
+        return [...prev, pos]
+      })
+    }
+  }, [linePhase, virtualLine, mode, getPos])
+
+  const onDblClick = useCallback((e) => {
     if (mode !== 'draw_zone') return
     setZoneDraft(prev => {
-      if (prev.length >= 3) {
-        setZonePoints(prev)  // finalize on double-click
-        setMode('view')
-      }
+      if (prev.length >= 3) { setZonePoints(prev); setMode('view') }
       return []
     })
   }, [mode])
 
-  const clearZone = () => {
-    setZonePoints([])
-    setZoneDraft([])
-    setRoiMsg(null)
+  // ── Line controls ─────────────────────────────────────────
+  const startDrawLine = () => {
+    setLinePhase('placing_p1')
+    setVirtualLine(null)
+    setLineMsg(null)
+    countRef.current = 0
+    crossedIds.current = new Set()
+    setLineCount(0)
+    setCrossLog([])
   }
 
-  // ── Save ROI to backend ───────────────────────────────────
+  const clearLine = () => {
+    setLinePhase('off')
+    setVirtualLine(null)
+    setHoveredPt(null)
+    countRef.current = 0
+    crossedIds.current = new Set()
+    setLineCount(0)
+    setCrossLog([])
+    setLineMsg(null)
+  }
+
+  const saveLine = async () => {
+    if (!virtualLine?.p1 || !virtualLine?.p2) return
+    setLineSaving(true); setLineMsg(null)
+    try {
+      const W = canvasRef.current?.width  || 1280
+      const H = canvasRef.current?.height || 720
+      await lineAPI.save({
+        cam_id:    camera.id,
+        enabled:   true,
+        x1_ratio:  parseFloat((virtualLine.p1.x / W).toFixed(4)),
+        y1_ratio:  parseFloat((virtualLine.p1.y / H).toFixed(4)),
+        x2_ratio:  parseFloat((virtualLine.p2.x / W).toFixed(4)),
+        y2_ratio:  parseFloat((virtualLine.p2.y / H).toFixed(4)),
+        direction: lineDir,
+      })
+      setLinePhase('saved')
+      setLineMsg({ ok: true, text: '✓ Line saved & backend notified' })
+      setTimeout(() => setLineMsg(null), 3000)
+    } catch (err) {
+      setLineMsg({ ok: false, text: '✗ Save failed: ' + err.message })
+    } finally { setLineSaving(false) }
+  }
+
+  const deleteLine = async () => {
+    setLineDeleting(true)
+    try {
+      await lineAPI.del(camera.id)
+      clearLine()
+      setLineMsg({ ok: true, text: '✓ Line deleted' })
+      setTimeout(() => setLineMsg(null), 2000)
+    } catch(err) {
+      setLineMsg({ ok: false, text: '✗ ' + err.message })
+    } finally { setLineDeleting(false) }
+  }
+
+  // ── Zone controls ─────────────────────────────────────────
+  const clearZone = () => { setZonePoints([]); setZoneDraft([]); setRoiMsg(null) }
   const saveROI = async () => {
     if (zonePoints.length < 3) return
-    setRoiSaving(true)
-    setRoiMsg(null)
+    setRoiSaving(true); setRoiMsg(null)
     try {
-      // Normalize canvas coords (1280x720) → 0.0 to 1.0
-      const normalized = zonePoints.map(p => ({
-        x: parseFloat((p.x / 1280).toFixed(4)),
-        y: parseFloat((p.y / 720).toFixed(4)),
-      }))
+      const normalized = zonePoints.map(p => ({ x: parseFloat((p.x / 1280).toFixed(4)), y: parseFloat((p.y / 720).toFixed(4)) }))
       await cameraAPI.saveROI(camera.id, normalized)
-      setRoiMsg({ ok: true, text: 'Zone saved! Backend will apply filter.' })
+      setRoiMsg({ ok: true, text: 'Zone saved!' })
     } catch (err) {
       setRoiMsg({ ok: false, text: 'Save failed: ' + err.message })
-    } finally {
-      setRoiSaving(false)
-    }
+    } finally { setRoiSaving(false) }
   }
 
+  // ── Cursor style ──────────────────────────────────────────
+  const getCursor = () => {
+    if (draggingPtSt)                         return 'grabbing'
+    if (hoveredPt)                            return 'grab'
+    if (linePhase === 'placing_p1' || linePhase === 'placing_p2') return 'crosshair'
+    if (mode === 'draw_zone')                 return 'cell'
+    return 'default'
+  }
+
+  // ── RENDER ────────────────────────────────────────────────
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#04080f', display: 'flex', flexDirection: 'column', fontFamily: "'Courier New',monospace", color: '#c8d8e8', zIndex: 1000 }}>
       <video ref={videoRef} style={{ display: 'none' }} muted playsInline autoPlay preload="auto" />
 
-      {/* ── Toolbar ──────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px', borderBottom: '1px solid #0d1e2e', background: '#060d18', flexShrink: 0, flexWrap: 'wrap' }}>
+      {/* ── TOOLBAR ─────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderBottom: '1px solid #0d1e2e', background: '#060d18', flexShrink: 0, flexWrap: 'wrap', rowGap: 6 }}>
         <Btn onClick={onClose}>← BACK</Btn>
         <span style={{ fontWeight: 'bold', fontSize: 13, letterSpacing: 1 }}>{camera.name.toUpperCase()}</span>
         <span style={{ fontSize: 10, color: '#2a4050' }}>{camera.location}</span>
 
-        {/* Multi-usecase toggle pills */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 8 }}>
+        {/* Usecase pills */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 4 }}>
           {allUsecases.map(uc => {
-            const on = activeUCs.has(uc)
+            const on    = activeUCs.has(uc)
             const color = UC_COLOR[uc] || '#00cfff'
             return (
               <button key={uc} onClick={() => toggleUC(uc)} style={{
@@ -315,8 +567,7 @@ export default function CanvasEditor({ camera, onClose }) {
                 padding: '3px 10px', fontSize: 9, letterSpacing: 1, cursor: 'pointer',
                 background: on ? `${color}22` : 'transparent',
                 border: `1px solid ${on ? color + '88' : '#1e3040'}`,
-                color: on ? color : '#4a6070',
-                borderRadius: 3, transition: 'all 0.15s',
+                color: on ? color : '#4a6070', borderRadius: 3, transition: 'all 0.15s',
               }}>
                 <span style={{ fontSize: 11 }}>{UC_MAP[uc]?.emoji || '◈'}</span>
                 <span>{UC_MAP[uc]?.label || uc}</span>
@@ -329,21 +580,81 @@ export default function CanvasEditor({ camera, onClose }) {
         {camera.hlsUrl
           ? <Tag color={hlsReady ? '#00cfff' : '#ffd600'}>{hlsReady ? '● LIVE' : '◌ LOADING…'}</Tag>
           : <Tag color='#2a4050'>NO SOURCE</Tag>}
-
         {unackedCount > 0 && <Tag color='#ff3b3b'>⚠ {unackedCount} ALERTS</Tag>}
+
         <div style={{ flex: 1 }} />
 
-        <Btn active={mode === 'draw'} color='#ffd600' onClick={() => setMode(m => m === 'draw' ? 'view' : 'draw')}>
-          {mode === 'draw' ? '✏ DRAWING…' : '✏ DRAW LINE'}
-        </Btn>
-        {countLine && <Btn color='#ff6b6b' onClick={clearLine}>✕ CLEAR LINE</Btn>}
-        <div style={{ fontSize: 11, color: '#00ff88', background: 'rgba(0,255,136,0.08)', border: '1px solid #00ff8830', padding: '5px 14px', letterSpacing: 1 }}>
-          CROSSINGS: <b>{lineCount}</b>
+        {/* ── Virtual Line Controls ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderRight: '1px solid #0d1e2e', paddingRight: 12 }}>
+          <span style={{ fontSize: 9, color: '#4a6070', letterSpacing: 1 }}>COUNT LINE</span>
+
+          {/* OFF state */}
+          {linePhase === 'off' && (
+            <Btn color='#00D4FF' onClick={startDrawLine}>
+              ✦ DRAW LINE
+            </Btn>
+          )}
+
+          {/* Placing P1 */}
+          {linePhase === 'placing_p1' && (
+            <span style={{ fontSize: 9, color: '#00D4FF', animation: 'pulse 1s infinite' }}>
+              CLICK TO SET START POINT
+            </span>
+          )}
+
+          {/* Placing P2 */}
+          {linePhase === 'placing_p2' && (
+            <span style={{ fontSize: 9, color: '#00D4FF' }}>
+              CLICK TO SET END POINT
+            </span>
+          )}
+
+          {/* Placed or Saved */}
+          {(linePhase === 'placed' || linePhase === 'saved') && (
+            <>
+              {/* Direction selector */}
+              <div style={{ display: 'flex', gap: 2 }}>
+                {[['both', '↕'], ['in', '↑'], ['out', '↓']].map(([val, icon]) => (
+                  <button key={val} onClick={() => { setLineDir(val); if (linePhase === 'saved') setLinePhase('placed') }} style={{
+                    padding: '2px 7px', fontSize: 10, cursor: 'pointer', borderRadius: 3,
+                    background: lineDir === val ? '#00D4FF22' : 'transparent',
+                    border: `1px solid ${lineDir === val ? '#00D4FF88' : '#1e3040'}`,
+                    color: lineDir === val ? '#00D4FF' : '#4a6070',
+                  }}>{icon}</button>
+                ))}
+              </div>
+
+              {/* Crossings badge */}
+              <div style={{ fontSize: 10, color: '#00D4FF', background: 'rgba(0,212,255,0.08)', border: '1px solid #00D4FF30', padding: '3px 10px', letterSpacing: 1 }}>
+                CROSS: <b>{lineCount}</b>
+              </div>
+
+              {/* Save (only if not saved yet or modified) */}
+              {linePhase === 'placed' && (
+                <Btn color='#00ff88' onClick={saveLine} style={{ opacity: lineSaving ? 0.5 : 1 }}>
+                  {lineSaving ? '⏳…' : '💾 SAVE'}
+                </Btn>
+              )}
+              {linePhase === 'saved' && (
+                <span style={{ fontSize: 9, color: '#00ff88', letterSpacing: 1 }}>✓ SAVED</span>
+              )}
+
+              <Btn color='#ff6b6b' onClick={() => { linePhase === 'saved' ? deleteLine() : clearLine() }}>
+                {lineDeleting ? '…' : '✕'}
+              </Btn>
+            </>
+          )}
+
+          {lineMsg && (
+            <span style={{ fontSize: 9, letterSpacing: 1, color: lineMsg.ok ? '#00ff88' : '#ff6b6b', maxWidth: 160 }}>
+              {lineMsg.text}
+            </span>
+          )}
         </div>
 
         {/* ── ROI Zone Controls ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 8, borderLeft: '1px solid #0d1e2e', paddingLeft: 12 }}>
-          <span style={{ fontSize: 9, color: '#4a6070', letterSpacing: 1 }}>DETECTION ZONE</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 9, color: '#4a6070', letterSpacing: 1 }}>DETECT ZONE</span>
           <Btn
             active={mode === 'draw_zone'}
             color='#00cfff'
@@ -352,14 +663,14 @@ export default function CanvasEditor({ camera, onClose }) {
               else { setMode('draw_zone'); setZoneDraft([]) }
             }}
           >
-            {mode === 'draw_zone' ? '⬡ DRAWING ZONE…' : '⬡ DRAW ZONE'}
+            {mode === 'draw_zone' ? '⬡ DRAWING…' : '⬡ ZONE'}
           </Btn>
           {zonePoints.length >= 3 && (
             <>
               <Btn color='#00ff88' onClick={saveROI} style={{ opacity: roiSaving ? 0.5 : 1 }}>
-                {roiSaving ? '⏳ SAVING…' : '💾 SAVE ZONE'}
+                {roiSaving ? '⏳…' : '💾 SAVE'}
               </Btn>
-              <Btn color='#ff6b6b' onClick={clearZone}>✕ CLEAR ZONE</Btn>
+              <Btn color='#ff6b6b' onClick={clearZone}>✕</Btn>
             </>
           )}
           {roiMsg && (
@@ -370,45 +681,58 @@ export default function CanvasEditor({ camera, onClose }) {
         </div>
       </div>
 
-      {/* ── BODY ─────────────────────────────────────── */}
+      {/* ── BODY ─────────────────────────────────────────── */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
         {/* Canvas */}
-        <div style={{ flex: 1, position: 'relative', cursor: mode === 'draw' ? 'crosshair' : 'default', background: '#000' }}>
-          {/* Video plays via hidden <video> element drawn onto canvas */}
-          <canvas ref={canvasRef} width={1280} height={720}
-            onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp}
-            onClick={onZoneClick} onDoubleClick={onZoneDblClick}
-            style={{
-              width: '100%', height: '100%', display: 'block', position: 'relative', zIndex: 1,
-              cursor: mode === 'draw' ? 'crosshair' : mode === 'draw_zone' ? 'cell' : 'default'
-            }} />
-          {mode === 'draw' && (
-            <div style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,214,0,0.12)', border: '1px solid #ffd60055', color: '#ffd600', padding: '6px 22px', fontSize: 11, letterSpacing: 2, pointerEvents: 'none' }}>
-              CLICK &amp; DRAG TO DRAW COUNT LINE
+        <div style={{ flex: 1, position: 'relative', background: '#000' }}>
+          <canvas
+            ref={canvasRef}
+            width={1280}
+            height={720}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onClick={onCanvasClick}
+            onDoubleClick={onDblClick}
+            style={{ width: '100%', height: '100%', display: 'block', position: 'relative', zIndex: 1, cursor: getCursor() }}
+          />
+
+          {/* Canvas hints */}
+          {linePhase === 'placing_p1' && (
+            <div style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,212,255,0.12)', border: '1px solid #00D4FF44', color: '#00D4FF', padding: '6px 22px', fontSize: 11, letterSpacing: 2, pointerEvents: 'none' }}>
+              CLICK TO SET START POINT OF COUNT LINE
+            </div>
+          )}
+          {linePhase === 'placing_p2' && (
+            <div style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,212,255,0.12)', border: '1px solid #00D4FF44', color: '#00D4FF', padding: '6px 22px', fontSize: 11, letterSpacing: 2, pointerEvents: 'none' }}>
+              CLICK TO SET END POINT · ESC TO CANCEL
+            </div>
+          )}
+          {(linePhase === 'placed' || linePhase === 'saved') && hoveredPt && (
+            <div style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,212,255,0.12)', border: '1px solid #00D4FF33', color: '#00D4FF88', padding: '4px 16px', fontSize: 10, letterSpacing: 1, pointerEvents: 'none' }}>
+              DRAG TO ADJUST ENDPOINT
             </div>
           )}
           {mode === 'draw_zone' && (
             <div style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,207,255,0.10)', border: '1px solid #00cfff44', color: '#00cfff', padding: '6px 22px', fontSize: 11, letterSpacing: 2, pointerEvents: 'none', textAlign: 'center' }}>
-              {zoneDraft.length === 0
-                ? 'CLICK TO START DRAWING ZONE'
-                : zoneDraft.length < 3
-                ? `${zoneDraft.length} POINT${zoneDraft.length > 1 ? 'S' : ''} — ADD MORE (MIN 3)`
-                : 'CLICK FIRST POINT TO CLOSE · OR DOUBLE-CLICK TO FINISH'}
+              {zoneDraft.length === 0 ? 'CLICK TO START DRAWING ZONE'
+                : zoneDraft.length < 3 ? `${zoneDraft.length} POINT${zoneDraft.length > 1 ? 'S' : ''} — ADD MORE (MIN 3)`
+                : 'CLICK FIRST POINT TO CLOSE · DOUBLE-CLICK TO FINISH'}
             </div>
           )}
           {flashRed && <div style={{ position: 'absolute', inset: 0, border: '3px solid #ff3b3b', boxShadow: 'inset 0 0 40px rgba(255,0,0,0.2)', pointerEvents: 'none' }} />}
         </div>
 
-        {/* ── RIGHT PANEL ──────────────────────────── */}
+        {/* ── RIGHT PANEL ──────────────────────────────── */}
         <div style={{ width: 290, borderLeft: '1px solid #0d1e2e', background: '#060d18', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
           {/* Tabs */}
           <div style={{ display: 'flex', borderBottom: '1px solid #0d1e2e', flexShrink: 0 }}>
             {[
-              { id: 'detections', icon: '◈', label: 'DETECTED', count: detFeed.length, red: false },
-              { id: 'crossings', icon: '✏', label: 'CROSSINGS', count: crossLog.length, red: false },
-              { id: 'alerts', icon: '⚠', label: 'ALERTS', count: unackedCount, red: unackedCount > 0 },
+              { id: 'detections', icon: '◈', label: 'DETECTED',  count: detFeed.length,  red: false },
+              { id: 'crossings',  icon: '✦', label: 'CROSSINGS', count: crossLog.length,  red: crossLog.length > 0 },
+              { id: 'alerts',     icon: '⚠', label: 'ALERTS',    count: unackedCount,     red: unackedCount > 0 },
             ].map(t => (
               <button key={t.id} onClick={() => setTab(t.id)} style={{
                 flex: 1, padding: '9px 4px', fontSize: 9, letterSpacing: 1, cursor: 'pointer', border: 'none',
@@ -424,16 +748,14 @@ export default function CanvasEditor({ camera, onClose }) {
 
           <div style={{ flex: 1, overflowY: 'auto' }}>
 
-            {/* DETECTIONS */}
+            {/* DETECTIONS tab */}
             {tab === 'detections' && (
               detFeed.length === 0
                 ? <div style={{ padding: 24, textAlign: 'center', fontSize: 10, color: '#1e3040' }}>
-                  <div style={{ fontSize: 24, opacity: .2, marginBottom: 8 }}>📡</div>
-                  WAITING FOR DETECTIONS
-                  <div style={{ fontSize: 9, color: '#1a2a36', marginTop: 8, lineHeight: 1.8 }}>
-                    {[...activeUCs].join(' + ')}
+                    <div style={{ fontSize: 24, opacity: .2, marginBottom: 8 }}>📡</div>
+                    WAITING FOR DETECTIONS
+                    <div style={{ fontSize: 9, color: '#1a2a36', marginTop: 8, lineHeight: 1.8 }}>{[...activeUCs].join(' + ')}</div>
                   </div>
-                </div>
                 : detFeed.map((d, i) => (
                   <div key={d.id + i} style={{
                     padding: '8px 12px', borderBottom: '1px solid #060e18',
@@ -452,7 +774,6 @@ export default function CanvasEditor({ camera, onClose }) {
                       <div style={{ fontSize: 9, color: '#2a4050', marginTop: 2, display: 'flex', gap: 8 }}>
                         <span>conf: <span style={{ color: '#4a6070' }}>{d.confidence}%</span></span>
                         <span style={{ color: d.color, opacity: 0.6 }}>{d.useCase}</span>
-                        {d.hasBbox ? <span style={{ color: '#1e3040' }}>bbox ✓</span> : <span style={{ color: '#1a2a36' }}>no bbox</span>}
                       </div>
                       <div style={{ marginTop: 4, height: 2, background: '#0d1e2e', borderRadius: 1 }}>
                         <div style={{ height: '100%', width: `${Math.min(100, d.confidence)}%`, background: d.color, borderRadius: 1 }} />
@@ -462,17 +783,19 @@ export default function CanvasEditor({ camera, onClose }) {
                 ))
             )}
 
-            {/* CROSSINGS */}
+            {/* CROSSINGS tab */}
             {tab === 'crossings' && (
               crossLog.length === 0
                 ? <div style={{ padding: 24, textAlign: 'center', fontSize: 10, color: '#1e3040' }}>
-                  <div style={{ fontSize: 24, opacity: .2, marginBottom: 8 }}>✏</div>
-                  {countLine ? 'MONITORING — NO CROSSINGS YET' : 'DRAW A LINE ON CANVAS TO COUNT'}
-                </div>
+                    <div style={{ fontSize: 24, opacity: .2, marginBottom: 8 }}>✦</div>
+                    {(linePhase === 'placed' || linePhase === 'saved')
+                      ? 'LINE ACTIVE — NO CROSSINGS YET'
+                      : 'DRAW A COUNT LINE TO MONITOR CROSSINGS'}
+                  </div>
                 : crossLog.map((c, i) => (
-                  <div key={i} style={{ padding: '8px 12px', borderBottom: '1px solid #060e18', background: i === 0 ? 'rgba(255,59,59,0.06)' : 'transparent', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div key={i} style={{ padding: '8px 12px', borderBottom: '1px solid #060e18', background: i === 0 ? 'rgba(0,212,255,0.06)' : 'transparent', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 'bold', color: '#ff6b6b' }}>{c.label}{c.speedVal ? ` • ${c.speedVal}km/h` : ''}</div>
+                      <div style={{ fontSize: 12, fontWeight: 'bold', color: '#00D4FF' }}>{c.label}{c.speedVal ? ` • ${c.speedVal}km/h` : ''}</div>
                       <div style={{ fontSize: 9, color: '#2a4050', marginTop: 2 }}>conf: {c.confidence}%</div>
                     </div>
                     <span style={{ fontSize: 9, color: '#1e3040' }}>{c.ts}</span>
@@ -480,23 +803,17 @@ export default function CanvasEditor({ camera, onClose }) {
                 ))
             )}
 
-            {/* ALERTS */}
+            {/* ALERTS tab */}
             {tab === 'alerts' && (
               alertLoad
                 ? <div style={{ padding: 20, textAlign: 'center', fontSize: 10, color: '#2a4050' }}>LOADING ALERTS…</div>
                 : alerts.length === 0
                   ? <div style={{ padding: 24, textAlign: 'center', fontSize: 10, color: '#1e3040' }}>
-                    <div style={{ fontSize: 24, opacity: .2, marginBottom: 8 }}>🔔</div>
-                    NO ALERTS FOR {primaryUC.toUpperCase()}
-                  </div>
+                      <div style={{ fontSize: 24, opacity: .2, marginBottom: 8 }}>🔔</div>
+                      NO ALERTS FOR {primaryUC.toUpperCase()}
+                    </div>
                   : alerts.map((a, i) => (
-                    <div key={a.id} style={{
-                      padding: '8px 12px', borderBottom: '1px solid #060e18',
-                      display: 'flex', gap: 8, alignItems: 'flex-start',
-                      opacity: a.acknowledged ? 0.35 : 1,
-                      background: !a.acknowledged && i === 0 ? `${SEV_COLOR[a.severity]}08` : 'transparent',
-                      transition: 'opacity 0.3s',
-                    }}>
+                    <div key={a.id} style={{ padding: '8px 12px', borderBottom: '1px solid #060e18', display: 'flex', gap: 8, alignItems: 'flex-start', opacity: a.acknowledged ? 0.35 : 1, background: !a.acknowledged && i === 0 ? `${SEV_COLOR[a.severity]}08` : 'transparent', transition: 'opacity 0.3s' }}>
                       <div style={{ width: 7, height: 7, borderRadius: '50%', marginTop: 4, flexShrink: 0, background: SEV_COLOR[a.severity], boxShadow: !a.acknowledged ? `0 0 5px ${SEV_COLOR[a.severity]}` : 'none' }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 11, color: a.acknowledged ? '#4a6070' : '#c8d8e8', lineHeight: 1.4 }}>{a.message}</div>
@@ -516,14 +833,19 @@ export default function CanvasEditor({ camera, onClose }) {
             )}
           </div>
 
-          {/* Count line info */}
-          {countLine && (
-            <div style={{ padding: '10px 12px', borderTop: '1px solid #0d1e2e', background: 'rgba(0,255,136,0.03)', fontSize: 10, flexShrink: 0 }}>
-              <div style={{ color: '#2a4050', letterSpacing: 2, marginBottom: 5 }}>COUNT LINE</div>
-              <div style={{ color: '#4a6070', fontSize: 9 }}>A ({Math.round(countLine.x1)},{Math.round(countLine.y1)}) → B ({Math.round(countLine.x2)},{Math.round(countLine.y2)})</div>
+          {/* Line info panel */}
+          {(linePhase === 'placed' || linePhase === 'saved') && virtualLine?.p1 && virtualLine?.p2 && (
+            <div style={{ padding: '10px 12px', borderTop: '1px solid #0d1e2e', background: 'rgba(0,212,255,0.03)', fontSize: 10, flexShrink: 0 }}>
+              <div style={{ color: '#00D4FF', letterSpacing: 2, marginBottom: 4, fontSize: 9, display: 'flex', justifyContent: 'space-between' }}>
+                <span>COUNT LINE</span>
+                <span style={{ color: linePhase === 'saved' ? '#00ff88' : '#ffd600' }}>{linePhase === 'saved' ? '● SAVED' : '○ UNSAVED'}</span>
+              </div>
+              <div style={{ color: '#2a4050', fontSize: 9 }}>
+                P1 ({Math.round(virtualLine.p1.x)}, {Math.round(virtualLine.p1.y)}) → P2 ({Math.round(virtualLine.p2.x)}, {Math.round(virtualLine.p2.y)})
+              </div>
               <div style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 9, color: '#4a6070' }}>TOTAL</span>
-                <span style={{ color: '#ffd600', fontSize: 22, fontWeight: 'bold' }}>{lineCount}</span>
+                <span style={{ fontSize: 9, color: '#4a6070' }}>DIR: {lineDir.toUpperCase()}</span>
+                <span style={{ color: '#00D4FF', fontSize: 22, fontWeight: 'bold' }}>{lineCount}</span>
               </div>
             </div>
           )}
@@ -533,8 +855,8 @@ export default function CanvasEditor({ camera, onClose }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4 }}>
               {[
                 { l: 'ON CANVAS', v: detsRef.current.length, c: '#00cfff' },
-                { l: 'TOTAL', v: totalDets, c: '#c8d8e8' },
-                { l: 'CROSSINGS', v: lineCount, c: '#ffd600' },
+                { l: 'TOTAL',     v: totalDets,              c: '#c8d8e8' },
+                { l: 'CROSSINGS', v: lineCount,              c: '#00D4FF' },
               ].map(({ l, v, c }) => (
                 <div key={l} style={{ background: '#0a111e', padding: '6px 8px', textAlign: 'center' }}>
                   <div style={{ color: '#2a4050', letterSpacing: 1, fontSize: 8, marginBottom: 2 }}>{l}</div>

@@ -57,13 +57,16 @@ export const USE_CASES = [
 
 export const UC_MAP = Object.fromEntries(USE_CASES.map(u => [u.id, u]))
 export const UC_COLOR = Object.fromEntries(USE_CASES.map(u => [u.id, u.color]))
+UC_COLOR['vehicle_count'] = UC_COLOR['traffic']  // alias
 
 // Canvas box colors per usecase
 export const UC_CANVAS = {
   people_count:    { color: '#00ff88', label: 'Person' },
   traffic:         { color: '#00cfff', label: 'Vehicle' },
+  vehicle_count:   { color: '#00cfff', label: 'Vehicle' },  // alias — backend sends 'vehicle_count'
   intrusion:       { color: '#ff3b3b', label: 'INTRUDER' },
   crowd_alert:     { color: '#ff8c00', label: 'Person' },
   vehicle_speed:   { color: '#ffd600', label: 'Vehicle' },
   queue_detection: { color: '#ff9f43', label: 'Queue' },
+  lpr:             { color: '#a78bfa', label: 'Plate' },
 }

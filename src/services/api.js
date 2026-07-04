@@ -45,11 +45,17 @@ function qs(params) {
 
 // ── Camera normalizer ─────────────────────────────────────────
 function normalizeCamera(c) {
-  const hlsUrl = c.hls_url || c.hlsUrl || c.metadata?.hls_url || null
-  const useCases = Array.isArray(c.enabled_usecases) ? c.enabled_usecases
+  let useCases = Array.isArray(c.enabled_usecases) ? c.enabled_usecases
     : Array.isArray(c.assigned_use_cases) ? c.assigned_use_cases
     : Array.isArray(c.use_cases) ? c.use_cases
     : c.use_cases ? [c.use_cases] : []
+
+  // Map 'traffic' and 'vehicle_count' interchangeably on the frontend
+  if (useCases.includes('traffic') && !useCases.includes('vehicle_count')) {
+    useCases = [...useCases, 'vehicle_count']
+  } else if (useCases.includes('vehicle_count') && !useCases.includes('traffic')) {
+    useCases = [...useCases, 'traffic']
+  }
 
   return {
     id:               c.camera_id || c.id,
@@ -59,16 +65,18 @@ function normalizeCamera(c) {
     latitude:         c.latitude,
     longitude:        c.longitude,
     status:           c.status || 'active',
-    useCase:          useCases[0] || 'people_count',
+    useCase:          useCases[0] === 'vehicle_count' ? 'traffic' : (useCases[0] || 'people_count'),
     useCases,
     enabled_usecases: useCases,
     alertCount:       c.alert_count || 0,
-    hlsUrl,
+    hlsUrl:           c.hls_url || c.hlsUrl || null,
   }
 }
 
 // ── Alert normalizer ──────────────────────────────────────────
-function normalizeAlert(a, cam = {}) {
+export function normalizeAlert(a, cam = {}) {
+  let uc = a.usecase || a.type || ''
+  if (uc === 'vehicle_count') uc = 'traffic'
   return {
     id:           a.id || a.alert_id,
     type:         a.type || a.usecase || 'alert',
@@ -79,7 +87,7 @@ function normalizeAlert(a, cam = {}) {
     severity:     a.severity || 'medium',
     acknowledged: a.acknowledged || false,
     timestamp:    a.timestamp || a.created_at || new Date().toISOString(),
-    usecase:      a.usecase || a.type || '',
+    usecase:      uc,
   }
 }
 
@@ -119,11 +127,21 @@ export const cameraAPI = {
 
 // ════════════════════════════════════════════════════════════
 //  DETECTION API
+//
+//  Live stream  → SSE  /api/sse/cameras/{id}/detections/{usecase}
+//                      (handled by liveDetections.js via sseManager)
+//
+//  Snapshot REST → GET /api/cameras/{id}/detections/{usecase}
+//                      (one-time fetch, e.g. for reports/widgets)
 // ════════════════════════════════════════════════════════════
 export const detectionAPI = {
-  // GET /api/cameras/{id}/detections/{usecase}
+  // One-time snapshot — not used for live canvas (use liveDetections.js for that)
   get: (cameraId, usecase) =>
-    api(`/api/cameras/${cameraId}/detections/${usecase}`),
+    api(`/api/cameras/${cameraId}/detections/${usecase === 'traffic' ? 'vehicle_count' : usecase}`),
+
+  // SSE URL builder — pass to sseManager.subscribe() if needed manually
+  sseUrl: (cameraId, usecase) =>
+    `/api/sse/cameras/${cameraId}/detections/${usecase === 'traffic' ? 'vehicle_count' : usecase}`,
 }
 
 // ════════════════════════════════════════════════════════════
@@ -136,7 +154,7 @@ export const alertAPI = {
       .then(d => (Array.isArray(d) ? d : d.alerts || []).map(a => normalizeAlert(a))),
 
   getForCamera: (cameraId, usecase) =>
-    alertAPI.getLive({ camera_id: cameraId, ...(usecase ? { usecase } : {}) }),
+    alertAPI.getLive({ camera_id: cameraId, ...(usecase ? { usecase: usecase === 'traffic' ? 'vehicle_count' : usecase } : {}) }),
 
   getAllForCamera: (cameraId) =>
     alertAPI.getLive({ camera_id: cameraId }),

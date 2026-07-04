@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { attachHLS } from '../../services/hls.js'
-import { startLiveFeed } from '../../services/liveDetections.js'
+import { sseManager } from '../../lib/sseManager.js'
 import { drawDetBox, drawMockBg } from '../../services/canvasDraw.js'
 import { UC_COLOR } from '../../constants/useCases.js'
 
@@ -30,13 +30,52 @@ export default function MiniCanvas({ camera, onClick, onDoubleClick }) {
     return () => hlsInst?.destroy()
   }, [camera.hlsUrl])
 
-  // Detection feed
+  // Detection feed via SSE
+  // Endpoint: /api/sse/cameras/{id}/detections/{usecase}
+  // Payload : { camera_id, usecase, objects:[{id,label,bbox:{x,y,width,height},confidence}] }
   useEffect(() => {
-    if (!isActive) return
-    const stop = startLiveFeed(camera, camera.useCase, (det) => {
-      detsRef.current = [...detsRef.current.slice(-10), det]
-    })
-    return stop
+    if (!isActive || !camera.id || !camera.useCase) return
+    detsRef.current = []
+
+    // 'traffic' on frontend === 'vehicle_count' on backend
+    const frontendUc = camera.useCase === 'vehicle_count' ? 'traffic' : camera.useCase
+    const backendUc  = camera.useCase === 'traffic' ? 'vehicle_count' : camera.useCase
+    const url   = `/api/sse/cameras/${camera.id}/detections/${backendUc}`
+    const color = UC_COLOR[frontendUc] || UC_COLOR[camera.useCase] || '#2563eb'
+
+    const handlePayload = (payload) => {
+      const objects = Array.isArray(payload)
+        ? payload
+        : (payload?.objects ?? payload?.detections ?? [])
+
+      detsRef.current = objects.map(obj => {
+        const bbox = obj.bbox || {}
+        const x    = bbox.x      ?? obj.x ?? 0
+        const y    = bbox.y      ?? obj.y ?? 0
+        const w    = bbox.width  ?? bbox.w ?? obj.width  ?? obj.w ?? 0
+        const h    = bbox.height ?? bbox.h ?? obj.height ?? obj.h ?? 0
+
+        let conf = obj.confidence ?? 0
+        const confPct = conf > 1 ? Number(conf) : Number(conf) * 100
+
+        return {
+          id:         obj.id ? `${frontendUc}-${obj.id}` : `${frontendUc}-${Date.now()}`,
+          useCase:    frontendUc,
+          color,
+          label:      obj.label || frontendUc,
+          confidence: confPct,
+          x, y, w, h,
+          hasBbox:    w > 0 && h > 0,
+          age: 0, alpha: 1,
+        }
+      })
+    }
+
+    const u1 = sseManager.subscribe(url, backendUc,   handlePayload)
+    const u2 = sseManager.subscribe(url, 'detection', handlePayload)
+    const u3 = sseManager.subscribe(url, 'message',   handlePayload)
+
+    return () => { u1(); u2(); u3() }
   }, [camera.id, camera.useCase, isActive])
 
   // Render loop
@@ -60,10 +99,13 @@ export default function MiniCanvas({ camera, onClick, onDoubleClick }) {
         drawMockBg(ctx, W, H, frameRef.current, null)
       }
 
+      const origW = (camera.hlsUrl && vid?.videoWidth) ? vid.videoWidth : 1280
+      const origH = (camera.hlsUrl && vid?.videoHeight) ? vid.videoHeight : 720
+
       detsRef.current = detsRef.current
         .map(d => ({ ...d, age: d.age + 1, alpha: Math.max(0, 1 - d.age / 70) }))
         .filter(d => d.alpha > 0.05)
-      detsRef.current.forEach(d => drawDetBox(ctx, d, W, H))
+      detsRef.current.forEach(d => drawDetBox(ctx, d, W, H, origW, origH))
 
       if (detsRef.current.length > 0) {
         ctx.font = `bold 11px Inter, sans-serif`

@@ -143,7 +143,11 @@ export default function Dashboard() {
                 const s = SEV_STYLE[a.severity] || SEV_STYLE.medium
                 return (
                   <div key={a.id} 
-                    onClick={() => nav(`/camera/${a.cameraId}/${a.usecase}`)}
+                    onClick={() => {
+                      let uc = a.usecase
+                      if (uc === 'vehicle_count' || uc === 'vehicle_speed') uc = 'traffic'
+                      nav(`/camera/${a.cameraId}/${uc}`)
+                    }}
                     style={{ 
                       background: '#fff', border: '1px solid var(--border)', borderRadius: 16, padding: '12px 16px', 
                       display: 'flex', gap: 14, cursor: 'pointer', transition: 'all 0.2s', boxShadow: 'var(--shadow-sm)'

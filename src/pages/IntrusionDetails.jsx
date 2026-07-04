@@ -5,7 +5,7 @@ import { useCameras } from '../hooks/useCameras.js'
 import { useCameraAlerts } from '../hooks/useAlerts.js'
 import MiniCanvas from '../components/camera/MiniCanvas.jsx'
 import { Loading } from '../components/shared/index.jsx'
-import { trackerAPI } from '../services/api.js'
+import { sseManager } from '../lib/sseManager.js'
 
 export default function IntrusionDetails() {
   const { id } = useParams()
@@ -23,53 +23,54 @@ export default function IntrusionDetails() {
 
   useEffect(() => {
     if (!cam) return
-    let isMounted = true
 
-    const fetchAnalytics = async () => {
-      try {
-        if (!isMounted) return
+    const BASE_URL = import.meta.env.VITE_API_URL || ''
+    const url = `${BASE_URL}/api/sse/analytics/${cam.id || cam.camera_id}`
 
-        // Call the centralized API (handles USE_MOCK natively)
-        const payload = await trackerAPI.getLiveEvents(cam.id || cam.camera_id, config.route)
-        let rawDets = payload.detections || payload.events || (Array.isArray(payload) ? payload : [])
-        
-        if (rawDets.length > 0 && Math.random() > 0.6 && Object.keys(payload).length < 3) {
-           rawDets.push(rawDets[0])
+    const unsub = sseManager.subscribe(url, 'analytics', (payload) => {
+      const uc     = payload?.usecase
+      if (uc !== config.route) return
+
+      const tracks = payload?.data?.tracking_data?.tracks ?? []
+
+      const freshEvents = tracks.map(track => {
+        let conf = track.confidence
+        if (conf === undefined || conf === null) conf = 0.99
+        const confidenceVal = conf > 1 ? conf / 100 : conf
+
+        return {
+          id: `${uc}-${track.track_id}`,
+          track_id: track.track_id,
+          timestamp: payload.timestamp || new Date().toISOString(),
+          _type: config.label,
+          icon: AlertOctagon,
+          color: config.color,
+          title: 'Tracking Phase',
+          highlight: 'Monitoring',
+          plate_number: null,
+          vehicle_type: track.class_name || 'intruder',
+          confidence: confidenceVal,
+          isAlert: false
         }
+      })
 
-        const freshEvents = rawDets.map(det => {
-          return {
-            ...det,
-            track_id: Math.floor(Math.random() * 99999),
-            timestamp: new Date().toISOString(),
-            _type: config.label,
-            icon: AlertOctagon,
-            color: config.color,
-            title: 'Tracking Phase',
-            highlight: 'Monitoring',
-            plate_number: null,
-            vehicle_type: det.label,
-            isAlert: false
-          }
-        })
+      setLiveEvents(prev => {
+        const existingIds = new Set(prev.map(p => p.track_id))
+        const uniqueNew = freshEvents.filter(n => !existingIds.has(n.track_id))
+        if (uniqueNew.length === 0) return prev
+        return [...uniqueNew, ...prev].slice(0, 100)
+      })
 
-        setLiveEvents(prev => {
-           const existingIds = new Set(prev.map(p => p.track_id))
-           const uniqueNew = freshEvents.filter(n => !existingIds.has(n.track_id))
-           if (uniqueNew.length === 0) return prev
-           return [...uniqueNew, ...prev].slice(0, 100) 
-        })
+      setApiLoading(false)
+    })
 
-        setApiLoading(false)
-      } catch (err) { }
-    }
+    const timeout = setTimeout(() => {
+      setApiLoading(false)
+    }, 3000)
 
-    fetchAnalytics()
-    // Intrusion needs highly frequent pinging
-    const timer = setInterval(fetchAnalytics, 1500)
-    return () => { 
-      isMounted = false
-      clearInterval(timer)
+    return () => {
+      unsub()
+      clearTimeout(timeout)
     }
   }, [cam])
 

@@ -125,8 +125,12 @@ export default function UseCaseView() {
                 <MiniCanvas
                   camera={cam}
                   onClick={() => {
-                    if (['traffic', 'people_count', 'crowd_alert', 'intrusion'].includes(uc.id)) {
-                      nav(`/camera/${camId}/${uc.id}`)
+                    let targetUc = uc.id
+                    if (targetUc === 'vehicle_count' || targetUc === 'vehicle_speed') {
+                      targetUc = 'traffic'
+                    }
+                    if (['traffic', 'people_count', 'crowd_alert', 'intrusion'].includes(targetUc)) {
+                      nav(`/camera/${camId}/${targetUc}`)
                     } else {
                       setSelectedCard(isSelected ? null : camId)
                     }

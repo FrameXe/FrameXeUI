@@ -5,6 +5,7 @@ import { useAllAlerts } from '../hooks/useAlerts.js'
 import { USE_CASES, UC_MAP } from '../constants/useCases.js'
 import { Loading } from '../components/shared/index.jsx'
 import { useAuthStore } from '../store/index.js'
+import SSEStatusDot from '../components/SSEStatusDot.jsx'
 import { 
   AlertTriangle, Shield, Camera, X, Users, Download, Maximize2, 
   CheckCircle2, Search, Filter
@@ -34,7 +35,7 @@ const SEV = {
 export default function EventsAlerts() {
   const nav = useNavigate()
   const { cameras, loading: camsLoading } = useCameras()
-  const { alerts, loading: alertsLoading, ack, unread } = useAllAlerts(cameras)
+  const { alerts, loading: alertsLoading, ack, unread, connected } = useAllAlerts(cameras)
   const user = useAuthStore(s => s.user)
   const allowedUsecases = user?.allowedUsecases || []
 
@@ -126,7 +127,10 @@ export default function EventsAlerts() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 32, fontWeight: 900, color: T.text, letterSpacing: '-0.03em' }}>System Safety Center</h1>
-          <p style={{ margin: '6px 0 0', fontSize: 14, color: T.textSecondary, fontWeight: 500 }}>Global monitoring and forensic investigation suite.</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
+            <p style={{ margin: 0, fontSize: 14, color: T.textSecondary, fontWeight: 500 }}>Global monitoring and forensic investigation suite.</p>
+            <SSEStatusDot connected={connected} showLabel />
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
            {urlAlertId && (
