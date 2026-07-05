@@ -241,7 +241,8 @@ export default function CanvasEditor({ camera, onClose }) {
       const payloadUc = payload?.usecase ? toFrontend(payload.usecase) : ucKey
       const color   = UC_CANVAS[ucKey]?.color || UC_CANVAS[payloadUc]?.color || '#00cfff'
 
-      const newDets = objects.map(obj => {
+      // Phase-1 LERP: build incoming detections with target coords
+      const incoming = objects.map(obj => {
         const bbox = obj.bbox || {}
         const x = bbox.x ?? obj.x ?? 0, y = bbox.y ?? obj.y ?? 0
         const w = bbox.width ?? bbox.w ?? obj.width ?? obj.w ?? 0
@@ -253,16 +254,49 @@ export default function CanvasEditor({ camera, onClose }) {
           useCase:    ucKey, color,
           label:      obj.label || UC_CANVAS[ucKey]?.label || ucKey,
           confidence: confPct,
-          x, y, w, h, hasBbox: w > 0 && h > 0,
+          x, y, w, h,                         // raw incoming coords (used as TARGET)
+          hasBbox:    w > 0 && h > 0,
           speedVal:   obj.speed ?? null, age: 0, alpha: 1,
         }
       })
 
-      detsRef.current = [...detsRef.current.filter(d => d.useCase !== ucKey), ...newDets]
-      if (newDets.length > 0) {
+      // ── LERP merge: match by track id, update only TARGET, keep CURRENT ──
+      // Keeps boxes sliding smoothly instead of jumping on every SSE payload.
+      const incomingIds = new Set(incoming.map(d => d.id))
+      const existingMap = new Map(detsRef.current.map(d => [d.id, d]))
+
+      const merged = incoming.map(d => {
+        const ex = existingMap.get(d.id)
+        if (!ex) {
+          // New track: current == target (no slide yet)
+          return { ...d, targetX: d.x, targetY: d.y, targetW: d.w, targetH: d.h, age: 0, alpha: 1 }
+        }
+        // Existing track: keep CURRENT (x,y,w,h) for smooth slide, only bump TARGET
+        return {
+          ...ex,
+          targetX:    d.x,  targetY:    d.y,  targetW:    d.w,  targetH:    d.h,
+          confidence: d.confidence,
+          speedVal:   d.speedVal ?? ex.speedVal,
+          label:      d.label,
+          age:        0,    // refreshed → reset fade clock
+          alpha:      1,
+        }
+      })
+
+      // Stale tracks (this UC, not seen this payload) get a grace window before
+      // removal so a 1-frame SORT miss doesn't yank the box off-screen.
+      const GRACE_FRAMES = 30
+      const staleKept = detsRef.current
+        .filter(d => d.useCase === ucKey && !incomingIds.has(d.id))
+        .map(d => ({ ...d, targetGone: true }))   // mark: keep sliding toward last target, fade out
+
+      const otherUC = detsRef.current.filter(d => d.useCase !== ucKey)
+      detsRef.current = [...otherUC, ...merged, ...staleKept]
+
+      if (incoming.length > 0) {
         setDetFeed(prev => {
           const existingIds = new Set(prev.slice(0, 20).map(d => d.id))
-          const fresh = newDets.filter(d => !existingIds.has(d.id))
+          const fresh = incoming.filter(d => !existingIds.has(d.id))
           if (fresh.length === 0) return prev
           setTotalDets(n => n + fresh.length)
           return [...fresh.map(d => ({ ...d, ts: new Date().toLocaleTimeString() })), ...prev].slice(0, 80)
@@ -348,7 +382,34 @@ export default function CanvasEditor({ camera, onClose }) {
       const origW = (camera.hlsUrl && vid?.videoWidth) ? vid.videoWidth : 1280
       const origH = (camera.hlsUrl && vid?.videoHeight) ? vid.videoHeight : 720
 
-      detsRef.current = detsRef.current.map(d => ({ ...d, age: d.age + 1, alpha: Math.max(0, 1 - d.age / 80) })).filter(d => d.alpha > 0.04)
+      // ── Phase-1 LERP: slide current coords toward target every frame ──
+      // Smooth 60 FPS motion even though backend only updates ~5 FPS.
+      // - Tracks still being seen: alpha held at 1, slow LERP (0.18) toward target.
+      // - Tracks gone from latest payload (targetGone): keep sliding to last target,
+      //   then fade out over a grace window so brief SORT misses don't flicker.
+      const LERP = 0.18
+      const HOLD_ALPHA_AGE = 6          // ~0.1s @60fps: don't fade freshly-seen boxes
+      const FADE_WINDOW = 180           // ~3s total fade-out window
+      detsRef.current = detsRef.current
+        .map(d => {
+          const nextAge = d.age + 1
+          const tx = d.targetX ?? d.x, ty = d.targetY ?? d.y
+          const tw = d.targetW ?? d.w, th = d.targetH ?? d.h
+          const nx = d.x + (tx - d.x) * LERP
+          const ny = d.y + (ty - d.y) * LERP
+          const nw = d.w + (tw - d.w) * LERP
+          const nh = d.h + (th - d.h) * LERP
+          // Alpha: hold bright while recently seen, then fade (faster if target gone)
+          let alpha
+          if (nextAge <= HOLD_ALPHA_AGE) {
+            alpha = 1
+          } else {
+            const window = d.targetGone ? 30 : FADE_WINDOW
+            alpha = Math.max(0, 1 - (nextAge - HOLD_ALPHA_AGE) / window)
+          }
+          return { ...d, x: nx, y: ny, w: nw, h: nh, age: nextAge, alpha }
+        })
+        .filter(d => d.alpha > 0.04)
       detsRef.current.forEach(d => drawDetBox(ctx, d, W, H, origW, origH))
 
       // Virtual counting line

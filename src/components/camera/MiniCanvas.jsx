@@ -48,7 +48,8 @@ export default function MiniCanvas({ camera, onClick, onDoubleClick }) {
         ? payload
         : (payload?.objects ?? payload?.detections ?? [])
 
-      detsRef.current = objects.map(obj => {
+      // Phase-1 LERP: build incoming with raw coords (= TARGET)
+      const incoming = objects.map(obj => {
         const bbox = obj.bbox || {}
         const x    = bbox.x      ?? obj.x ?? 0
         const y    = bbox.y      ?? obj.y ?? 0
@@ -64,11 +65,37 @@ export default function MiniCanvas({ camera, onClick, onDoubleClick }) {
           color,
           label:      obj.label || frontendUc,
           confidence: confPct,
-          x, y, w, h,
+          x, y, w, h,                       // raw coords → used as TARGET
           hasBbox:    w > 0 && h > 0,
           age: 0, alpha: 1,
         }
       })
+
+      // ── LERP merge: match by id, update TARGET only, keep CURRENT for slide ──
+      const incomingIds = new Set(incoming.map(d => d.id))
+      const existingMap = new Map(detsRef.current.map(d => [d.id, d]))
+
+      const merged = incoming.map(d => {
+        const ex = existingMap.get(d.id)
+        if (!ex) {
+          return { ...d, targetX: d.x, targetY: d.y, targetW: d.w, targetH: d.h, age: 0, alpha: 1 }
+        }
+        return {
+          ...ex,
+          targetX:    d.x, targetY:    d.y, targetW:    d.w, targetH:    d.h,
+          confidence: d.confidence,
+          label:      d.label,
+          age:        0,
+          alpha:      1,
+        }
+      })
+
+      // Stale tracks (not in this payload): brief grace before removal
+      const staleKept = detsRef.current
+        .filter(d => !incomingIds.has(d.id))
+        .map(d => ({ ...d, targetGone: true }))
+
+      detsRef.current = [...merged, ...staleKept]
     }
 
     const u1 = sseManager.subscribe(url, backendUc,   handlePayload)
@@ -102,8 +129,28 @@ export default function MiniCanvas({ camera, onClick, onDoubleClick }) {
       const origW = (camera.hlsUrl && vid?.videoWidth) ? vid.videoWidth : 1280
       const origH = (camera.hlsUrl && vid?.videoHeight) ? vid.videoHeight : 720
 
+      // ── Phase-1 LERP: slide current toward target each frame ──
+      const LERP = 0.18
+      const HOLD_ALPHA_AGE = 6
+      const FADE_WINDOW = 150
       detsRef.current = detsRef.current
-        .map(d => ({ ...d, age: d.age + 1, alpha: Math.max(0, 1 - d.age / 70) }))
+        .map(d => {
+          const nextAge = d.age + 1
+          const tx = d.targetX ?? d.x, ty = d.targetY ?? d.y
+          const tw = d.targetW ?? d.w, th = d.targetH ?? d.h
+          const nx = d.x + (tx - d.x) * LERP
+          const ny = d.y + (ty - d.y) * LERP
+          const nw = d.w + (tw - d.w) * LERP
+          const nh = d.h + (th - d.h) * LERP
+          let alpha
+          if (nextAge <= HOLD_ALPHA_AGE) {
+            alpha = 1
+          } else {
+            const window = d.targetGone ? 30 : FADE_WINDOW
+            alpha = Math.max(0, 1 - (nextAge - HOLD_ALPHA_AGE) / window)
+          }
+          return { ...d, x: nx, y: ny, w: nw, h: nh, age: nextAge, alpha }
+        })
         .filter(d => d.alpha > 0.05)
       detsRef.current.forEach(d => drawDetBox(ctx, d, W, H, origW, origH))
 
