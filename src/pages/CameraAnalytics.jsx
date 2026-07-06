@@ -190,7 +190,13 @@ export default function CameraAnalytics() {
           })
         }
 
-        const ts  = new Date().toLocaleTimeString()
+        const formatTime = (tsSec) => {
+          const date = tsSec ? new Date(tsSec * 1000) : new Date();
+          const pad = (num) => String(num).padStart(2, '0');
+          const ms = String(date.getMilliseconds()).padStart(3, '0');
+          return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${ms}`;
+        };
+        const tsString = formatTime(payload?.timestamp);
         const now = Date.now()
         const newDets = objects.map((obj, i) => {
           const conf    = obj.confidence ?? 0
@@ -201,7 +207,7 @@ export default function CameraAnalytics() {
             useCase:    frontendUc,
             confidence: confPct,
             color,
-            ts,
+            ts:         tsString,
           }
         })
         setDetLog(prev => [...newDets, ...prev].slice(0, 100))
