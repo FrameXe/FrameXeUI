@@ -257,6 +257,7 @@ export default function CanvasEditor({ camera, onClose }) {
           x, y, w, h,                         // raw incoming coords (used as TARGET)
           hasBbox:    w > 0 && h > 0,
           speedVal:   obj.speed ?? null, age: 0, alpha: 1,
+          plate:      obj.plate || obj.number_plate || null,
         }
       })
 
@@ -299,7 +300,16 @@ export default function CanvasEditor({ camera, onClose }) {
           const fresh = incoming.filter(d => !existingIds.has(d.id))
           if (fresh.length === 0) return prev
           setTotalDets(n => n + fresh.length)
-          return [...fresh.map(d => ({ ...d, ts: new Date().toLocaleTimeString() })), ...prev].slice(0, 80)
+
+          const formatTime = (tsSec) => {
+            const date = tsSec ? new Date(tsSec * 1000) : new Date();
+            const pad = (num) => String(num).padStart(2, '0');
+            const ms = String(date.getMilliseconds()).padStart(3, '0');
+            return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${ms}`;
+          };
+          const tsString = formatTime(payload?.timestamp);
+
+          return [...fresh.map(d => ({ ...d, ts: tsString })), ...prev].slice(0, 80)
         })
       }
     }
@@ -327,7 +337,11 @@ export default function CanvasEditor({ camera, onClose }) {
       if (!det.hasBbox || crossedIds.current.has(det.id)) return
       if (crossesLine(det, lineForCross, canvas.width, canvas.height)) {
         crossedIds.current.add(det.id); det.crossed = true; countRef.current++; hit = true
-        setCrossLog(p => [{ label: det.label, confidence: det.confidence, speedVal: det.speedVal, ts: new Date().toLocaleTimeString() }, ...p.slice(0, 99)])
+        const pad = (num) => String(num).padStart(2, '0');
+        const now = new Date();
+        const ms = String(now.getMilliseconds()).padStart(3, '0');
+        const nowMs = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}.${ms}`;
+        setCrossLog(p => [{ label: det.label, confidence: det.confidence, speedVal: det.speedVal, ts: det.ts || nowMs }, ...p.slice(0, 99)])
       }
     })
     if (hit) { setLineCount(countRef.current); setFlashRed(true); setTimeout(() => setFlashRed(false), 400) }
@@ -389,7 +403,7 @@ export default function CanvasEditor({ camera, onClose }) {
       //   then fade out over a grace window so brief SORT misses don't flicker.
       const LERP = 0.18
       const HOLD_ALPHA_AGE = 6          // ~0.1s @60fps: don't fade freshly-seen boxes
-      const FADE_WINDOW = 180           // ~3s total fade-out window
+      const FADE_WINDOW = 60            // ~1s total fade-out window
       detsRef.current = detsRef.current
         .map(d => {
           const nextAge = d.age + 1
