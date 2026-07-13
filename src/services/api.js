@@ -88,8 +88,6 @@ export function normalizeAlert(a, cam = {}) {
     acknowledged: a.acknowledged || false,
     timestamp:    a.timestamp || a.created_at || new Date().toISOString(),
     usecase:      uc,
-    thumbnail_url: a.thumbnail_url || a.snapshot_url || null,
-    full_res_url:  a.full_res_url || a.snapshot_url || null,
   }
 }
 
