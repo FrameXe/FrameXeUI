@@ -11,7 +11,7 @@ const ST = {
   offline:  { color: '#94a3b8', bg: '#f8fafc', border: '#e2e8f0', label: 'Offline' },
 }
 
-export default function MiniCanvas({ camera, onClick, onDoubleClick }) {
+export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleClick }) {
   const canvasRef = useRef(null)
   const videoRef  = useRef(null)
   const animRef   = useRef(null)
@@ -34,19 +34,31 @@ export default function MiniCanvas({ camera, onClick, onDoubleClick }) {
   // Endpoint: /api/sse/cameras/{id}/detections/{usecase}
   // Payload : { camera_id, usecase, objects:[{id,label,bbox:{x,y,width,height},confidence}] }
   useEffect(() => {
-    if (!isActive || !camera.id || !camera.useCase) return
+    const currentUseCase = activeUseCase || camera.useCase
+    if (!isActive || !camera.id || !currentUseCase) return
     detsRef.current = []
 
     // 'traffic' on frontend === 'vehicle_count' on backend
-    const frontendUc = camera.useCase === 'vehicle_count' ? 'traffic' : camera.useCase
-    const backendUc  = camera.useCase === 'traffic' ? 'vehicle_count' : camera.useCase
+    const frontendUc = currentUseCase === 'vehicle_count' ? 'traffic' : currentUseCase
+    const backendUc  = currentUseCase === 'traffic' ? 'vehicle_count' : currentUseCase
     const url   = `/api/sse/cameras/${camera.id}/detections/${backendUc}`
-    const color = UC_COLOR[frontendUc] || UC_COLOR[camera.useCase] || '#2563eb'
+    const color = UC_COLOR[frontendUc] || UC_COLOR[currentUseCase] || '#2563eb'
 
     const handlePayload = (payload) => {
-      const objects = Array.isArray(payload)
+      const rawObjects = Array.isArray(payload)
         ? payload
         : (payload?.objects ?? payload?.detections ?? [])
+
+      // Filter boxes to match only the target suite type
+      const objects = rawObjects.filter(obj => {
+        const label = (obj.label || "").toLowerCase().trim();
+        if (frontendUc === 'people_count') {
+          return label === 'person' || label === 'people' || label === 'pedestrian';
+        } else if (frontendUc === 'traffic') {
+          return label !== 'person' && label !== 'people' && label !== 'pedestrian';
+        }
+        return true;
+      });
 
       // Phase-1 LERP: build incoming with raw coords (= TARGET)
       const incoming = objects.map(obj => {
@@ -103,7 +115,7 @@ export default function MiniCanvas({ camera, onClick, onDoubleClick }) {
     const u3 = sseManager.subscribe(url, 'message',   handlePayload)
 
     return () => { u1(); u2(); u3() }
-  }, [camera.id, camera.useCase, isActive])
+  }, [camera.id, camera.useCase, activeUseCase, isActive])
 
   // Render loop
   useEffect(() => {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Activity, Users, Car, Maximize2, Zap, RefreshCw } from 'lucide-react'
 import { useCameras }    from '../hooks/useCameras.js'
 import MiniCanvas        from '../components/camera/MiniCanvas.jsx'
@@ -40,6 +40,13 @@ export default function CameraAnalytics() {
 
   const cam   = cameras.find(c => c.id === id || c.camera_id === id)
   const camId = cam?.id || cam?.camera_id || id
+  const location = useLocation()
+  
+  const currentPathUseCase = location.pathname.includes('/people_count') ? 'people_count'
+                             : location.pathname.includes('/traffic') ? 'traffic'
+                             : location.pathname.includes('/crowd_alert') ? 'crowd_alert'
+                             : location.pathname.includes('/intrusion') ? 'intrusion'
+                             : null
 
   // ── REST analytics (polled every 5s) ──────────────────────
   const [peopleStats,  setPeopleStats]  = useState(null) // from /api/analytics/people/{id}
@@ -65,11 +72,13 @@ export default function CameraAnalytics() {
 
   // Set active filters once camera loads
   useEffect(() => {
-    if (cam && activeFilters.length === 0) {
-      const ucs = [...new Set((cam.enabled_usecases || [cam.useCase] || []).map(DISPLAY_UC))]
+    if (cam) {
+      const ucs = currentPathUseCase 
+        ? [currentPathUseCase]
+        : [...new Set((cam.enabled_usecases || [cam.useCase] || []).map(DISPLAY_UC))]
       setActiveFilters(ucs)
     }
-  }, [cam])
+  }, [cam, currentPathUseCase])
 
   // ── Fetch REST snapshot ONCE on mount, then use live SSE ──
   useEffect(() => {
@@ -233,7 +242,9 @@ export default function CameraAnalytics() {
   if (!cam) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-3)' }}>Camera not found.</div>
   if (!hasCameraAccess(id)) return null
 
-  const displayUCs = [...new Set((cam.enabled_usecases || [cam.useCase] || []).map(DISPLAY_UC))]
+  const displayUCs = currentPathUseCase 
+    ? [currentPathUseCase] 
+    : [...new Set((cam.enabled_usecases || [cam.useCase] || []).map(DISPLAY_UC))]
 
   // ── Parse REST response (handles various backend shapes) ──
   // People: /api/analytics/people → total, count_in, count_out
@@ -320,7 +331,7 @@ export default function CameraAnalytics() {
 
         {/* Video feed (Clean card layout, no redundant stretching or dark wrappers) */}
         <div style={{ width: 460, flexShrink: 0 }}>
-          <MiniCanvas camera={cam} onClick={() => {}} onDoubleClick={() => nav(`/camera/${camId}`)} />
+          <MiniCanvas camera={cam} activeUseCase={currentPathUseCase} onClick={() => {}} onDoubleClick={() => nav(`/camera/${camId}`)} />
         </div>
 
         {/* Stats column */}

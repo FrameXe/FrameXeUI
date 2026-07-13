@@ -90,7 +90,7 @@ export default function EventsAlerts() {
   const handleDownload = (e, a) => {
     e.stopPropagation()
     const link = document.createElement('a')
-    link.href = 'https://picsum.photos/1280/720'
+    link.href = a.full_res_url || a.thumbnail_url || 'https://picsum.photos/1280/720'
     link.download = `incident_${a.id}.jpg`
     link.click()
   }
@@ -112,7 +112,7 @@ export default function EventsAlerts() {
                  <button onClick={() => setViewingSnap(null)} style={{ background: '#f5f5f5', border: 'none', padding: 8, borderRadius: 30, cursor: 'pointer' }}><X size={20} /></button>
               </div>
               <div style={{ position: 'relative', background: '#000', aspectRatio: '16/9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                 <img src="https://picsum.photos/1280/720" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} alt="Snapshot" />
+                  <img src={viewingSnap.full_res_url || viewingSnap.thumbnail_url || "https://picsum.photos/1280/720"} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} alt="Snapshot" />
               </div>
               <div style={{ padding: '24px', display: 'flex', justifyContent: 'flex-end', gap: 12, background: '#fafafa' }}>
                  <button onClick={(e) => handleDownload(e, viewingSnap)} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--accent)', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 12, fontWeight: 800, cursor: 'pointer' }}>
@@ -247,7 +247,7 @@ export default function EventsAlerts() {
                                width: 160, height: 90, background: '#f1f5f9', borderRadius: 12, overflow: 'hidden', 
                                position: 'relative', cursor: 'pointer', border: '1px solid var(--border)', transition: 'all 0.3s'
                              }}>
-                              <img src="https://picsum.photos/320/180" style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Snapshot" />
+                              <img src={a.thumbnail_url || "https://picsum.photos/320/180"} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Snapshot" />
                               <div style={{ position: 'absolute', bottom: 6, right: 6, display: 'flex', gap: 6 }}>
                                  <button onClick={(e) => handleDownload(e, a)} style={{ background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', padding: 4, borderRadius: 6, display: 'flex' }}><Download size={12} /></button>
                                  <div style={{ background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', padding: 4, borderRadius: 6, display: 'flex' }}><Maximize2 size={12} /></div>

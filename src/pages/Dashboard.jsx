@@ -157,7 +157,7 @@ export default function Dashboard() {
                   >
                      {/* SNAPSHOT PREVIEW */}
                      <div style={{ width: 80, height: 45, borderRadius: 8, background: '#f1f5f9', flexShrink: 0, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                        <img src="https://picsum.photos/160/90" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} alt="Event" />
+                         <img src={a.thumbnail_url || "https://picsum.photos/160/90"} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} alt="Event" />
                      </div>
                      
                      <div style={{ flex: 1, minWidth: 0 }}>
