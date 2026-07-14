@@ -57,7 +57,27 @@ export const USE_CASES = [
 
 export const UC_MAP = Object.fromEntries(USE_CASES.map(u => [u.id, u]))
 export const UC_COLOR = Object.fromEntries(USE_CASES.map(u => [u.id, u.color]))
-UC_COLOR['vehicle_count'] = UC_COLOR['traffic']  // alias
+
+// Backend usecase aliases → frontend UC ids
+// Backend bhejta hai: vehicle_count, wrong_way, congestion, speeding, illegal_parking
+// Sab 'traffic' UC tile pe map hote hain
+const BACKEND_UC_ALIASES = {
+  vehicle_count:   'traffic',
+  wrong_way:       'traffic',
+  congestion:      'traffic',
+  speeding:        'traffic',
+  illegal_parking: 'traffic',
+  license_plate:   'traffic',
+}
+
+Object.entries(BACKEND_UC_ALIASES).forEach(([backendId, frontendId]) => {
+  if (UC_MAP[frontendId] && !UC_MAP[backendId]) {
+    UC_MAP[backendId]   = UC_MAP[frontendId]
+    UC_COLOR[backendId] = UC_COLOR[frontendId]
+  }
+})
+
+UC_COLOR['vehicle_count'] = UC_COLOR['traffic']  // explicit alias
 
 // Canvas box colors per usecase
 export const UC_CANVAS = {
@@ -69,4 +89,8 @@ export const UC_CANVAS = {
   vehicle_speed:   { color: '#ffd600', label: 'Vehicle' },
   queue_detection: { color: '#ff9f43', label: 'Queue' },
   lpr:             { color: '#a78bfa', label: 'Plate' },
+  wrong_way:       { color: '#ff6b35', label: 'Wrong Way' },
+  congestion:      { color: '#00cfff', label: 'Vehicle' },
+  speeding:        { color: '#ffd600', label: 'Vehicle' },
+  illegal_parking: { color: '#ff9f43', label: 'Vehicle' },
 }

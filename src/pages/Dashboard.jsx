@@ -143,11 +143,7 @@ export default function Dashboard() {
                 const s = SEV_STYLE[a.severity] || SEV_STYLE.medium
                 return (
                   <div key={a.id} 
-                    onClick={() => {
-                      let uc = a.usecase
-                      if (uc === 'vehicle_count' || uc === 'vehicle_speed') uc = 'traffic'
-                      nav(`/camera/${a.cameraId}/${uc}`)
-                    }}
+                    onClick={() => nav(`/camera/${a.cameraId}/${a.usecase}`)}
                     style={{ 
                       background: '#fff', border: '1px solid var(--border)', borderRadius: 16, padding: '12px 16px', 
                       display: 'flex', gap: 14, cursor: 'pointer', transition: 'all 0.2s', boxShadow: 'var(--shadow-sm)'
@@ -155,9 +151,20 @@ export default function Dashboard() {
                     onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
                     onMouseLeave={e => e.currentTarget.style.background = '#fff'}
                   >
-                     {/* SNAPSHOT PREVIEW */}
+                     {/* SNAPSHOT PREVIEW — real incident frame */}
                      <div style={{ width: 80, height: 45, borderRadius: 8, background: '#f1f5f9', flexShrink: 0, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                         <img src="https://picsum.photos/160/90" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} alt="Event" />
+                         {a.thumbnailUrl || a.fullResUrl ? (
+                           <img 
+                             src={a.thumbnailUrl || a.fullResUrl} 
+                             style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                             alt="Incident" 
+                             onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex' }}
+                           />
+                         ) : null}
+                         <div style={{ 
+                           width: '100%', height: '100%', display: a.thumbnailUrl || a.fullResUrl ? 'none' : 'flex',
+                           alignItems: 'center', justifyContent: 'center', fontSize: 18
+                         }}>🎥</div>
                      </div>
                      
                      <div style={{ flex: 1, minWidth: 0 }}>

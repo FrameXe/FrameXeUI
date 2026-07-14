@@ -2,7 +2,13 @@
 //  useAlerts — SSE primary, REST one-time initial load
 //
 //  SSE:  GET /api/sse/alerts?tenant_id=X  → event: "alert"
+//        Publisher: master_backend ingest.py → _publish_alerts_to_sse()
+//        Payload shape: LiveAlertItem
+//          { id, cameraId, cameraName, message, severity, usecase,
+//            timestamp, thumbnail_url, full_res_url, acknowledged }
+//
 //  REST: GET /api/alerts/live             → one-time on mount only
+//        Returns: same LiveAlertItem shape from MongoDB
 // ══════════════════════════════════════════════════════════════
 
 import { useState, useEffect, useRef } from 'react'
@@ -11,7 +17,10 @@ import { sseManager } from '../lib/sseManager.js'
 
 const BASE_URL  = import.meta.env.VITE_API_URL  || ''
 const TENANT_ID = import.meta.env.VITE_TENANT_ID || 'tenant_demo'
-const SSE_URL   = `${BASE_URL}/api/sse/alerts?tenant_id=${TENANT_ID}`
+
+// SSE URL — connects to master_backend's /api/sse/alerts
+// Publisher: ingest.py → _publish_alerts_to_sse() → Redis {tenant_id}:alerts
+const SSE_URL = `${BASE_URL}/api/sse/alerts?tenant_id=${TENANT_ID}`
 
 // ── Per-camera alerts ─────────────────────────────────────────
 // Initial REST load + SSE real-time stream, filtered by cameraId
@@ -32,15 +41,18 @@ export function useCameraAlerts(cameraId, usecase) {
       .finally(() => setLoading(false))
   }, [cameraId, usecase])
 
-  // SSE — real-time new alerts
+  // SSE — real-time new alerts (from master_backend direct publish)
   useEffect(() => {
     if (!cameraId) return
 
-    const unsub = sseManager.subscribe(SSE_URL, 'alert', (eventData) => {
-      const a = normalizeAlert(eventData)
-      const camId = a.cameraId
-      if (camId !== cameraId) return
-      if (usecase && a.usecase !== usecase) return
+    const handleAlert = (eventData) => {
+      // eventData is already JSON-parsed by sseManager
+      const raw = typeof eventData === 'string' ? JSON.parse(eventData) : eventData
+      const a = normalizeAlert(raw)
+
+      // Only show alerts for this camera
+      if (a.cameraId !== cameraId) return
+      if (usecase && a.usecase !== usecase && a.rawUsecase !== usecase) return
 
       setLoading(false)
       setConnected(true)
@@ -48,9 +60,13 @@ export function useCameraAlerts(cameraId, usecase) {
         if (prev.some(x => x.id === a.id)) return prev
         return [a, ...prev].slice(0, 100)
       })
-    })
+    }
 
-    return () => { unsub(); setConnected(false) }
+    // Subscribe to both 'alert' (named event) and 'message' (fallback)
+    const unsub1 = sseManager.subscribe(SSE_URL, 'alert',   handleAlert)
+    const unsub2 = sseManager.subscribe(SSE_URL, 'message', handleAlert)
+
+    return () => { unsub1(); unsub2(); setConnected(false) }
   }, [cameraId, usecase])
 
   const ack = (alertId) => {
@@ -75,24 +91,33 @@ export function useAllAlerts(cameras = []) {
     didLoad.current = true
     setLoading(true)
     alertAPI.getLive({ limit: 200 })
-      .then(d => setAlerts(Array.isArray(d) ? d : []))
+      .then(d => {
+        const normalized = (Array.isArray(d) ? d : []).map(a => normalizeAlert(a))
+        setAlerts(normalized)
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])  // empty deps = runs exactly once
 
-  // SSE — all new real-time alerts
+  // SSE — all new real-time alerts from master_backend
   useEffect(() => {
-    const unsub = sseManager.subscribe(SSE_URL, 'alert', (eventData) => {
-      const a = normalizeAlert(eventData)
+    const handleAlert = (eventData) => {
+      const raw = typeof eventData === 'string' ? JSON.parse(eventData) : eventData
+      const a = normalizeAlert(raw)
+
       setConnected(true)
       setLoading(false)
       setAlerts(prev => {
         if (prev.some(x => x.id === a.id)) return prev
         return [a, ...prev].slice(0, 500)
       })
-    })
+    }
 
-    return () => { unsub(); setConnected(false) }
+    // Subscribe to both named 'alert' event and generic 'message' fallback
+    const unsub1 = sseManager.subscribe(SSE_URL, 'alert',   handleAlert)
+    const unsub2 = sseManager.subscribe(SSE_URL, 'message', handleAlert)
+
+    return () => { unsub1(); unsub2(); setConnected(false) }
   }, [])  // subscribe once, singleton manages connection
 
   const ack = (cameraIdOrAlertId, alertIdOptional) => {

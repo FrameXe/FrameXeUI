@@ -16,7 +16,7 @@
 //  GET  /api/lpr/{id} ...
 // ══════════════════════════════════════════════════════════════
 
-import { API_BASE } from '../config/index.js'
+import { API_BASE, BEARER_TOKEN } from '../config/index.js'
 
 // ── HTTP helper ───────────────────────────────────────────────
 async function api(path, opts = {}) {
@@ -27,6 +27,7 @@ async function api(path, opts = {}) {
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      ...(BEARER_TOKEN ? { 'Authorization': `Bearer ${BEARER_TOKEN}` } : {}),
       ...(opts.headers || {}),
     },
     signal: opts.signal ?? AbortSignal.timeout(8000),
@@ -74,20 +75,49 @@ function normalizeCamera(c) {
 }
 
 // ── Alert normalizer ──────────────────────────────────────────
+// Backend se aane wale usecases ko frontend UC ids pe map karo.
+// Backend bhejta hai: vehicle_count, wrong_way, congestion, speeding, illegal_parking
+// Frontend mein sab → 'traffic' id pe map hote hain (useCases.js mein id: 'traffic')
+const BACKEND_TO_FRONTEND_UC = {
+  vehicle_count:   'traffic',
+  wrong_way:       'traffic',
+  congestion:      'traffic',
+  speeding:        'traffic',
+  illegal_parking: 'traffic',
+  people_count:    'people_count',
+  license_plate:   'traffic',   // LPR bhi traffic suite mein dikh sakta hai
+  crowd_alert:     'crowd_alert',
+  intrusion:       'intrusion',
+  vehicle_speed:   'vehicle_speed',
+}
+
 export function normalizeAlert(a, cam = {}) {
-  let uc = a.usecase || a.type || ''
-  if (uc === 'vehicle_count') uc = 'traffic'
+  const rawUc = a.usecase || a.type || ''
+  const uc    = BACKEND_TO_FRONTEND_UC[rawUc] ?? rawUc
+
+  // Snapshot URLs from the backend are absolute (built from request.base_url).
+  // If they ever arrive relative ("/api/snapshots/..."), prefix with API_BASE.
+  const toAbs = (u) => {
+    if (!u) return null
+    return /^https?:\/\//i.test(u) ? u : `${API_BASE}${u.startsWith('/') ? '' : '/'}${u}`
+  }
+  const thumbnailUrl = toAbs(a.thumbnail_url || a.thumbnailUrl)
+  const fullResUrl   = toAbs(a.full_res_url || a.fullResUrl || a.snapshot_url)
+
   return {
     id:           a.id || a.alert_id,
-    type:         a.type || a.usecase || 'alert',
+    type:         uc,
     cameraId:     a.camera_id || a.cameraId || cam.id || '',
-    cameraName:   a.cameraName || cam.name || '',
+    cameraName:   a.cameraName || a.camera_name || cam.name || '',
     location:     a.location || cam.location || '',
     message:      a.message || 'Alert',
-    severity:     a.severity || 'medium',
+    severity:     (a.severity || 'medium').toLowerCase(),
     acknowledged: a.acknowledged || false,
     timestamp:    a.timestamp || a.created_at || new Date().toISOString(),
     usecase:      uc,
+    rawUsecase:   rawUc,   // original backend usecase — debugging ke liye
+    thumbnailUrl,
+    fullResUrl,
   }
 }
 

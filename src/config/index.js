@@ -3,7 +3,7 @@
 // ╚══════════════════════════════════════════════════════════════╝
 
 export const API_BASE    = ''       // Vite proxy → http://13.60.162.231:8000
-export const BEARER_TOKEN = ''
+export const BEARER_TOKEN = 'jwt-disabled-dev-token'
 
 // HLS_BASE: set this if API doesn't return hls_url inline
 // Example: 'http://13.60.162.231:8080'
