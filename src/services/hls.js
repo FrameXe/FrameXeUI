@@ -24,10 +24,12 @@ export async function attachHLS(videoEl, hlsUrl) {
     if (Hls.isSupported()) {
       // Chrome, Firefox, Edge — hls.js use karo
       const hls = new Hls({
-        enableWorker:            true,
-        lowLatencyMode:          true,  // live stream ke liye
-        backBufferLength:        5,
-        maxLiveSyncPlaybackRate: 1.5,   // lag catch-up
+        enableWorker:               true,
+        lowLatencyMode:             true,           // live stream ke liye
+        liveSyncDurationCount:      2.0,            // 2 segments (~4s delay) buffer
+        liveMaxLatencyDurationCount: 3.5,           // hard cap — isse zyada lag nahi
+        maxLiveSyncPlaybackRate:    1.5,            // playback rate se lag catch-up
+        backBufferLength:           5,
       })
 
       hls.loadSource(hlsUrl)

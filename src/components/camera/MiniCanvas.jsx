@@ -12,31 +12,37 @@ const ST = {
 }
 
 export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleClick }) {
-  const canvasRef = useRef(null)
-  const videoRef  = useRef(null)
-  const animRef   = useRef(null)
-  const frameRef  = useRef(0)
-  const detsRef   = useRef([])
+  const canvasRef      = useRef(null)
+  const videoRef       = useRef(null)
+  const animRef        = useRef(null)
+  const frameRef       = useRef(0)
+  const detsRef        = useRef([])
+  const hlsInstanceRef = useRef(null)                  // PDT sync ke liye hls instance
+  const sseBufferRef   = useRef([])                    // sliding queue: [{ timestamp, objects }]
 
   const isActive = camera.status === 'active'
   const ucColor  = UC_COLOR[camera.useCase] || '#2563eb'
   const st       = ST[camera.status] || ST.inactive
 
-  // HLS attach
+  // HLS attach — instance ref mein store karo taaki render loop access kar sake
   useEffect(() => {
     if (!camera.hlsUrl) return
-    let hlsInst = null
-    attachHLS(videoRef.current, camera.hlsUrl).then(h => { hlsInst = h })
-    return () => hlsInst?.destroy()
+    attachHLS(videoRef.current, camera.hlsUrl).then(h => {
+      hlsInstanceRef.current = h
+    })
+    return () => {
+      hlsInstanceRef.current?.destroy()
+      hlsInstanceRef.current = null
+    }
   }, [camera.hlsUrl])
 
-  // Detection feed via SSE
-  // Endpoint: /api/sse/cameras/{id}/detections/{usecase}
-  // Payload : { camera_id, usecase, objects:[{id,label,bbox:{x,y,width,height},confidence}] }
+  // Detection feed via SSE — PDT sync ke liye buffer mein store karo
+  // Endpoint: /api/sse/cameras/${id}/detections/${usecase}
+  // Payload : { camera_id, usecase, timestamp, objects:[{id,label,bbox:{x,y,width,height},confidence}] }
   useEffect(() => {
     const currentUseCase = activeUseCase || camera.useCase
     if (!isActive || !camera.id || !currentUseCase) return
-    detsRef.current = []
+    sseBufferRef.current = []  // reconnect pe buffer clear karo
 
     // 'traffic' on frontend === 'vehicle_count' on backend
     const frontendUc = currentUseCase === 'vehicle_count' ? 'traffic' : currentUseCase
@@ -49,65 +55,48 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
         ? payload
         : (payload?.objects ?? payload?.detections ?? [])
 
-      // Filter boxes to match only the target suite type
+      // Filter boxes — sirf relevant use-case ke objects rakho
       const objects = rawObjects.filter(obj => {
-        const label = (obj.label || "").toLowerCase().trim();
+        const label = (obj.label || '').toLowerCase().trim()
         if (frontendUc === 'people_count') {
-          return label === 'person' || label === 'people' || label === 'pedestrian';
+          return label === 'person' || label === 'people' || label === 'pedestrian'
         } else if (frontendUc === 'traffic') {
-          return label !== 'person' && label !== 'people' && label !== 'pedestrian';
+          return label !== 'person' && label !== 'people' && label !== 'pedestrian'
         }
-        return true;
-      });
+        return true
+      })
 
-      // Phase-1 LERP: build incoming with raw coords (= TARGET)
-      const incoming = objects.map(obj => {
-        const bbox = obj.bbox || {}
-        const x    = bbox.x      ?? obj.x ?? 0
-        const y    = bbox.y      ?? obj.y ?? 0
-        const w    = bbox.width  ?? bbox.w ?? obj.width  ?? obj.w ?? 0
-        const h    = bbox.height ?? bbox.h ?? obj.height ?? obj.h ?? 0
-
-        let conf = obj.confidence ?? 0
+      // Raw detections ko standard shape mein map karo
+      const mappedObjects = objects.map(obj => {
+        const bbox  = obj.bbox || {}
+        const x     = bbox.x      ?? obj.x ?? 0
+        const y     = bbox.y      ?? obj.y ?? 0
+        const w     = bbox.width  ?? bbox.w ?? obj.width  ?? obj.w ?? 0
+        const h     = bbox.height ?? bbox.h ?? obj.height ?? obj.h ?? 0
+        let conf    = obj.confidence ?? 0
         const confPct = conf > 1 ? Number(conf) : Number(conf) * 100
-
         return {
-          id:         obj.id ? `${frontendUc}-${obj.id}` : `${frontendUc}-${Date.now()}`,
+          id:         obj.track_id || obj.id
+                        ? `${frontendUc}-${obj.track_id || obj.id}`
+                        : `${frontendUc}-${Math.random()}`,
           useCase:    frontendUc,
           color,
           label:      obj.label || frontendUc,
           confidence: confPct,
-          x, y, w, h,                       // raw coords → used as TARGET
+          x, y, w, h,
           hasBbox:    w > 0 && h > 0,
-          age: 0, alpha: 1,
         }
       })
 
-      // ── LERP merge: match by id, update TARGET only, keep CURRENT for slide ──
-      const incomingIds = new Set(incoming.map(d => d.id))
-      const existingMap = new Map(detsRef.current.map(d => [d.id, d]))
+      // Backend timestamp (epoch seconds → ms)
+      const sseTimeMs = (payload.timestamp || (Date.now() / 1000)) * 1000
 
-      const merged = incoming.map(d => {
-        const ex = existingMap.get(d.id)
-        if (!ex) {
-          return { ...d, targetX: d.x, targetY: d.y, targetW: d.w, targetH: d.h, age: 0, alpha: 1 }
-        }
-        return {
-          ...ex,
-          targetX:    d.x, targetY:    d.y, targetW:    d.w, targetH:    d.h,
-          confidence: d.confidence,
-          label:      d.label,
-          age:        0,
-          alpha:      1,
-        }
-      })
+      // Sliding queue mein push karo
+      sseBufferRef.current.push({ timestamp: sseTimeMs, objects: mappedObjects })
 
-      // Stale tracks (not in this payload): brief grace before removal
-      const staleKept = detsRef.current
-        .filter(d => !incomingIds.has(d.id))
-        .map(d => ({ ...d, targetGone: true }))
-
-      detsRef.current = [...merged, ...staleKept]
+      // 15 second se purani entries hata do — memory leak se bachao
+      const cutoff = Date.now() - 15000
+      sseBufferRef.current = sseBufferRef.current.filter(item => item.timestamp > cutoff)
     }
 
     const u1 = sseManager.subscribe(url, backendUc,   handlePayload)
@@ -117,7 +106,7 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
     return () => { u1(); u2(); u3() }
   }, [camera.id, camera.useCase, activeUseCase, isActive])
 
-  // Render loop
+  // Render loop — PDT sync + LERP interpolation
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || !isActive) return
@@ -128,8 +117,10 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
     const render = () => {
       if (!running) return
       frameRef.current++
-      const vid = videoRef.current
+      const vid     = videoRef.current
+      const hlsInst = hlsInstanceRef.current
 
+      // Video frame ya mock background draw karo
       if (camera.hlsUrl && vid && vid.readyState >= 2) {
         ctx.drawImage(vid, 0, 0, W, H)
         ctx.fillStyle = 'rgba(0,0,0,0.03)'
@@ -138,13 +129,66 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
         drawMockBg(ctx, W, H, frameRef.current, null)
       }
 
-      const origW = (camera.hlsUrl && vid?.videoWidth) ? vid.videoWidth : 1280
+      const origW = (camera.hlsUrl && vid?.videoWidth)  ? vid.videoWidth  : 1280
       const origH = (camera.hlsUrl && vid?.videoHeight) ? vid.videoHeight : 720
 
-      // ── Phase-1 LERP: slide current toward target each frame ──
+      // ── PDT TIMESTAMP SYNCHRONIZATION ──
+      // HLS playlist ke EXT-X-PROGRAM-DATE-TIME se current frame ka epoch time lo
+      // Usse sseBufferRef mein closest detection frame dhoondo
+      let targetObjects = []
+      let isSynced      = false
+
+      if (camera.hlsUrl && vid && hlsInst) {
+        const currentFrameTime = hlsInst.getProgramDateTime(vid.currentTime)
+        if (currentFrameTime) {
+          const epochMs = currentFrameTime.getTime()
+          // Buffer mein closest frame dhoondo
+          if (sseBufferRef.current.length > 0) {
+            const closestFrame = sseBufferRef.current.reduce((prev, curr) =>
+              Math.abs(curr.timestamp - epochMs) < Math.abs(prev.timestamp - epochMs) ? curr : prev
+            )
+            // Sirf 150ms jitter window ke andar match karo
+            if (Math.abs(closestFrame.timestamp - epochMs) < 150) {
+              targetObjects = closestFrame.objects
+              isSynced      = true
+            }
+          }
+        }
+      }
+
+      // Fallback: HLS metadata load nahi hua ya offline — latest buffer item use karo
+      if (!isSynced && sseBufferRef.current.length > 0) {
+        targetObjects = sseBufferRef.current[sseBufferRef.current.length - 1].objects
+      }
+
+      // ── LERP merge: targetObjects ko detsRef ke saath merge karo ──
+      const incomingIds = new Set(targetObjects.map(i => i.id))
+      const existingMap = new Map(detsRef.current.map(d => [d.id, d]))
+
+      const merged = targetObjects.map(inc => {
+        const ex = existingMap.get(inc.id)
+        if (ex) {
+          return {
+            ...ex,
+            targetX: inc.x, targetY: inc.y, targetW: inc.w, targetH: inc.h,
+            targetGone: false,
+            age:   0,
+            alpha: 1,
+          }
+        }
+        return { ...inc, targetX: inc.x, targetY: inc.y, targetW: inc.w, targetH: inc.h, targetGone: false, age: 0, alpha: 1 }
+      })
+
+      const staleKept = detsRef.current
+        .filter(d => !incomingIds.has(d.id))
+        .map(d => ({ ...d, targetGone: true }))
+
+      detsRef.current = [...merged, ...staleKept]
+
+      // ── Phase-1 LERP: current coords ko target ki taraf slide karo ──
       const LERP = 0.18
       const HOLD_ALPHA_AGE = 6
-      const FADE_WINDOW = 150
+      const FADE_WINDOW    = 150
       detsRef.current = detsRef.current
         .map(d => {
           const nextAge = d.age + 1
@@ -158,16 +202,17 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
           if (nextAge <= HOLD_ALPHA_AGE) {
             alpha = 1
           } else {
-            const window = d.targetGone ? 30 : FADE_WINDOW
-            alpha = Math.max(0, 1 - (nextAge - HOLD_ALPHA_AGE) / window)
+            const fadeWindow = d.targetGone ? 30 : FADE_WINDOW
+            alpha = Math.max(0, 1 - (nextAge - HOLD_ALPHA_AGE) / fadeWindow)
           }
           return { ...d, x: nx, y: ny, w: nw, h: nh, age: nextAge, alpha }
         })
         .filter(d => d.alpha > 0.05)
+
       detsRef.current.forEach(d => drawDetBox(ctx, d, W, H, origW, origH))
 
       if (detsRef.current.length > 0) {
-        ctx.font = `bold 11px Inter, sans-serif`
+        ctx.font      = `bold 11px Inter, sans-serif`
         ctx.fillStyle = ucColor + 'ee'
         ctx.fillText(`${detsRef.current.length}`, W - 20, H - 10)
       }
