@@ -293,3 +293,18 @@ export const trackerAPI = {
   getLiveEvents: (cameraId, usecase) =>
     api(`/api/cameras/${cameraId}/detections/${usecase}`),
 }
+
+// ════════════════════════════════════════════════════════════
+//  LINE CROSSING API
+// ════════════════════════════════════════════════════════════
+export const lineAPI = {
+  getCrossingCounts: (cameraId) => api(`/api/line/crossing/${cameraId}`),
+  recordCrossing: (body) => api('/api/line/crossing', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }),
+  resetCrossingCounts: (cameraId) => api(`/api/line/crossing/${cameraId}/reset`, {
+    method: 'POST',
+  }),
+}

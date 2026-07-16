@@ -52,10 +52,9 @@ export default defineConfig({
 
       // ── HLS streams (Edge device) ──────────────────────────────────
       '/hls': {
-        target: 'https://wnlpfl7c-8080.inc1.devtunnels.ms',
+        target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
-        headers: { 'X-Tunnel-Skip-AntiPhishing-Page': 'true' },
       },
     },
   },

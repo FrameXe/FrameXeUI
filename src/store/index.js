@@ -21,6 +21,20 @@ export const useAnalyticsStore = create((set) => ({
   summary: null, setSummary: (d) => set({ summary: d }),
 }))
 
+// Per-camera line crossing IN/OUT counts — written by CanvasEditor, read by CameraAnalytics
+export const useCrossStore = create((set, get) => ({
+  counts: {},   // { [cameraId]: { in: 0, out: 0 } }
+  addCrossing: (cameraId, dir) => set(s => {
+    const prev = s.counts[cameraId] || { in: 0, out: 0 }
+    return { counts: { ...s.counts, [cameraId]: { ...prev, [dir]: prev[dir] + 1 } } }
+  }),
+  setCounts: (cameraId, inCount, outCount) => set(s => ({
+    counts: { ...s.counts, [cameraId]: { in: inCount, out: outCount } }
+  })),
+  reset: (cameraId) => set(s => ({ counts: { ...s.counts, [cameraId]: { in: 0, out: 0 } } })),
+  get: (cameraId) => get().counts[cameraId] || { in: 0, out: 0 },
+}))
+
 // Dynamic user directory list helper
 const loadDynamicUsers = () => {
   try {
@@ -115,7 +129,14 @@ export const useAuthStore = create((set, get) => ({
   hasCameraAccess: (cameraId) => {
     const user = get().user
     if (!user) return false
-    return user.allowedCameras.includes(cameraId)
+    if (user.username === 'admin' || !user.allowedCameras) return true
+    const allowed = Array.isArray(user.allowedCameras) ? user.allowedCameras : []
+    return allowed.some(c => {
+      if (typeof c !== 'string' || typeof cameraId !== 'string') return false
+      const cClean = c.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+      const idClean = cameraId.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+      return c.toLowerCase() === cameraId.toLowerCase() || cClean === idClean
+    })
   },
 
   hasUseCaseAccess: (useCaseId) => {

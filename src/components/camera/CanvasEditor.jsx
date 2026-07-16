@@ -6,8 +6,8 @@ import { UC_COLOR, UC_MAP, UC_CANVAS } from '../../constants/useCases.js'
 import { useCameraAlerts }  from '../../hooks/useAlerts.js'
 import { Btn, Tag, SEV_COLOR } from '../shared/index.jsx'
 import { cameraAPI }    from '../../services/api.js'
+import { useCrossStore } from '../../store/index.js'
 
-// ── Line Config API ───────────────────────────────────────────
 const lineAPI = {
   get:  (camId) => fetch(`/api/line/config?cam_id=${camId}`).then(r => r.ok ? r.json() : null).catch(() => null),
   save: (body)  => fetch('/api/line/config', {
@@ -16,6 +16,11 @@ const lineAPI = {
     body: JSON.stringify(body),
   }).then(r => r.json()),
   del:  (camId) => fetch(`/api/line/config?cam_id=${camId}`, { method: 'DELETE' }).then(r => r.json()).catch(() => null),
+  recordCrossing: (body) => fetch('/api/line/crossing', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then(r => r.ok ? r.json() : null).catch(() => null),
 }
 
 // ── Draw Virtual Counting Line on canvas ──────────────────────
@@ -118,6 +123,9 @@ function hitTestEndpoint(pos, line) {
 }
 
 // ═════════════════════════════════════════════════════════════
+const toBackend  = uc => uc === 'traffic' ? 'vehicle_count' : uc
+const toFrontend = uc => uc === 'vehicle_count' ? 'traffic' : uc
+
 export default function CanvasEditor({ camera, onClose }) {
   const canvasRef    = useRef(null)
   const videoRef     = useRef(null)
@@ -126,6 +134,8 @@ export default function CanvasEditor({ camera, onClose }) {
   const detsRef      = useRef([])
   const countRef     = useRef(0)
   const crossedIds   = useRef(new Set())
+  const hlsInstanceRef = useRef(null)
+  const sseBufferRef   = useRef([])
 
   // All enabled usecases for this camera
   const allUsecases = camera.enabled_usecases || [camera.useCase] || []
@@ -143,6 +153,7 @@ export default function CanvasEditor({ camera, onClose }) {
   const [detFeed, setDetFeed]     = useState([])
   const [tab, setTab]             = useState('detections')
   const [hlsReady, setHlsReady]   = useState(false)
+  const [retryKey, setRetryKey]   = useState(0)
   const [totalDets, setTotalDets] = useState(0)
   const [lineCount, setLineCount] = useState(0)
 
@@ -210,12 +221,46 @@ export default function CanvasEditor({ camera, onClose }) {
       const t = setInterval(() => { if (vid.readyState >= 1) { setHlsReady(true); clearInterval(t) } }, 200)
       return () => { clearInterval(t); vid.pause(); vid.src = ''; setHlsReady(false) }
     }
+
+    let retryTimeout = null
+    const onError = () => {
+      setHlsReady(false)
+      if (!retryTimeout) {
+        retryTimeout = setTimeout(() => {
+          setRetryKey(k => k + 1)
+        }, 3000)
+      }
+    }
+    vid.addEventListener('error', onError)
+
     attachHLS(vid, camera.hlsUrl).then(h => {
       inst = h
-      const t = setInterval(() => { if (vid.readyState >= 2) { setHlsReady(true); clearInterval(t) } }, 400)
+      hlsInstanceRef.current = h
+      const t = setInterval(() => {
+        if (vid.readyState >= 1) {
+          setHlsReady(true)
+          clearInterval(t)
+        }
+      }, 400)
     })
-    return () => { inst?.destroy(); setHlsReady(false) }
-  }, [camera.hlsUrl, isMp4])
+
+    // Watchdog
+    const watchdog = setTimeout(() => {
+      if (vid.readyState < 1) {
+        console.log('[HLS Watchdog] Editor Stream not ready after 8s, retrying...', camera.camera_id)
+        setRetryKey(k => k + 1)
+      }
+    }, 8000)
+
+    return () => {
+      clearTimeout(watchdog)
+      clearTimeout(retryTimeout)
+      vid.removeEventListener('error', onError)
+      inst?.destroy()
+      hlsInstanceRef.current = null
+      setHlsReady(false)
+    }
+  }, [camera.hlsUrl, isMp4, retryKey])
 
   // ── Detection feed via SSE ────────────────────────────────
   useEffect(() => {
@@ -225,8 +270,6 @@ export default function CanvasEditor({ camera, onClose }) {
     const ucArray = [...activeUCs]
     if (ucArray.length === 0 || !camera.id) return
 
-    const toBackend  = uc => uc === 'traffic' ? 'vehicle_count' : uc
-    const toFrontend = uc => uc === 'vehicle_count' ? 'traffic' : uc
 
     const seenUrls = new Set()
     const uniqueUcs = ucArray.filter(uc => {
@@ -241,7 +284,7 @@ export default function CanvasEditor({ camera, onClose }) {
       const payloadUc = payload?.usecase ? toFrontend(payload.usecase) : ucKey
       const color   = UC_CANVAS[ucKey]?.color || UC_CANVAS[payloadUc]?.color || '#00cfff'
 
-      // Phase-1 LERP: build incoming detections with target coords
+      // Build incoming detections
       const incoming = objects.map(obj => {
         const bbox = obj.bbox || {}
         const x = bbox.x ?? obj.x ?? 0, y = bbox.y ?? obj.y ?? 0
@@ -254,45 +297,24 @@ export default function CanvasEditor({ camera, onClose }) {
           useCase:    ucKey, color,
           label:      obj.label || UC_CANVAS[ucKey]?.label || ucKey,
           confidence: confPct,
-          x, y, w, h,                         // raw incoming coords (used as TARGET)
+          x, y, w, h,
           hasBbox:    w > 0 && h > 0,
           speedVal:   obj.speed ?? null, age: 0, alpha: 1,
           plate:      obj.plate || obj.number_plate || null,
         }
       })
 
-      // ── LERP merge: match by track id, update only TARGET, keep CURRENT ──
-      // Keeps boxes sliding smoothly instead of jumping on every SSE payload.
-      const incomingIds = new Set(incoming.map(d => d.id))
-      const existingMap = new Map(detsRef.current.map(d => [d.id, d]))
-
-      const merged = incoming.map(d => {
-        const ex = existingMap.get(d.id)
-        if (!ex) {
-          // New track: current == target (no slide yet)
-          return { ...d, targetX: d.x, targetY: d.y, targetW: d.w, targetH: d.h, age: 0, alpha: 1 }
-        }
-        // Existing track: keep CURRENT (x,y,w,h) for smooth slide, only bump TARGET
-        return {
-          ...ex,
-          targetX:    d.x,  targetY:    d.y,  targetW:    d.w,  targetH:    d.h,
-          confidence: d.confidence,
-          speedVal:   d.speedVal ?? ex.speedVal,
-          label:      d.label,
-          age:        0,    // refreshed → reset fade clock
-          alpha:      1,
-        }
+      const sseTimeMs = (payload.timestamp || (Date.now() / 1000)) * 1000
+      sseBufferRef.current.push({
+        timestamp: sseTimeMs,
+        receivedAt: Date.now(),
+        objects: incoming,
+        useCase: ucKey
       })
 
-      // Stale tracks (this UC, not seen this payload) get a grace window before
-      // removal so a 1-frame SORT miss doesn't yank the box off-screen.
-      const GRACE_FRAMES = 30
-      const staleKept = detsRef.current
-        .filter(d => d.useCase === ucKey && !incomingIds.has(d.id))
-        .map(d => ({ ...d, targetGone: true }))   // mark: keep sliding toward last target, fade out
-
-      const otherUC = detsRef.current.filter(d => d.useCase !== ucKey)
-      detsRef.current = [...otherUC, ...merged, ...staleKept]
+      // Keep last 20 seconds of received payloads
+      const cutoff = Date.now() - 20000
+      sseBufferRef.current = sseBufferRef.current.filter(item => item.receivedAt > cutoff)
 
       if (incoming.length > 0) {
         setDetFeed(prev => {
@@ -326,26 +348,7 @@ export default function CanvasEditor({ camera, onClose }) {
     return () => unsubs.forEach(fn => fn())
   }, [camera.id, activeUCs])
 
-  // ── Crossing check (virtual line) ─────────────────────────
-  useEffect(() => {
-    const line = virtualLineRef.current
-    if (!line?.p1 || !line?.p2) return
-    const canvas = canvasRef.current; if (!canvas) return
-    const lineForCross = { x1: line.p1.x, y1: line.p1.y, x2: line.p2.x, y2: line.p2.y }
-    let hit = false
-    detsRef.current.forEach(det => {
-      if (!det.hasBbox || crossedIds.current.has(det.id)) return
-      if (crossesLine(det, lineForCross, canvas.width, canvas.height)) {
-        crossedIds.current.add(det.id); det.crossed = true; countRef.current++; hit = true
-        const pad = (num) => String(num).padStart(2, '0');
-        const now = new Date();
-        const ms = String(now.getMilliseconds()).padStart(3, '0');
-        const nowMs = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}.${ms}`;
-        setCrossLog(p => [{ label: det.label, confidence: det.confidence, speedVal: det.speedVal, ts: det.ts || nowMs }, ...p.slice(0, 99)])
-      }
-    })
-    if (hit) { setLineCount(countRef.current); setFlashRed(true); setTimeout(() => setFlashRed(false), 400) }
-  }, [detFeed])
+
 
   // ── Draw polygon zone ─────────────────────────────────────
   const drawZone = useCallback((ctx, points, draft, cursorPos) => {
@@ -396,35 +399,112 @@ export default function CanvasEditor({ camera, onClose }) {
       const origW = (camera.hlsUrl && vid?.videoWidth) ? vid.videoWidth : 1280
       const origH = (camera.hlsUrl && vid?.videoHeight) ? vid.videoHeight : 720
 
+      // ── DIRECT TIMESTAMP SYNC ──
+      // Backend (WSL2/Docker) and browser share the same system clock.
+      // So we directly compare: payload.timestamp (Unix epoch ms) vs current video frame time.
+      // Current video frame was live at: Date.now() - hls.latency
+      const activeUCList = [...activeUCs].map(toFrontend)
+      let targetObjects = []
+
+      const hlsInst = hlsInstanceRef.current
+      const hlsLatencyMs = hlsInst ? (hlsInst.latency ?? 0) * 1000 : 0
+      const videoFrameTs = Date.now() - hlsLatencyMs // ms: what time was the current video frame live?
+
+      activeUCList.forEach(ucKey => {
+        const ucBuffer = sseBufferRef.current.filter(item => item.useCase === ucKey)
+        if (ucBuffer.length === 0) return
+
+        // Find detection whose backend frame timestamp is closest to current video frame time
+        const closestPayload = ucBuffer.reduce((prev, curr) =>
+          Math.abs(curr.timestamp - videoFrameTs) < Math.abs(prev.timestamp - videoFrameTs) ? curr : prev
+        )
+
+        targetObjects.push(...closestPayload.objects)
+      })
+
+      // ── LERP merge: targetObjects ko detsRef ke saath merge karo ──
+      const incomingIds = new Set(targetObjects.map(i => i.id))
+      const existingMap = new Map(detsRef.current.map(d => [d.id, d]))
+
+      const merged = targetObjects.map(inc => {
+        const ex = existingMap.get(inc.id)
+        if (ex) {
+          return {
+            ...ex,
+            targetX: inc.x, targetY: inc.y, targetW: inc.w, targetH: inc.h,
+            targetGone: false,
+            confidence: inc.confidence,
+            speedVal:   inc.speedVal ?? ex.speedVal,
+            label:      inc.label,
+            age:        0,
+            alpha:      1,
+          }
+        }
+        return { ...inc, targetX: inc.x, targetY: inc.y, targetW: inc.w, targetH: inc.h, targetGone: false, age: 0, alpha: 1 }
+      })
+
+      const otherUC = detsRef.current.filter(d => !activeUCList.includes(d.useCase))
+      detsRef.current = [...otherUC, ...merged]
+
       // ── Phase-1 LERP: slide current coords toward target every frame ──
-      // Smooth 60 FPS motion even though backend only updates ~5 FPS.
-      // - Tracks still being seen: alpha held at 1, slow LERP (0.18) toward target.
-      // - Tracks gone from latest payload (targetGone): keep sliding to last target,
-      //   then fade out over a grace window so brief SORT misses don't flicker.
       const LERP = 0.18
-      const HOLD_ALPHA_AGE = 6          // ~0.1s @60fps: don't fade freshly-seen boxes
-      const FADE_WINDOW = 60            // ~1s total fade-out window
       detsRef.current = detsRef.current
         .map(d => {
-          const nextAge = d.age + 1
           const tx = d.targetX ?? d.x, ty = d.targetY ?? d.y
           const tw = d.targetW ?? d.w, th = d.targetH ?? d.h
           const nx = d.x + (tx - d.x) * LERP
           const ny = d.y + (ty - d.y) * LERP
           const nw = d.w + (tw - d.w) * LERP
           const nh = d.h + (th - d.h) * LERP
-          // Alpha: hold bright while recently seen, then fade (faster if target gone)
-          let alpha
-          if (nextAge <= HOLD_ALPHA_AGE) {
-            alpha = 1
-          } else {
-            const window = d.targetGone ? 30 : FADE_WINDOW
-            alpha = Math.max(0, 1 - (nextAge - HOLD_ALPHA_AGE) / window)
-          }
-          return { ...d, x: nx, y: ny, w: nw, h: nh, age: nextAge, alpha }
+          return { ...d, x: nx, y: ny, w: nw, h: nh, alpha: 1 }
         })
-        .filter(d => d.alpha > 0.04)
       detsRef.current.forEach(d => drawDetBox(ctx, d, W, H, origW, origH))
+
+      // ── Crossing check (virtual line) ──
+      const line = virtualLineRef.current
+      if (line?.p1 && line?.p2) {
+        const lineForCross = { x1: line.p1.x, y1: line.p1.y, x2: line.p2.x, y2: line.p2.y }
+        let hit = false
+        detsRef.current.forEach(det => {
+          if (!det.hasBbox || crossedIds.current.has(det.id)) return
+          if (crossesLine(det, lineForCross, W, H)) {
+            crossedIds.current.add(det.id)
+            det.crossed = true
+            countRef.current++
+            hit = true
+            const pad = (num) => String(num).padStart(2, '0')
+            const now = new Date()
+            const ms = String(now.getMilliseconds()).padStart(3, '0')
+            const nowMs = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}.${ms}`
+
+            // ── Direction detection: which side of line is the detection on? ──
+            // Line normal vector (perpendicular): dx = -(y2-y1), dy = (x2-x1)
+            const lx1 = line.p1.x / W * origW, ly1 = line.p1.y / H * origH
+            const lx2 = line.p2.x / W * origW, ly2 = line.p2.y / H * origH
+            const nx = -(ly2 - ly1), ny = (lx2 - lx1) // normal
+            const cx = det.x + det.w / 2, cy = det.y + det.h / 2
+            const dot = (cx - lx1) * nx + (cy - ly1) * ny
+            // dot > 0 means detection center is on the "right" side of the line = IN
+            const crossDir = dot > 0 ? 'in' : 'out'
+
+            setCrossLog(p => [{ label: det.label, confidence: det.confidence, speedVal: det.speedVal, ts: det.ts || nowMs, dir: crossDir }, ...p.slice(0, 99)])
+            // Update per-camera crossing counts in store
+            useCrossStore.getState().addCrossing(camera.id, crossDir)
+            // Persist the crossing event to the backend database
+            lineAPI.recordCrossing({
+              cam_id: camera.id || camera.camera_id,
+              direction: crossDir,
+              label: det.label,
+              count: 1
+            })
+          }
+        })
+        if (hit) {
+          setLineCount(countRef.current)
+          setFlashRed(true)
+          setTimeout(() => setFlashRed(false), 400)
+        }
+      }
 
       // Virtual counting line
       drawVirtualLine(ctx, virtualLineRef.current, hoveredPt, draggingPtSt, mousePos, linePhase, lineDir)
@@ -623,7 +703,7 @@ export default function CanvasEditor({ camera, onClose }) {
   // ── RENDER ────────────────────────────────────────────────
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#04080f', display: 'flex', flexDirection: 'column', fontFamily: "'Courier New',monospace", color: '#c8d8e8', zIndex: 1000 }}>
-      <video ref={videoRef} style={{ display: 'none' }} muted playsInline autoPlay preload="auto" />
+      <video ref={videoRef} style={{ position: 'absolute', width: '1px', height: '1px', opacity: 0.001, pointerEvents: 'none', overflow: 'hidden' }} muted playsInline autoPlay preload="auto" />
 
       {/* ── TOOLBAR ─────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderBottom: '1px solid #0d1e2e', background: '#060d18', flexShrink: 0, flexWrap: 'wrap', rowGap: 6 }}>
@@ -656,6 +736,7 @@ export default function CanvasEditor({ camera, onClose }) {
           ? <Tag color={hlsReady ? '#00cfff' : '#ffd600'}>{hlsReady ? '● LIVE' : '◌ LOADING…'}</Tag>
           : <Tag color='#2a4050'>NO SOURCE</Tag>}
         {unackedCount > 0 && <Tag color='#ff3b3b'>⚠ {unackedCount} ALERTS</Tag>}
+
 
         <div style={{ flex: 1 }} />
 

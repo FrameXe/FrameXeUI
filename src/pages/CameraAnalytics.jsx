@@ -5,9 +5,9 @@ import { useCameras }    from '../hooks/useCameras.js'
 import MiniCanvas        from '../components/camera/MiniCanvas.jsx'
 import { Loading }       from '../components/shared/index.jsx'
 import { sseManager }    from '../lib/sseManager.js'
-import { useAuthStore }  from '../store/index.js'
+import { useAuthStore, useCrossStore }  from '../store/index.js'
 import { UC_CANVAS, UC_COLOR } from '../constants/useCases.js'
-import { analyticsAPI }  from '../services/api.js'
+import { analyticsAPI, lineAPI }  from '../services/api.js'
 
 const BACKEND_UC = uc => uc === 'traffic' ? 'vehicle_count' : uc
 const DISPLAY_UC = uc => uc === 'vehicle_count' ? 'traffic' : uc
@@ -37,9 +37,10 @@ export default function CameraAnalytics() {
   const nav    = useNavigate()
   const { cameras, loading } = useCameras()
   const hasCameraAccess = useAuthStore(s => s.hasCameraAccess)
-
   const cam   = cameras.find(c => c.id === id || c.camera_id === id)
   const camId = cam?.id || cam?.camera_id || id
+  // Live line crossing counts from CanvasEditor (updates when someone crosses virtual line)
+  const crossCounts = useCrossStore(s => s.counts[camId] || { in: 0, out: 0 })
   const location = useLocation()
   
   const currentPathUseCase = location.pathname.includes('/people_count') ? 'people_count'
@@ -61,6 +62,7 @@ export default function CameraAnalytics() {
   // ── Session unique tracks seen (fallback when REST counts are 0) ──
   const [seenVehicleIds, setSeenVehicleIds] = useState(new Set())
   const [seenPeopleIds,  setSeenPeopleIds]  = useState(new Set())
+  const [sseConnected, setSseConnected] = useState(false)
 
   const toggleFilter = uc =>
     setActiveFilters(prev => prev.includes(uc) ? prev.filter(f => f !== uc) : [...prev, uc])
@@ -87,13 +89,17 @@ export default function CameraAnalytics() {
 
     const fetchStats = async () => {
       try {
-        const [pRes, vRes] = await Promise.allSettled([
+        const [pRes, vRes, cRes] = await Promise.allSettled([
           analyticsAPI.getPeople(camId),
           analyticsAPI.getTraffic(camId),
+          lineAPI.getCrossingCounts(camId),
         ])
         if (!mounted) return
         if (pRes.status === 'fulfilled') setPeopleStats(pRes.value)
         if (vRes.status === 'fulfilled') setVehicleStats(vRes.value)
+        if (cRes.status === 'fulfilled' && cRes.value) {
+          useCrossStore.getState().setCounts(camId, cRes.value.count_in || 0, cRes.value.count_out || 0)
+        }
       } catch (e) {
         console.warn('[CameraAnalytics] initial stats fetch:', e)
       } finally {
@@ -109,16 +115,19 @@ export default function CameraAnalytics() {
       setPeopleStats(prev => {
         if (!payload) return prev
         const data = payload.data || payload
-        const next = { ...prev, ...payload, data }
         const metricsSource = data.metrics || data
-        next.metrics = {
-          ...(prev?.metrics || {}),
-          ...(data.metrics || {}),
-          total:     metricsSource.total     ?? metricsSource.count     ?? metricsSource.people_count ?? prev?.metrics?.total,
-          count_in:  metricsSource.count_in  ?? metricsSource.in        ?? metricsSource.in_count     ?? prev?.metrics?.count_in,
-          count_out: metricsSource.count_out ?? metricsSource.out       ?? metricsSource.out_count    ?? prev?.metrics?.count_out,
+        return {
+          ...prev,
+          ...payload,
+          data,
+          metrics: {
+            ...(prev?.metrics || {}),
+            ...(data.metrics || {}),
+            total:     metricsSource.cumulative_total ?? metricsSource.total ?? metricsSource.count ?? metricsSource.people_count ?? prev?.metrics?.total,
+            count_in:  metricsSource.cumulative_in    ?? metricsSource.count_in  ?? metricsSource.in        ?? metricsSource.in_count     ?? prev?.metrics?.count_in  ?? 0,
+            count_out: metricsSource.cumulative_out   ?? metricsSource.count_out ?? metricsSource.out       ?? metricsSource.out_count    ?? prev?.metrics?.count_out ?? 0,
+          }
         }
-        return next
       })
     }
 
@@ -135,8 +144,8 @@ export default function CameraAnalytics() {
         next.counts = {
           ...(prev?.counts || {}),
           ...(data.counts || {}),
-          IN:  countsSource.IN  ?? countsSource.in  ?? countsSource.line_count_in  ?? countsSource.count_in  ?? prev?.counts?.IN,
-          OUT: countsSource.OUT ?? countsSource.out ?? countsSource.line_count_out ?? countsSource.count_out ?? prev?.counts?.OUT,
+          IN:  countsSource.cumulative_entering ?? countsSource.IN  ?? countsSource.in  ?? countsSource.line_count_in  ?? countsSource.count_in  ?? prev?.counts?.IN ?? 0,
+          OUT: countsSource.cumulative_exiting  ?? countsSource.OUT ?? countsSource.out ?? countsSource.line_count_out ?? countsSource.count_out ?? prev?.counts?.OUT ?? 0,
         }
         return next
       })
@@ -169,6 +178,7 @@ export default function CameraAnalytics() {
       seen.add(b); return true
     })
 
+    const connectionStatuses = {}
     const unsubs = ucList.map(rawUc => {
       const backendUc  = BACKEND_UC(rawUc)
       const frontendUc = DISPLAY_UC(rawUc)
@@ -197,6 +207,21 @@ export default function CameraAnalytics() {
             objects.forEach(o => { if (o.id) next.add(o.id) })
             return next
           })
+          // Live count update from bbox SSE payload fields
+          const liveTotal = payload?.total ?? payload?.count ?? payload?.people_count ?? payload?.total_count
+          const liveIn    = payload?.count_in  ?? payload?.in  ?? payload?.in_count
+          const liveOut   = payload?.count_out ?? payload?.out ?? payload?.out_count
+          if (liveTotal != null || liveIn != null) {
+            setPeopleStats(prev => ({
+              ...prev,
+              metrics: {
+                ...(prev?.metrics || {}),
+                ...(liveTotal != null ? { total: liveTotal } : {}),
+                ...(liveIn    != null ? { count_in:  liveIn  } : {}),
+                ...(liveOut   != null ? { count_out: liveOut } : {}),
+              }
+            }))
+          }
         }
 
         const formatTime = (tsSec) => {
@@ -222,7 +247,12 @@ export default function CameraAnalytics() {
         setDetLog(prev => [...newDets, ...prev].slice(0, 100))
       }
 
-      const u1 = sseManager.subscribe(url, backendUc,   handle)
+      const onStatus = (status) => {
+        connectionStatuses[backendUc] = (status === 'connected')
+        setSseConnected(Object.values(connectionStatuses).some(Boolean))
+      }
+
+      const u1 = sseManager.subscribe(url, backendUc,   handle, onStatus)
       const u2 = sseManager.subscribe(url, 'detection', handle)
       const u3 = sseManager.subscribe(url, 'message',   handle)
       return () => { u1(); u2(); u3() }
@@ -246,19 +276,24 @@ export default function CameraAnalytics() {
     ? [currentPathUseCase] 
     : [...new Set((cam.enabled_usecases || [cam.useCase] || []).map(DISPLAY_UC))]
 
-  // ── Parse REST response (handles various backend shapes) ──
   // People: /api/analytics/people → total, count_in, count_out
-  const backendPeopleTotal = extractNum(peopleStats, ['total', 'count', 'people_count', 'total_count'])
-  const peopleIn           = extractNum(peopleStats, ['count_in', 'in', 'in_count', 'entry_count'])
-  const peopleOut          = extractNum(peopleStats, ['count_out', 'out', 'out_count', 'exit_count'])
-  const peopleTotal        = (backendPeopleTotal && backendPeopleTotal > 0) ? backendPeopleTotal : Math.max(backendPeopleTotal || 0, seenPeopleIds.size)
+  const backendPeopleTotal = extractNum(peopleStats, ['cumulative_total', 'total', 'count', 'people_count', 'total_count'])
+  
+  // People IN/OUT: prefer live line-crossing store, fallback to REST API (prioritizing cumulative counters)
+  const peopleIn  = crossCounts.in  > 0 ? crossCounts.in  : (extractNum(peopleStats, ['cumulative_in',  'count_in',  'in', 'in_count',  'entry_count']) ?? 0)
+  const peopleOut = crossCounts.out > 0 ? crossCounts.out : (extractNum(peopleStats, ['cumulative_out', 'count_out', 'out', 'out_count', 'exit_count'])  ?? 0)
+  const peopleTotal = (peopleIn > 0 || peopleOut > 0)
+    ? (peopleIn + peopleOut)
+    : ((backendPeopleTotal && backendPeopleTotal > 0) ? backendPeopleTotal : Math.max(backendPeopleTotal || 0, seenPeopleIds.size))
 
   // Vehicle: /api/analytics/traffic → counts.IN, counts.OUT, data.total_count, etc.
-  const vehicleIn          = vehicleStats?.counts?.IN  ?? vehicleStats?.counts?.in  ?? extractNum(vehicleStats, ['line_count_in', 'count_in', 'in', 'in_count'])
-  const vehicleOut         = vehicleStats?.counts?.OUT ?? vehicleStats?.counts?.out ?? extractNum(vehicleStats, ['line_count_out', 'count_out', 'out', 'out_count'])
+  const vehicleIn  = crossCounts.in  > 0 ? crossCounts.in  : (vehicleStats?.counts?.IN  ?? vehicleStats?.counts?.in  ?? extractNum(vehicleStats, ['cumulative_entering', 'line_count_in', 'count_in', 'in', 'in_count']) ?? 0)
+  const vehicleOut = crossCounts.out > 0 ? crossCounts.out : (vehicleStats?.counts?.OUT ?? vehicleStats?.counts?.out ?? extractNum(vehicleStats, ['cumulative_exiting', 'line_count_out', 'count_out', 'out', 'out_count']) ?? 0)
   const backendVehicleTotal = extractNum(vehicleStats, ['total_count', 'cumulative_total_today', 'total', 'count']) ?? 
                               ((vehicleIn != null || vehicleOut != null) ? (vehicleIn ?? 0) + (vehicleOut ?? 0) : null)
-  const vehicleTotal        = (backendVehicleTotal && backendVehicleTotal > 0) ? backendVehicleTotal : Math.max(backendVehicleTotal || 0, seenVehicleIds.size)
+  const vehicleTotal = (vehicleIn > 0 || vehicleOut > 0)
+    ? (vehicleIn + vehicleOut)
+    : ((backendVehicleTotal && backendVehicleTotal > 0) ? backendVehicleTotal : Math.max(backendVehicleTotal || 0, seenVehicleIds.size))
   
   const vehicleInFrame      = inFrame['traffic'] ?? extractNum(vehicleStats, ['vehicles_in_frame', 'vehicle_count']) ?? 0
   const peopleInFrame       = inFrame['people_count'] ?? extractNum(peopleStats, ['current_frame_count', 'people_in_frame', 'count']) ?? 0
@@ -356,18 +391,17 @@ export default function CameraAnalytics() {
                   <div style={{ fontSize: 52, fontWeight: 900, color: '#1e40af', lineHeight: 1 }}>
                     {peopleTotal ?? (peopleStats ? '0' : '--')}
                   </div>
-                  {peopleIn != null && (
-                    <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 700 }}>IN</div>
-                        <div style={{ fontSize: 20, fontWeight: 900, color: '#2563eb' }}>{peopleIn}</div>
-                      </div>
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 700 }}>OUT</div>
-                        <div style={{ fontSize: 20, fontWeight: 900, color: '#7c3aed' }}>{peopleOut ?? '--'}</div>
-                      </div>
+                  {/* IN / OUT — always show, 0 as fallback */}
+                  <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 700 }}>IN</div>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: '#2563eb' }}>{peopleIn ?? 0}</div>
                     </div>
-                  )}
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 700 }}>OUT</div>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: '#7c3aed' }}>{peopleOut ?? 0}</div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* In Frame from SSE */}
@@ -467,6 +501,21 @@ export default function CameraAnalytics() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Activity size={15} color="#2563eb" />
             <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>Live Detection Log</span>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              fontSize: 10, fontWeight: 800,
+              color: sseConnected ? '#16a34a' : '#f59e0b',
+              background: sseConnected ? '#f0fdf4' : '#fffbeb',
+              border: `1.5px solid ${sseConnected ? '#bbf7d0' : '#fef3c7'}`,
+              padding: '2px 8px', borderRadius: 10,
+              marginLeft: 4
+            }}>
+              <div className={sseConnected ? "" : "status-offline"} style={{
+                width: 5, height: 5, borderRadius: '50%',
+                background: sseConnected ? '#16a34a' : '#f59e0b',
+              }} />
+              {sseConnected ? 'CONNECTED' : 'CONNECTING…'}
+            </span>
             {filteredLog.length > 0 && (
               <span style={{ background: '#eff6ff', color: '#2563eb', fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 10 }}>
                 {filteredLog.length}
@@ -484,7 +533,7 @@ export default function CameraAnalytics() {
         {filteredLog.length === 0 ? (
           <div style={{ padding: '36px 20px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
             <Zap size={24} style={{ opacity: 0.15, display: 'block', margin: '0 auto 10px' }} />
-            Waiting for detection stream…
+            {sseConnected ? 'Listening for live detections...' : 'Connecting to detection stream...'}
             <div style={{ fontSize: 11, marginTop: 6, color: '#cbd5e1' }}>
               {displayUCs.map(uc => `/api/sse/cameras/${camId}/detections/${BACKEND_UC(uc)}`).join(' · ')}
             </div>

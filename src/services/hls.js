@@ -26,9 +26,9 @@ export async function attachHLS(videoEl, hlsUrl) {
       const hls = new Hls({
         enableWorker:               true,
         lowLatencyMode:             true,           // live stream ke liye
-        liveSyncDurationCount:      2.0,            // 2 segments (~4s delay) buffer
-        liveMaxLatencyDurationCount: 3.5,           // hard cap — isse zyada lag nahi
-        maxLiveSyncPlaybackRate:    1.5,            // playback rate se lag catch-up
+        liveSyncDuration:           6.0,            // Sync within 6s of live edge (3 segments of 2s)
+        liveMaxLatencyDuration:     10.0,           // Hard cap latency of 10s max (seconds)
+        maxLiveSyncPlaybackRate:    1.2,            // playback rate se lag catch-up
         backBufferLength:           5,
       })
 
@@ -42,8 +42,13 @@ export async function attachHLS(videoEl, hlsUrl) {
       hls.on(Hls.Events.ERROR, (_, data) => {
         if (data.fatal) {
           if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-            setTimeout(() => hls.startLoad(), 3000)
+            console.warn('[HLS] Network error, retrying...', data);
+            hls.startLoad()
+          } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+            console.warn('[HLS] Media error, trying to recover...', data);
+            hls.recoverMediaError()
           } else {
+            console.error('[HLS] Unrecoverable fatal error, destroying player', data);
             hls.destroy()
           }
         }

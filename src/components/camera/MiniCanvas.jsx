@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { attachHLS } from '../../services/hls.js'
 import { sseManager } from '../../lib/sseManager.js'
 import { drawDetBox, drawMockBg } from '../../services/canvasDraw.js'
@@ -18,7 +18,10 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
   const frameRef       = useRef(0)
   const detsRef        = useRef([])
   const hlsInstanceRef = useRef(null)                  // PDT sync ke liye hls instance
+  const hlsReadyRef    = useRef(false)                 // FIX: video actually playable hai?
   const sseBufferRef   = useRef([])                    // sliding queue: [{ timestamp, objects }]
+  const [hlsLoading, setHlsLoading] = useState(false)  // FIX: loading state for overlay
+  const [retryKey, setRetryKey] = useState(0)
 
   const isActive = camera.status === 'active'
   const ucColor  = UC_COLOR[camera.useCase] || '#2563eb'
@@ -27,14 +30,59 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
   // HLS attach — instance ref mein store karo taaki render loop access kar sake
   useEffect(() => {
     if (!camera.hlsUrl) return
-    attachHLS(videoRef.current, camera.hlsUrl).then(h => {
+    const vid = videoRef.current
+    hlsReadyRef.current = false
+    setHlsLoading(true)
+
+    let retryTimeout = null
+
+    // Video events — jab video actually play ho sake tab hlsReadyRef flip karo
+    const onCanPlay = () => {
+      hlsReadyRef.current = true
+      setHlsLoading(false)
+      vid.play().catch(() => {})
+    }
+    const onPlaying = () => {
+      hlsReadyRef.current = true
+      setHlsLoading(false)
+    }
+    const onError = () => {
+      hlsReadyRef.current = false
+      if (!retryTimeout) {
+        retryTimeout = setTimeout(() => {
+          setRetryKey(k => k + 1)
+        }, 3000)
+      }
+    }
+
+    vid.addEventListener('canplay', onCanPlay)
+    vid.addEventListener('playing', onPlaying)
+    vid.addEventListener('error', onError)
+
+    attachHLS(vid, camera.hlsUrl).then(h => {
       hlsInstanceRef.current = h
     })
+
+    // Watchdog: recreate player if it fails to buffer after 8s
+    const watchdog = setTimeout(() => {
+      if (!hlsReadyRef.current) {
+        console.log('[HLS Watchdog] Stream not ready after 8s, retrying...', camera.camera_id)
+        setRetryKey(k => k + 1)
+      }
+    }, 8000)
+
     return () => {
+      clearTimeout(watchdog)
+      clearTimeout(retryTimeout)
+      vid.removeEventListener('canplay', onCanPlay)
+      vid.removeEventListener('playing', onPlaying)
+      vid.removeEventListener('error', onError)
       hlsInstanceRef.current?.destroy()
       hlsInstanceRef.current = null
+      hlsReadyRef.current = false
+      setHlsLoading(false)
     }
-  }, [camera.hlsUrl])
+  }, [camera.hlsUrl, retryKey])
 
   // Detection feed via SSE — PDT sync ke liye buffer mein store karo
   // Endpoint: /api/sse/cameras/${id}/detections/${usecase}
@@ -91,12 +139,18 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
       // Backend timestamp (epoch seconds → ms)
       const sseTimeMs = (payload.timestamp || (Date.now() / 1000)) * 1000
 
-      // Sliding queue mein push karo
-      sseBufferRef.current.push({ timestamp: sseTimeMs, objects: mappedObjects })
 
-      // 15 second se purani entries hata do — memory leak se bachao
-      const cutoff = Date.now() - 15000
-      sseBufferRef.current = sseBufferRef.current.filter(item => item.timestamp > cutoff)
+
+      // Sliding queue mein push karo
+      sseBufferRef.current.push({
+        timestamp: sseTimeMs,
+        receivedAt: Date.now(),
+        objects: mappedObjects
+      })
+
+      // 20 second se purani entries hata do — memory leak se bachao
+      const cutoff = Date.now() - 20000
+      sseBufferRef.current = sseBufferRef.current.filter(item => item.receivedAt > cutoff)
     }
 
     const u1 = sseManager.subscribe(url, backendUc,   handlePayload)
@@ -120,43 +174,48 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
       const vid     = videoRef.current
       const hlsInst = hlsInstanceRef.current
 
+      // FIX: readyState >= 1 (HAVE_METADATA) use karo, aur hlsReadyRef check karo
+      // Pehle readyState >= 2 tha — HLS live stream pe yeh 2-3s lag sakta hai → black screen
+      const videoReady = camera.hlsUrl && vid && hlsReadyRef.current && vid.readyState >= 1
+
       // Video frame ya mock background draw karo
-      if (camera.hlsUrl && vid && vid.readyState >= 2) {
-        ctx.drawImage(vid, 0, 0, W, H)
-        ctx.fillStyle = 'rgba(0,0,0,0.03)'
-        for (let y = (frameRef.current * 2) % 4; y < H; y += 4) ctx.fillRect(0, y, W, 1)
+      if (videoReady) {
+        try {
+          ctx.drawImage(vid, 0, 0, W, H)
+          ctx.fillStyle = 'rgba(0,0,0,0.03)'
+          for (let y = (frameRef.current * 2) % 4; y < H; y += 4) ctx.fillRect(0, y, W, 1)
+        } catch (_) {
+          // Video element abhi ready nahi — mock bg draw karo
+          drawMockBg(ctx, W, H, frameRef.current, null)
+        }
       } else {
         drawMockBg(ctx, W, H, frameRef.current, null)
       }
 
-      const origW = (camera.hlsUrl && vid?.videoWidth)  ? vid.videoWidth  : 1280
-      const origH = (camera.hlsUrl && vid?.videoHeight) ? vid.videoHeight : 720
+      const origW = (videoReady && vid?.videoWidth)  ? vid.videoWidth  : 1280
+      const origH = (videoReady && vid?.videoHeight) ? vid.videoHeight : 720
 
-      // ── PDT TIMESTAMP SYNCHRONIZATION ──
-      // HLS playlist ke EXT-X-PROGRAM-DATE-TIME se current frame ka epoch time lo
-      // Usse sseBufferRef mein closest detection frame dhoondo
+      // ── DIRECT TIMESTAMP SYNC ──
+      // Backend and browser share the same system clock (WSL2/Docker on same machine).
+      // Compare payload.timestamp (Unix epoch ms) to current video frame time.
       let targetObjects = []
-      let isSynced      = false
+      let isSynced = false
 
-      if (camera.hlsUrl && vid && hlsInst) {
-        const currentFrameTime = hlsInst.getProgramDateTime(vid.currentTime)
-        if (currentFrameTime) {
-          const epochMs = currentFrameTime.getTime()
-          // Buffer mein closest frame dhoondo
-          if (sseBufferRef.current.length > 0) {
-            const closestFrame = sseBufferRef.current.reduce((prev, curr) =>
-              Math.abs(curr.timestamp - epochMs) < Math.abs(prev.timestamp - epochMs) ? curr : prev
-            )
-            // Sirf 150ms jitter window ke andar match karo
-            if (Math.abs(closestFrame.timestamp - epochMs) < 150) {
-              targetObjects = closestFrame.objects
-              isSynced      = true
-            }
-          }
+      if (videoReady && vid && hlsInst) {
+        const hlsLatencyMs = (hlsInst.latency ?? 0) * 1000
+        const videoFrameTs = Date.now() - hlsLatencyMs // when was the current video frame live?
+
+        if (sseBufferRef.current.length > 0) {
+          // Find detection whose backend timestamp is closest to current video frame time
+          const closestPayload = sseBufferRef.current.reduce((prev, curr) =>
+            Math.abs(curr.timestamp - videoFrameTs) < Math.abs(prev.timestamp - videoFrameTs) ? curr : prev
+          )
+          targetObjects = closestPayload.objects
+          isSynced = true
         }
       }
 
-      // Fallback: HLS metadata load nahi hua ya offline — latest buffer item use karo
+      // Fallback: show latest if video not ready or no HLS
       if (!isSynced && sseBufferRef.current.length > 0) {
         targetObjects = sseBufferRef.current[sseBufferRef.current.length - 1].objects
       }
@@ -179,35 +238,20 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
         return { ...inc, targetX: inc.x, targetY: inc.y, targetW: inc.w, targetH: inc.h, targetGone: false, age: 0, alpha: 1 }
       })
 
-      const staleKept = detsRef.current
-        .filter(d => !incomingIds.has(d.id))
-        .map(d => ({ ...d, targetGone: true }))
-
-      detsRef.current = [...merged, ...staleKept]
+      detsRef.current = merged
 
       // ── Phase-1 LERP: current coords ko target ki taraf slide karo ──
       const LERP = 0.18
-      const HOLD_ALPHA_AGE = 6
-      const FADE_WINDOW    = 150
       detsRef.current = detsRef.current
         .map(d => {
-          const nextAge = d.age + 1
           const tx = d.targetX ?? d.x, ty = d.targetY ?? d.y
           const tw = d.targetW ?? d.w, th = d.targetH ?? d.h
           const nx = d.x + (tx - d.x) * LERP
           const ny = d.y + (ty - d.y) * LERP
           const nw = d.w + (tw - d.w) * LERP
           const nh = d.h + (th - d.h) * LERP
-          let alpha
-          if (nextAge <= HOLD_ALPHA_AGE) {
-            alpha = 1
-          } else {
-            const fadeWindow = d.targetGone ? 30 : FADE_WINDOW
-            alpha = Math.max(0, 1 - (nextAge - HOLD_ALPHA_AGE) / fadeWindow)
-          }
-          return { ...d, x: nx, y: ny, w: nw, h: nh, age: nextAge, alpha }
+          return { ...d, x: nx, y: ny, w: nw, h: nh, alpha: 1 }
         })
-        .filter(d => d.alpha > 0.05)
 
       detsRef.current.forEach(d => drawDetBox(ctx, d, W, H, origW, origH))
 
@@ -220,7 +264,7 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
     }
     animRef.current = requestAnimationFrame(render)
     return () => { running = false; cancelAnimationFrame(animRef.current) }
-  }, [camera, isActive, ucColor])
+  }, [camera.id, camera.useCase, activeUseCase, isActive, ucColor])
 
   return (
     <div
@@ -236,7 +280,7 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
         transition: 'all 0.2s',
       }}
     >
-      <video ref={videoRef} style={{ display: 'none' }} muted playsInline autoPlay />
+      <video ref={videoRef} style={{ position: 'absolute', width: '1px', height: '1px', opacity: 0.001, pointerEvents: 'none', overflow: 'hidden' }} muted playsInline autoPlay />
 
       {/* Canvas area */}
       <div style={{ position: 'relative', aspectRatio: '16/9', background: '#0f172a', borderRadius: 'var(--radius) var(--radius) 0 0', overflow: 'hidden' }}>
@@ -249,6 +293,27 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
             <span style={{ fontSize: 28, opacity: 0.2 }}>📷</span>
             <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.1em', fontWeight: 600 }}>
               {camera.status === 'error' ? 'SIGNAL LOST' : 'OFFLINE'}
+            </span>
+          </div>
+        )}
+
+        {/* FIX: HLS loading overlay — black screen ki jagah buffering indicator */}
+        {isActive && camera.hlsUrl && hlsLoading && (
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 2,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexDirection: 'column', gap: 8,
+            background: 'rgba(15,23,42,0.7)',
+            backdropFilter: 'blur(2px)',
+          }}>
+            <div style={{
+              width: 28, height: 28, borderRadius: '50%',
+              border: '3px solid rgba(255,255,255,0.15)',
+              borderTopColor: ucColor,
+              animation: 'spin 0.8s linear infinite',
+            }} />
+            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', fontWeight: 700, letterSpacing: '0.1em' }}>
+              BUFFERING…
             </span>
           </div>
         )}
@@ -284,12 +349,13 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
         {camera.hlsUrl && isActive && (
           <div style={{
             position: 'absolute', bottom: 8, left: 8,
-            background: 'rgba(37,99,235,0.8)',
+            background: hlsLoading ? 'rgba(234,179,8,0.8)' : 'rgba(37,99,235,0.8)',
             backdropFilter: 'blur(4px)',
             color: '#fff', fontSize: 9, fontWeight: 700,
             padding: '2px 7px', borderRadius: 8, letterSpacing: '0.05em',
-            zIndex: 10
-          }}>LIVE</div>
+            zIndex: 10,
+            transition: 'background 0.3s',
+          }}>{hlsLoading ? '◌ CONNECTING' : 'LIVE'}</div>
         )}
       </div>
 

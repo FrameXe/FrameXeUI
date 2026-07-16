@@ -13,24 +13,27 @@
 
 class SSEManager {
   constructor() {
-    this.connections     = {}  // connectionKey → EventSource
-    this.listeners       = {}  // connectionKey → Map<eventName, Set<callback>>
-    this.reconnectTimers = {}  // connectionKey → setTimeout handle
+    this.connections      = {}  // connectionKey → EventSource
+    this.listeners        = {}  // connectionKey → Map<eventName, Set<callback>>
+    this.statusListeners  = {}  // connectionKey → Set<fn(status)>
+    this.reconnectTimers  = {}  // connectionKey → setTimeout handle
     this.registeredEvents = {} // connectionKey → Set<eventName already on EventSource>
-    this.BASE_URL        = import.meta.env.VITE_API_URL || ''
+    this.BASE_URL         = import.meta.env.VITE_API_URL || ''
   }
 
   // ── Subscribe ──────────────────────────────────────────────
-  // url       : full URL string  e.g. /api/sse/cameras/X/detections/vehicle_count
-  // eventName : SSE event name   e.g. 'vehicle_count', 'detection', 'message'
-  // callback  : fn(data) called with parsed JSON on each event
-  // Returns   : unsubscribe() function
-  subscribe(url, eventName, callback) {
+  // url            : full URL string  e.g. /api/sse/cameras/X/detections/vehicle_count
+  // eventName      : SSE event name   e.g. 'vehicle_count', 'detection', 'message'
+  // callback       : fn(data) called with parsed JSON on each event
+  // onStatusChange : optional fn(status) where status is 'connected' | 'connecting' | 'disconnected'
+  // Returns        : unsubscribe() function
+  subscribe(url, eventName, callback, onStatusChange = null) {
     const key = url
 
-    // Init listener map for this connection
+    // Init listener maps for this connection
     if (!this.listeners[key])       this.listeners[key]       = new Map()
     if (!this.registeredEvents[key]) this.registeredEvents[key] = new Set()
+    if (!this.statusListeners[key])  this.statusListeners[key]  = new Set()
 
     // Init set for this event name
     if (!this.listeners[key].has(eventName)) {
@@ -38,25 +41,38 @@ class SSEManager {
     }
     this.listeners[key].get(eventName).add(callback)
 
+    if (onStatusChange) {
+      this.statusListeners[key].add(onStatusChange)
+      // Call immediately if connection already exists
+      const es = this.connections[key]
+      if (es) {
+        const stateMap = { 0: 'connecting', 1: 'connected', 2: 'disconnected' }
+        onStatusChange(stateMap[es.readyState] || 'disconnected')
+      } else {
+        onStatusChange('connecting')
+      }
+    }
+
     // Open connection if not already open
     if (!this.connections[key]) {
       this._createConnection(url, key)
     } else {
       // Connection already exists — dynamically add event listener if not registered yet
-      // This is the critical fix: u2/u3 subscriptions arrive after u1 opened the connection
       this._ensureEventListener(key, eventName)
     }
 
     // Return unsubscribe
     return () => {
+      if (onStatusChange) {
+        this.statusListeners[key]?.delete(onStatusChange)
+      }
+
       const eventSet = this.listeners[key]?.get(eventName)
-      if (!eventSet) return
-
-      eventSet.delete(callback)
-
-      // Clean up empty event entry
-      if (eventSet.size === 0) {
-        this.listeners[key].delete(eventName)
+      if (eventSet) {
+        eventSet.delete(callback)
+        if (eventSet.size === 0) {
+          this.listeners[key].delete(eventName)
+        }
       }
 
       // Close connection if no more listeners
@@ -93,9 +109,21 @@ class SSEManager {
     }
   }
 
+  // ── Dispatch connection status ─────────────────────────────
+  _dispatchStatus(key, status) {
+    this.statusListeners[key]?.forEach(cb => {
+      try {
+        cb(status)
+      } catch (err) {
+        console.error('[SSE] Status callback error:', err)
+      }
+    })
+  }
+
   // ── Create EventSource ─────────────────────────────────────
   _createConnection(url, key) {
     console.log('[SSE] Connecting:', url)
+    this._dispatchStatus(key, 'connecting')
 
     const fullUrl = url.startsWith('http') ? url : `${this.BASE_URL}${url}`
     const es = new EventSource(fullUrl, { withCredentials: false })
@@ -105,10 +133,12 @@ class SSEManager {
 
     es.onopen = () => {
       console.log('[SSE] Connected:', key)
+      this._dispatchStatus(key, 'connected')
     }
 
     es.onerror = () => {
       console.warn('[SSE] Error on:', key, '— will retry in 3s')
+      this._dispatchStatus(key, 'disconnected')
       this._handleError(key, url)
     }
 
@@ -127,7 +157,6 @@ class SSEManager {
       this._dispatch(key, 'message', e.data)
 
       // Also broadcast to all other event listeners as a fallback
-      // in case backend sends data without a named event
       if (this.listeners[key]) {
         for (const [evName, callbacks] of this.listeners[key].entries()) {
           if (evName === 'message') continue  // already dispatched above
@@ -166,6 +195,7 @@ class SSEManager {
     delete this.listeners[key]
     delete this.registeredEvents[key]
     delete this.reconnectTimers[key]
+    delete this.statusListeners[key]
     console.log('[SSE] Closed:', key)
   }
 
@@ -178,3 +208,4 @@ class SSEManager {
 
 // ── Singleton export ───────────────────────────────────────────
 export const sseManager = new SSEManager()
+
