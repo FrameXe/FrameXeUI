@@ -9,7 +9,7 @@
  *  - Copy token + tenant ID to clipboard
  *  - List all active tokens across tenants
  *  - Revoke tokens instantly
- *  - Tailscale integration instructions inline
+ *  - Edge Agent installer instructions inline
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -73,7 +73,7 @@ function TokenRevealBox({ token, tenantId, onClose }) {
   const [revealed, setRevealed] = useState(false)
   const { copied, copy } = useCopyToClipboard()
 
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || `${window.location.protocol}//${window.location.hostname}:8000`
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || `${window.location.protocol}//${window.location.hostname}:9002`
   const setupInfoString = `Master Backend URL: ${backendUrl}\nTenant ID: ${tenantId}\nInstall Token: ${token}`
 
   return (
