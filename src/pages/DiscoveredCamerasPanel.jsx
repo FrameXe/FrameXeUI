@@ -371,7 +371,7 @@ const tdStyle = {
 
 export default function DiscoveredCamerasPanel() {
   const [tenants, setTenants]             = useState(DEMO_TENANTS)
-  const [tenantId, setTenantId]           = useState(DEMO_TENANTS[0].id)
+  const [tenantId, setTenantId]           = useState(() => localStorage.getItem('vframe_selected_tenant') || DEMO_TENANTS[0].id)
   const [discovered, setDiscovered]       = useState([])
   const [assigned, setAssigned]           = useState([])
   const [loading, setLoading]             = useState(false)
@@ -394,10 +394,11 @@ export default function DiscoveredCamerasPanel() {
           }))
           if (loaded.length > 0) {
             setTenants(loaded)
-            // If current tenantId is not in the loaded list, set it to the first loaded tenant
-            if (!loaded.some(t => t.id === tenantId)) {
-              setTenantId(loaded[0].id)
-            }
+            const current = localStorage.getItem('vframe_selected_tenant') || tenantId
+            const exists = loaded.some(t => t.id === current)
+            const nextId = exists ? current : loaded[0].id
+            setTenantId(nextId)
+            localStorage.setItem('vframe_selected_tenant', nextId)
           }
         }
       } catch (err) {
@@ -553,7 +554,12 @@ export default function DiscoveredCamerasPanel() {
           <div style={{ position: 'relative' }}>
             <select
               value={tenantId}
-              onChange={e => { setTenantId(e.target.value); setSelected(new Set()) }}
+              onChange={e => {
+                const val = e.target.value
+                setTenantId(val)
+                localStorage.setItem('vframe_selected_tenant', val)
+                setSelected(new Set())
+              }}
               style={{
                 padding: '8px 32px 8px 12px', borderRadius: 8, border: '1.5px solid #e4e8f0',
                 background: '#fff', fontSize: 13, fontWeight: 600, color: '#0f172a',

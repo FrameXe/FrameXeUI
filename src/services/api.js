@@ -28,6 +28,10 @@ async function api(path, opts = {}) {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       ...(BEARER_TOKEN ? { 'Authorization': `Bearer ${BEARER_TOKEN}` } : {}),
+      ...(() => {
+        const tid = localStorage.getItem('vframe_selected_tenant')
+        return tid ? { 'X-Tenant-Id': tid } : {}
+      })(),
       ...(opts.headers || {}),
     },
     signal: opts.signal ?? AbortSignal.timeout(8000),
