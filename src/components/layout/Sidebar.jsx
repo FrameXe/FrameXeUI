@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Camera, AlertTriangle,
-  SlidersHorizontal, BarChart3, Shield, Users
+  SlidersHorizontal, BarChart3, Shield, Users, Radio, Building2
 } from 'lucide-react'
 import { USE_CASES } from '../../constants/useCases.js'
 import { useAllAlerts } from '../../hooks/useAlerts.js'
@@ -12,8 +12,10 @@ const NAV_ITEMS = [
   { to: '/', end: true,            icon: LayoutDashboard, label: 'Dashboard', permission: 'view_dashboard' },
   { to: '/cameras',                icon: Camera,           label: 'Video Matrix', permission: 'view_cameras' },
   { to: '/camera-management',      icon: SlidersHorizontal,label: 'Configuration', permission: 'manage_cameras' },
+  { to: '/agent-cameras',          icon: Radio,            label: 'Agent Cameras', permission: 'manage_cameras' },
   { to: '/reports',                icon: BarChart3,        label: 'Intelligence Logs', permission: 'view_reports' },
   { to: '/user-management',        icon: Users,            label: 'User Directory', permission: 'manage_users' },
+  { to: '/tenant-management',      icon: Building2,        label: 'Tenant Manager', permission: 'manage_users' },
 ]
 
 export default function Sidebar() {

@@ -308,3 +308,151 @@ export const lineAPI = {
     method: 'POST',
   }),
 }
+
+// ════════════════════════════════════════════════════════════
+//  AGENT & CAMERA ASSIGNMENT API
+//  Ops endpoints — require X-Admin-Key header
+// ════════════════════════════════════════════════════════════
+import { ADMIN_KEY } from '../config/index.js'
+
+function adminHeaders() {
+  return { 'X-Admin-Key': ADMIN_KEY }
+}
+
+export const agentAPI = {
+  // ── Discovered cameras ─────────────────────────────────────
+  getDiscoveredCameras: (tenantId, unassignedOnly = false) =>
+    api(`/agent/cameras/discovered?tenant_id=${encodeURIComponent(tenantId)}&unassigned_only=${unassignedOnly}`, {
+      headers: adminHeaders(),
+    }),
+
+  // ── Assigned cameras ───────────────────────────────────────
+  getAssignedCameras: (tenantId, includeInactive = false) =>
+    api(`/agent/cameras/assigned?tenant_id=${encodeURIComponent(tenantId)}&include_inactive=${includeInactive}`, {
+      headers: adminHeaders(),
+    }),
+
+  assignCamera: (data) =>
+    api('/agent/cameras/assign', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: adminHeaders(),
+    }),
+
+  unassignCamera: (cameraId) =>
+    api(`/agent/cameras/assign/${encodeURIComponent(cameraId)}`, {
+      method: 'DELETE',
+      headers: adminHeaders(),
+    }),
+
+  updateStreamStatus: (cameraId, status) =>
+    api(`/agent/cameras/assigned/${encodeURIComponent(cameraId)}/stream-status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+      headers: adminHeaders(),
+    }),
+
+  // ── Assign multiple cameras in parallel ────────────────────
+  // Returns { succeeded: [...], failed: [...] }
+  assignMany: async (cameras) => {
+    const results = await Promise.allSettled(
+      cameras.map(cam => agentAPI.assignCamera(cam))
+    )
+    return {
+      succeeded: results
+        .map((r, i) => ({ ...r, camera: cameras[i] }))
+        .filter(r => r.status === 'fulfilled')
+        .map(r => r.camera),
+      failed: results
+        .map((r, i) => ({ ...r, camera: cameras[i] }))
+        .filter(r => r.status === 'rejected')
+        .map(r => ({ camera: r.camera, error: r.reason?.message || 'Unknown error' })),
+    }
+  },
+}
+
+// ════════════════════════════════════════════════════════════
+//  TENANT INSTALL TOKEN API
+//
+//  Backend endpoints (all under /api/tokens):
+//   POST   /install-tokens          — create new token
+//   GET    /install-tokens/all      — ALL tokens, ALL tenants  ← NEW
+//   GET    /install-tokens/tenants  — distinct tenant IDs       ← NEW
+//   GET    /install-tokens          — tokens for ONE tenant
+//   DELETE /install-tokens/{pfx}   — revoke by prefix
+//   GET    /install-tokens/verify  — validate raw token
+// ════════════════════════════════════════════════════════════
+export const tokenAPI = {
+
+  // ── Generate ──────────────────────────────────────────────
+  /**
+   * Generate a new install token for a tenant.
+   * @param {{ tenant_id: string, label?: string, expires_in_days?: number|null }} body
+   * @returns {Promise<{ success, token, tenant_id, label, expires_at, created_at }>}
+   */
+  generate: (body) =>
+    api('/api/tokens/install-tokens', {
+      method: 'POST',
+      body:   JSON.stringify(body),
+      headers: adminHeaders(),
+    }),
+
+  // ── List ALL tokens across ALL tenants ────────────────────
+  /**
+   * Fetch every install token in the DB regardless of tenant.
+   * Uses GET /api/tokens/install-tokens/all — no session cache needed.
+   * @param {boolean} includeRevoked
+   * @returns {Promise<{ success, tokens, total, tenants }>}
+   */
+  listAll: (includeRevoked = false) =>
+    api(`/api/tokens/install-tokens/all?include_revoked=${includeRevoked}`, {
+      headers: adminHeaders(),
+    }),
+
+  // ── List tokens for ONE tenant ────────────────────────────
+  /**
+   * Fetch tokens for a specific tenant_id.
+   * @param {string}  tenantId
+   * @param {boolean} includeRevoked
+   */
+  listForTenant: (tenantId, includeRevoked = false) =>
+    api(`/api/tokens/install-tokens?tenant_id=${encodeURIComponent(tenantId)}&include_revoked=${includeRevoked}`, {
+      headers: adminHeaders(),
+    }),
+
+  // ── Distinct tenant IDs ───────────────────────────────────
+  /**
+   * Return just the list of tenant IDs that have at least one token.
+   * Lightweight — useful for dropdowns/filters.
+   * @returns {Promise<{ success, tenants, total }>}
+   */
+  listTenants: () =>
+    api('/api/tokens/install-tokens/tenants', {
+      headers: adminHeaders(),
+    }),
+
+  // ── Revoke ────────────────────────────────────────────────
+  /**
+   * Revoke a token by its 8-char prefix.
+   * @param {string} tokenPrefix   — first 8 chars from the list response
+   * @param {string} tenantId      — required for cross-tenant safety
+   */
+  revoke: (tokenPrefix, tenantId) => {
+    const cleanPrefix = tokenPrefix.replace(/[….]/g, '')
+    return api(
+      `/api/tokens/install-tokens/${encodeURIComponent(cleanPrefix)}?tenant_id=${encodeURIComponent(tenantId)}`,
+      { method: 'DELETE', headers: adminHeaders() },
+    )
+  },
+
+  // ── Verify (debug) ────────────────────────────────────────
+  /**
+   * Check if a raw full token is valid (not expired, not revoked).
+   * @param {string} rawToken   — the full token string
+   */
+  verify: (rawToken) =>
+    api(`/api/tokens/install-tokens/verify?token=${encodeURIComponent(rawToken)}`, {
+      headers: adminHeaders(),
+    }),
+}
+

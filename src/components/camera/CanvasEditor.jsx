@@ -3,6 +3,8 @@ import { attachHLS }    from '../../services/hls.js'
 import { sseManager }   from '../../lib/sseManager.js'
 import { drawDetBox, drawMockBg, crossesLine } from '../../services/canvasDraw.js'
 import { UC_COLOR, UC_MAP, UC_CANVAS } from '../../constants/useCases.js'
+import { ORIG_W, ORIG_H } from '../../config/index.js'
+
 import { useCameraAlerts }  from '../../hooks/useAlerts.js'
 import { Btn, Tag, SEV_COLOR } from '../shared/index.jsx'
 import { cameraAPI }    from '../../services/api.js'
@@ -396,8 +398,8 @@ export default function CanvasEditor({ camera, onClose }) {
       } else {
         drawMockBg(ctx, W, H, frameRef.current, camera.name)
       }
-      const origW = (camera.hlsUrl && vid?.videoWidth) ? vid.videoWidth : 1280
-      const origH = (camera.hlsUrl && vid?.videoHeight) ? vid.videoHeight : 720
+      const origW = ORIG_W
+      const origH = ORIG_H
 
       // ── DIRECT TIMESTAMP SYNC ──
       // Backend (WSL2/Docker) and browser share the same system clock.

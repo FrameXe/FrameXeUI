@@ -3,6 +3,8 @@ import { attachHLS } from '../../services/hls.js'
 import { sseManager } from '../../lib/sseManager.js'
 import { drawDetBox, drawMockBg } from '../../services/canvasDraw.js'
 import { UC_COLOR } from '../../constants/useCases.js'
+import { ORIG_W, ORIG_H } from '../../config/index.js'
+
 
 const ST = {
   active:   { color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', label: 'Active' },
@@ -192,8 +194,8 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
         drawMockBg(ctx, W, H, frameRef.current, null)
       }
 
-      const origW = (videoReady && vid?.videoWidth)  ? vid.videoWidth  : 1280
-      const origH = (videoReady && vid?.videoHeight) ? vid.videoHeight : 720
+      const origW = ORIG_W
+      const origH = ORIG_H
 
       // ── DIRECT TIMESTAMP SYNC ──
       // Backend and browser share the same system clock (WSL2/Docker on same machine).

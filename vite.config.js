@@ -39,6 +39,22 @@ export default defineConfig({
         },
       },
 
+      // ── Agent endpoints — camera discovery, assignment, heartbeat ──
+      // POST /agent/register, /agent/heartbeat, /agent/cameras/discovered
+      // POST /agent/cameras/assign, DELETE, GET, PATCH (camera assignment)
+      '/agent': {
+        target: BACKEND,
+        changeOrigin: true,
+        secure: false,
+      },
+
+      // ── Auth endpoints ─────────────────────────────────────────────
+      '/auth': {
+        target: BACKEND,
+        changeOrigin: true,
+        secure: false,
+      },
+
       // ── All other /api/* routes (REST + snapshots) ────────────────
       // Includes:
       //   GET /api/alerts/live          → MongoDB alerts
@@ -59,3 +75,4 @@ export default defineConfig({
     },
   },
 })
+

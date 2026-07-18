@@ -10,12 +10,14 @@ import CameraManagement from './pages/CameraManagement.jsx'
 import Login from './pages/Login.jsx'
 import AccessDenied from './pages/AccessDenied.jsx'
 import UserManagement from './pages/UserManagement.jsx'
+import TenantManagement from './pages/TenantManagement.jsx'
 
 import PeopleDetails from './pages/PeopleDetails.jsx'
 import CrowdDetails from './pages/CrowdDetails.jsx'
 import IntrusionDetails from './pages/IntrusionDetails.jsx'
 
 import CameraAnalytics from './pages/CameraAnalytics.jsx'
+import DiscoveredCamerasPanel from './pages/DiscoveredCamerasPanel.jsx'
 
 import { useAuthStore } from './store/index.js'
 
@@ -62,10 +64,12 @@ export default function App() {
             
             <Route element={<ProtectedRoute permission="manage_cameras" />}>
               <Route path="camera-management"  element={<CameraManagement />} />
+              <Route path="agent-cameras"      element={<DiscoveredCamerasPanel />} />
             </Route>
 
             <Route element={<ProtectedRoute permission="manage_users" />}>
               <Route path="user-management"    element={<UserManagement />} />
+              <Route path="tenant-management"  element={<TenantManagement />} />
             </Route>
 
             <Route path="access-denied"        element={<AccessDenied />} />

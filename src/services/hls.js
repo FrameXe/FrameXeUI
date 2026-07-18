@@ -32,6 +32,9 @@ export async function attachHLS(videoEl, hlsUrl) {
         backBufferLength:           5,
       })
 
+
+
+
       hls.loadSource(hlsUrl)
       hls.attachMedia(videoEl)
 
