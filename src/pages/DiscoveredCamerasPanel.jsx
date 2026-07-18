@@ -29,7 +29,7 @@ import {
   ChevronDown, X, AlertCircle, Loader, Trash2, Radio,
   MapPin, User, Lock, Link2, Layers, Check, Info
 } from 'lucide-react'
-import { agentAPI } from '../services/api.js'
+import { agentAPI, tokenAPI } from '../services/api.js'
 import { useSSE } from '../hooks/useSSE.js'
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -370,6 +370,7 @@ const tdStyle = {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function DiscoveredCamerasPanel() {
+  const [tenants, setTenants]             = useState(DEMO_TENANTS)
   const [tenantId, setTenantId]           = useState(DEMO_TENANTS[0].id)
   const [discovered, setDiscovered]       = useState([])
   const [assigned, setAssigned]           = useState([])
@@ -380,6 +381,31 @@ export default function DiscoveredCamerasPanel() {
   const [modal, setModal]                 = useState(null)       // null | { cameras: [] }
   const [toast, setToast]                 = useState(null)
   const toastTimer = useRef(null)
+
+  // ── Load Tenants Dynamically from API ──────────────────────────────────────
+  useEffect(() => {
+    async function loadTenants() {
+      try {
+        const res = await tokenAPI.listTenants()
+        if (res.success && Array.isArray(res.tenants)) {
+          const loaded = res.tenants.map(t => ({
+            id: t,
+            label: t.split(/[-_]/).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+          }))
+          if (loaded.length > 0) {
+            setTenants(loaded)
+            // If current tenantId is not in the loaded list, set it to the first loaded tenant
+            if (!loaded.some(t => t.id === tenantId)) {
+              setTenantId(loaded[0].id)
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load dynamic tenants list:', err)
+      }
+    }
+    loadTenants()
+  }, [])
 
   // ── SSE subscriptions ──────────────────────────────────────────────────────
   const { data: discoveryEvent } = useSSE(
@@ -533,7 +559,7 @@ export default function DiscoveredCamerasPanel() {
                 background: '#fff', fontSize: 13, fontWeight: 600, color: '#0f172a',
                 cursor: 'pointer', outline: 'none', appearance: 'none',
               }}>
-              {DEMO_TENANTS.map(t => (
+              {tenants.map(t => (
                 <option key={t.id} value={t.id}>{t.label}</option>
               ))}
             </select>
