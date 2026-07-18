@@ -73,6 +73,9 @@ function TokenRevealBox({ token, tenantId, onClose }) {
   const [revealed, setRevealed] = useState(false)
   const { copied, copy } = useCopyToClipboard()
 
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || `${window.location.protocol}//${window.location.hostname}:8000`
+  const setupInfoString = `Master Backend URL: ${backendUrl}\nTenant ID: ${tenantId}\nInstall Token: ${token}`
+
   return (
     <div style={{
       position: 'fixed', inset: 0,
@@ -139,10 +142,64 @@ function TokenRevealBox({ token, tenantId, onClose }) {
         </div>
 
         {/* Token section */}
-        <div style={{ padding: '24px 28px' }}>
+        <div style={{ padding: '24px 28px', maxHeight: '70vh', overflowY: 'auto' }}>
+
+          {/* Master Backend URL field */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.1em', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
+              Master Backend URL
+            </label>
+            <div style={{
+              background: '#f8faff',
+              border: '1.5px solid #c7d7fc',
+              borderRadius: 12, padding: '12px 14px',
+              display: 'flex', alignItems: 'center', gap: 12,
+            }}>
+              <code style={{ fontFamily: 'monospace', fontSize: 13, color: '#1e40af', flex: 1, wordBreak: 'break-all' }}>
+                {backendUrl}
+              </code>
+              <button onClick={() => copy(backendUrl, 'url')} style={{
+                background: copied === 'url' ? '#f0fdf4' : 'var(--accent-bg)',
+                border: `1px solid ${copied === 'url' ? '#86efac' : '#c7d7fc'}`,
+                borderRadius: 8, padding: '6px 12px', cursor: 'pointer',
+                color: copied === 'url' ? 'var(--green)' : 'var(--accent)',
+                fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6,
+                flexShrink: 0, transition: 'all 0.15s',
+              }}>
+                {copied === 'url' ? <><Check size={13} /> Copied!</> : <><Copy size={13} /> Copy</>}
+              </button>
+            </div>
+          </div>
+
+          {/* Tenant ID field */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.1em', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
+              Tenant ID
+            </label>
+            <div style={{
+              background: '#f8faff',
+              border: '1.5px solid #c7d7fc',
+              borderRadius: 12, padding: '12px 14px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+            }}>
+              <code style={{ fontFamily: 'monospace', fontSize: 14, fontWeight: 700, color: '#1e40af' }}>
+                {tenantId}
+              </code>
+              <button onClick={() => copy(tenantId, 'tid')} style={{
+                background: copied === 'tid' ? '#f0fdf4' : 'var(--accent-bg)',
+                border: `1px solid ${copied === 'tid' ? '#86efac' : '#c7d7fc'}`,
+                borderRadius: 8, padding: '6px 12px', cursor: 'pointer',
+                color: copied === 'tid' ? 'var(--green)' : 'var(--accent)',
+                fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6,
+                flexShrink: 0, transition: 'all 0.15s',
+              }}>
+                {copied === 'tid' ? <><Check size={13} /> Copied!</> : <><Copy size={13} /> Copy</>}
+              </button>
+            </div>
+          </div>
 
           {/* Token field */}
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 20 }}>
             <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.1em', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
               Install Token
             </label>
@@ -185,31 +242,19 @@ function TokenRevealBox({ token, tenantId, onClose }) {
             </div>
           </div>
 
-          {/* Tenant ID field */}
+          {/* Copy All Setup Info Button */}
           <div style={{ marginBottom: 24 }}>
-            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.1em', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
-              Tenant ID
-            </label>
-            <div style={{
-              background: '#f8faff',
-              border: '1.5px solid #c7d7fc',
-              borderRadius: 12, padding: '12px 14px',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+            <button onClick={() => copy(setupInfoString, 'all')} style={{
+              width: '100%',
+              background: copied === 'all' ? '#dcfce7' : '#eff6ff',
+              border: `1.5px dashed ${copied === 'all' ? '#22c55e' : '#3b82f6'}`,
+              borderRadius: 12, padding: '14px', cursor: 'pointer',
+              color: copied === 'all' ? '#15803d' : '#1d4ed8',
+              fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              transition: 'all 0.15s',
             }}>
-              <code style={{ fontFamily: 'monospace', fontSize: 14, fontWeight: 700, color: '#1e40af' }}>
-                {tenantId}
-              </code>
-              <button onClick={() => copy(tenantId, 'tid')} style={{
-                background: copied === 'tid' ? '#f0fdf4' : 'var(--accent-bg)',
-                border: `1px solid ${copied === 'tid' ? '#86efac' : '#c7d7fc'}`,
-                borderRadius: 8, padding: '6px 12px', cursor: 'pointer',
-                color: copied === 'tid' ? 'var(--green)' : 'var(--accent)',
-                fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6,
-                flexShrink: 0, transition: 'all 0.15s',
-              }}>
-                {copied === 'tid' ? <><Check size={13} /> Copied!</> : <><Copy size={13} /> Copy</>}
-              </button>
-            </div>
+              {copied === 'all' ? <><CheckCircle2 size={16} /> Setup Info Copied to Clipboard!</> : <><Copy size={16} /> Copy All Setup Info (3 lines)</>}
+            </button>
           </div>
 
           {/* Steps */}
@@ -222,9 +267,9 @@ function TokenRevealBox({ token, tenantId, onClose }) {
               <Zap size={13} /> Next Steps
             </div>
             {[
-              { n: '1', text: 'Copy Tenant ID → Add to Tailscale Admin Console as an authorized tag' },
-              { n: '2', text: 'Give Tenant ID + Token to the on-site installer' },
-              { n: '3', text: 'Installer runs the agent — it will auto-connect via Tailscale VPN' },
+              { n: '1', text: 'Copy Setup Info (Master Backend URL + Tenant ID + Install Token)' },
+              { n: '2', text: 'Give this Setup Info to the on-site installer' },
+              { n: '3', text: 'Installer runs the agent — it will auto-connect and configure' },
             ].map(s => (
               <div key={s.n} style={{ display: 'flex', gap: 10, marginBottom: s.n === '3' ? 0 : 8, alignItems: 'flex-start' }}>
                 <div style={{
@@ -243,7 +288,7 @@ function TokenRevealBox({ token, tenantId, onClose }) {
 
           {/* Close button */}
           <button onClick={onClose} style={{
-            width: '100%', marginTop: 16,
+            width: '100%', marginTop: 20,
             background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 100%)',
             color: '#fff', border: 'none', borderRadius: 12,
             padding: '13px', fontWeight: 700, fontSize: 14,
@@ -257,6 +302,7 @@ function TokenRevealBox({ token, tenantId, onClose }) {
     </div>
   )
 }
+
 
 // ── Create Tenant Modal ───────────────────────────────────────────────────────
 function CreateTenantModal({ onClose, onCreated }) {
@@ -795,29 +841,16 @@ export default function TenantManagement() {
             {[
               '1. Add Tenant here',
               '→',
-              '2. Add Tenant ID to Tailscale Admin',
+              '2. Copy Setup Info (Backend URL, Tenant ID, Token)',
               '→',
-              '3. Give Token + Tenant ID to installer',
+              '3. Give details to installer',
               '→',
-              '4. Agent connects via Tailscale VPN ✓',
+              '4. Agent auto-connects via Cloudflare Tunnel ✓',
             ].map((s, i) => (
               <span key={i} style={{ fontWeight: s === '→' ? 400 : 600 }}>{s}</span>
             ))}
           </div>
         </div>
-        <a
-          href="https://login.tailscale.com/admin/machines"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: 'flex', alignItems: 'center', gap: 5,
-            fontSize: 12, fontWeight: 700, color: '#2563eb',
-            textDecoration: 'none', flexShrink: 0,
-            padding: '6px 12px', borderRadius: 8,
-            background: '#fff', border: '1px solid #bfdbfe',
-          }}>
-          <ExternalLink size={12} /> Tailscale Admin
-        </a>
       </div>
 
       {/* Table container */}

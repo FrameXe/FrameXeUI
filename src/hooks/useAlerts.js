@@ -20,8 +20,6 @@ const TENANT_ID = import.meta.env.VITE_TENANT_ID || 'tenant_demo'
 
 // SSE URL — connects to master_backend's /api/sse/alerts
 // Publisher: ingest.py → _publish_alerts_to_sse() → Redis {tenant_id}:alerts
-const SSE_URL = `${BASE_URL}/api/sse/alerts?tenant_id=${TENANT_ID}`
-
 // ── Per-camera alerts ─────────────────────────────────────────
 // Initial REST load + SSE real-time stream, filtered by cameraId
 export function useCameraAlerts(cameraId, usecase) {
@@ -62,9 +60,12 @@ export function useCameraAlerts(cameraId, usecase) {
       })
     }
 
+    const tenantId = localStorage.getItem('vframe_selected_tenant') || 'tenant_demo'
+    const sseUrl = `${BASE_URL}/api/sse/alerts?tenant_id=${tenantId}`
+
     // Subscribe to both 'alert' (named event) and 'message' (fallback)
-    const unsub1 = sseManager.subscribe(SSE_URL, 'alert',   handleAlert)
-    const unsub2 = sseManager.subscribe(SSE_URL, 'message', handleAlert)
+    const unsub1 = sseManager.subscribe(sseUrl, 'alert',   handleAlert)
+    const unsub2 = sseManager.subscribe(sseUrl, 'message', handleAlert)
 
     return () => { unsub1(); unsub2(); setConnected(false) }
   }, [cameraId, usecase])
@@ -113,9 +114,12 @@ export function useAllAlerts(cameras = []) {
       })
     }
 
+    const tenantId = localStorage.getItem('vframe_selected_tenant') || 'tenant_demo'
+    const sseUrl = `${BASE_URL}/api/sse/alerts?tenant_id=${tenantId}`
+
     // Subscribe to both named 'alert' event and generic 'message' fallback
-    const unsub1 = sseManager.subscribe(SSE_URL, 'alert',   handleAlert)
-    const unsub2 = sseManager.subscribe(SSE_URL, 'message', handleAlert)
+    const unsub1 = sseManager.subscribe(sseUrl, 'alert',   handleAlert)
+    const unsub2 = sseManager.subscribe(sseUrl, 'message', handleAlert)
 
     return () => { unsub1(); unsub2(); setConnected(false) }
   }, [])  // subscribe once, singleton manages connection

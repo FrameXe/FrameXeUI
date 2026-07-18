@@ -77,6 +77,7 @@ const loadDynamicUsers = () => {
       permissions: ['view_dashboard', 'view_cameras', 'view_events'],
       allowedCameras: ['CAM-001', 'CAM-004'],
       allowedUsecases: ['people_count', 'intrusion', 'crowd_alert'],
+      tenantId: 'tenant_demo',
     }
   ]
   localStorage.setItem('vframe_dynamic_users', JSON.stringify(defaults))
@@ -107,6 +108,11 @@ export const useAuthStore = create((set, get) => ({
 
     if (matchedUser) {
       localStorage.setItem('vframe_auth_user', JSON.stringify(matchedUser))
+      if (matchedUser.tenantId) {
+        localStorage.setItem('vframe_selected_tenant', matchedUser.tenantId)
+      } else if (matchedUser.username !== 'admin') {
+        localStorage.setItem('vframe_selected_tenant', 'tenant_demo')
+      }
       set({ user: matchedUser, error: null })
       return true
     } else {
@@ -114,6 +120,7 @@ export const useAuthStore = create((set, get) => ({
       return false
     }
   },
+
   
   logout: () => {
     localStorage.removeItem('vframe_auth_user')

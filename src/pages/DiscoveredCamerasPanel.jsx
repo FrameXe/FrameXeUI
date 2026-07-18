@@ -43,13 +43,10 @@ const AVAILABLE_USE_CASES = [
   { id: 'wrong_way',      label: 'Wrong Way',            emoji: '⛔' },
 ]
 
-const DEMO_TENANTS = [
-  { id: 'acme_corp',       label: 'Acme Corp' },
-  { id: 'tenant_demo',     label: 'Demo Tenant' },
-  { id: 'arjangarh_01',    label: 'Arjangarh Site 01' },
-]
+const DEMO_TENANTS = []
 
 const DEFAULT_FORM = {
+  ip:         '',
   zone:       '',
   username:   'admin',
   password:   '',
@@ -110,6 +107,7 @@ function AssignModal({ cameras, tenantId, onClose, onSuccess }) {
   const firstCam   = cameras[0] || {}
   const [form, setForm] = useState({
     ...DEFAULT_FORM,
+    ip:           firstCam.ip || '',
     manufacturer: firstCam.manufacturer || '',
     model:        firstCam.model || '',
   })
@@ -143,7 +141,7 @@ function AssignModal({ cameras, tenantId, onClose, onSuccess }) {
     // Build assignment payloads for each camera
     const payloads = cameras.map(cam => ({
       tenant_id:    tenantId,
-      ip:           cam.ip,
+      ip:           isMulti ? cam.ip : form.ip || cam.ip,
       mac:          cam.mac || null,
       zone:         form.zone || `Zone - ${cam.ip}`,
       username:     form.apply_creds_to_all || !isMulti ? form.username : cam.username || form.username,
@@ -215,6 +213,18 @@ function AssignModal({ cameras, tenantId, onClose, onSuccess }) {
               />
             </div>
           </div>
+
+          {/* IP Address Override (Only for single camera) */}
+          {!isMulti && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>IP Address / Host (Override for VPN/NAT)</label>
+              <input
+                placeholder="e.g. 100.104.56.87"
+                value={form.ip} onChange={e => setForm(f => ({ ...f, ip: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
+          )}
 
           {/* Credentials */}
           <div style={{ marginBottom: 6 }}>
@@ -371,7 +381,7 @@ const tdStyle = {
 
 export default function DiscoveredCamerasPanel() {
   const [tenants, setTenants]             = useState(DEMO_TENANTS)
-  const [tenantId, setTenantId]           = useState(() => localStorage.getItem('vframe_selected_tenant') || DEMO_TENANTS[0].id)
+  const [tenantId, setTenantId]           = useState(() => localStorage.getItem('vframe_selected_tenant') || '')
   const [discovered, setDiscovered]       = useState([])
   const [assigned, setAssigned]           = useState([])
   const [loading, setLoading]             = useState(false)
@@ -565,9 +575,13 @@ export default function DiscoveredCamerasPanel() {
                 background: '#fff', fontSize: 13, fontWeight: 600, color: '#0f172a',
                 cursor: 'pointer', outline: 'none', appearance: 'none',
               }}>
-              {tenants.map(t => (
-                <option key={t.id} value={t.id}>{t.label}</option>
-              ))}
+              {tenants.length === 0 ? (
+                <option value="" disabled>No Tenants Registered</option>
+              ) : (
+                tenants.map(t => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))
+              )}
             </select>
             <ChevronDown size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }} />
           </div>

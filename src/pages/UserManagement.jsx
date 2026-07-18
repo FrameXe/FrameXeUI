@@ -29,6 +29,7 @@ export default function UserManagement() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [label, setLabel] = useState('')
+  const [tenantId, setTenantId] = useState('')
   const [selectedPermissions, setSelectedPermissions] = useState(['view_dashboard', 'view_cameras'])
   const [selectedCameras, setSelectedCameras] = useState(['CAM-001'])
   const [selectedUsecases, setSelectedUsecases] = useState(['people_count'])
@@ -39,6 +40,7 @@ export default function UserManagement() {
     setUsername('')
     setPassword('')
     setLabel('')
+    setTenantId('')
     setSelectedPermissions(['view_dashboard', 'view_cameras'])
     setSelectedCameras(cameras.map(c => c.id)) // Default to all cameras for new users
     setSelectedUsecases(USE_CASES.map(u => u.id)) // Default to all usecases
@@ -51,6 +53,7 @@ export default function UserManagement() {
     setUsername(user.username)
     setPassword(user.password)
     setLabel(user.label || '')
+    setTenantId(user.tenantId || '')
     setSelectedPermissions(user.permissions || [])
     setSelectedCameras(user.allowedCameras || [])
     setSelectedUsecases(user.allowedUsecases || [])
@@ -71,6 +74,7 @@ export default function UserManagement() {
       username: username.trim(),
       password: password.trim(),
       label: label.trim(),
+      tenantId: tenantId.trim(),
       permissions: selectedPermissions,
       allowedCameras: selectedCameras,
       allowedUsecases: selectedUsecases,
@@ -185,7 +189,7 @@ export default function UserManagement() {
                       {u.label || u.username}
                     </h3>
                     <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-3)', fontWeight: 600 }}>
-                      @{u.username}
+                      @{u.username} {u.tenantId ? `· Tenant: ${u.tenantId}` : '· Super User'}
                     </p>
                   </div>
                 </div>
@@ -394,6 +398,21 @@ export default function UserManagement() {
                     style={{
                       width: '100%', padding: '8px 12px', border: '1px solid var(--border)',
                       borderRadius: 10, fontSize: 13, outline: 'none', fontWeight: 600
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-2)' }}>Tenant ID <span style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 400 }}>(Leave blank for Super Admin)</span></label>
+                  <input
+                    type="text"
+                    placeholder="e.g. arjangarh-rajeev"
+                    value={tenantId}
+                    onChange={e => setTenantId(e.target.value.toLowerCase().trim())}
+                    style={{
+                      width: '100%', padding: '8px 12px', border: '1px solid var(--border)',
+                      borderRadius: 10, fontSize: 13, outline: 'none', fontWeight: 600,
+                      fontFamily: 'monospace'
                     }}
                   />
                 </div>

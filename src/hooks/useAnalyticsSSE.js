@@ -39,14 +39,16 @@ export function usePeopleSSE(cameraId) {
 // ── Live alerts feed ───────────────────────────────────────────
 // data: accumulates — new alerts prepended, max 100 kept
 // data shape: LiveAlertItem[]
-export function useAlertsSSE(tenantId = 'tenant_demo') {
-  const url = `${BASE_URL}/api/sse/alerts?tenant_id=${tenantId}`
+export function useAlertsSSE(tenantId = '') {
+  const activeTenant = tenantId || localStorage.getItem('vframe_selected_tenant') || 'tenant_demo'
+  const url = `${BASE_URL}/api/sse/alerts?tenant_id=${activeTenant}`
   return useSSE(url, 'alert', [], true)  // accumulate = true
 }
 
 // ── Legacy alert stream (ingest service) ──────────────────────
-export function useLegacyAlertsSSE(tenantId = 'tenant_demo') {
-  const url = `${BASE_URL}/ingest/alerts/stream?tenant_id=${tenantId}`
+export function useLegacyAlertsSSE(tenantId = '') {
+  const activeTenant = tenantId || localStorage.getItem('vframe_selected_tenant') || 'tenant_demo'
+  const url = `${BASE_URL}/ingest/alerts/stream?tenant_id=${activeTenant}`
   return useSSE(url, 'alert', [], true)
 }
 
