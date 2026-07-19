@@ -324,6 +324,10 @@ function adminHeaders() {
 }
 
 export const agentAPI = {
+  // ── Agent Status ───────────────────────────────────────────
+  getAgentStatus: (tenantId) =>
+    api(`/agent/status?tenant_id=${encodeURIComponent(tenantId)}`),
+
   // ── Discovered cameras ─────────────────────────────────────
   getDiscoveredCameras: (tenantId, unassignedOnly = false) =>
     api(`/agent/cameras/discovered?tenant_id=${encodeURIComponent(tenantId)}&unassigned_only=${unassignedOnly}`, {
@@ -342,6 +346,14 @@ export const agentAPI = {
       body: JSON.stringify(data),
       headers: adminHeaders(),
     }),
+
+  validateRtsp: (data) =>
+    api('/agent/cameras/validate-rtsp', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: adminHeaders(),
+    }),
+
 
   unassignCamera: (cameraId) =>
     api(`/agent/cameras/assign/${encodeURIComponent(cameraId)}`, {

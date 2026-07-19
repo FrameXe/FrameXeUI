@@ -8,6 +8,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    hmr: {
+      overlay: false
+    },
     proxy: {
       // ── SSE streams — must disable buffering for real-time events ──
       // /api/sse/alerts  → publisher: ingest.py → _publish_alerts_to_sse()

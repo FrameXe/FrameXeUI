@@ -111,10 +111,13 @@ function AssignModal({ cameras, tenantId, onClose, onSuccess }) {
     manufacturer: firstCam.manufacturer || '',
     model:        firstCam.model || '',
   })
-  const [submitting, setSubmitting]     = useState(false)
-  const [progress, setProgress]         = useState(null) // {done, total}
+  const [validating, setValidating] = useState(false)
+  const [validationError, setValidationError] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [progress, setProgress]     = useState(null) // {done, total}
 
   const unassignedCount = cameras.length
+
 
   function toggleUseCase(id) {
     setForm(f => ({
@@ -126,6 +129,7 @@ function AssignModal({ cameras, tenantId, onClose, onSuccess }) {
   }
 
   function btnLabel() {
+    if (validating) return '🔍 Verifying credentials...'
     if (submitting) return progress
       ? `Assigning ${progress.done} of ${progress.total}...`
       : 'Assigning...'
@@ -135,6 +139,45 @@ function AssignModal({ cameras, tenantId, onClose, onSuccess }) {
 
   async function handleSubmit(e) {
     e.preventDefault()
+    setValidationError(null)
+
+    // ── Step 1: Pre-validate credentials for single-camera assignment ──────────
+    // For multi-camera batch, skip pre-validation (too slow) — errors shown per-camera
+    if (!isMulti && form.username && form.password) {
+      setValidating(true)
+      try {
+        const validationResult = await agentAPI.validateRtsp({
+          tenant_id: tenantId,
+          ip: form.ip || firstCam.ip,
+          rtsp_port: Number(form.rtsp_port),
+          rtsp_path: form.rtsp_path,
+          username: form.username,
+          password: form.password,
+        })
+
+        setValidating(false)
+
+        if (!validationResult.ok) {
+          const errType = validationResult.error_type
+          if (errType === 'auth_failed') {
+            setValidationError('❌ Authentication failed — the username or password is incorrect. Please fix your credentials and try again.')
+          } else if (errType === 'unreachable') {
+            setValidationError('❌ Camera is unreachable — check the IP address, port, and RTSP path.')
+          } else {
+            setValidationError(`❌ Validation failed: ${validationResult.message || 'Unknown error'}`)
+          }
+          return  // Block assignment
+        }
+      } catch (err) {
+        setValidating(false)
+        // If validation endpoint itself fails (agent offline, tunnel issue), warn but allow proceeding
+        console.warn('[validate-rtsp] Validation skipped due to error:', err.message)
+        setValidationError('⚠️ Could not pre-validate credentials (agent may be offline). Proceeding anyway — camera will show as "Down" if credentials are wrong.')
+        // Do NOT return — allow assignment to proceed
+      }
+    }
+
+    // ── Step 2: Proceed with assignment ───────────────────────────────────────
     setSubmitting(true)
     setProgress({ done: 0, total: cameras.length })
 
@@ -169,6 +212,7 @@ function AssignModal({ cameras, tenantId, onClose, onSuccess }) {
     setSubmitting(false)
     onSuccess({ succeeded, failed })
   }
+
 
   return (
     <div style={{
@@ -319,24 +363,39 @@ function AssignModal({ cameras, tenantId, onClose, onSuccess }) {
             </div>
           )}
 
+          {/* Validation error banner */}
+          {validationError && (
+            <div style={{
+              marginTop: 14, padding: '10px 14px',
+              background: validationError.startsWith('⚠️') ? '#fffbeb' : '#fef2f2',
+              border: `1px solid ${validationError.startsWith('⚠️') ? '#fcd34d' : '#fca5a5'}`,
+              borderRadius: 8, fontSize: 12,
+              color: validationError.startsWith('⚠️') ? '#92400e' : '#991b1b',
+              lineHeight: 1.5,
+            }}>
+              {validationError}
+            </div>
+          )}
+
           {/* Actions */}
           <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
             <button type="button" onClick={onClose}
               style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: '1.5px solid #e4e8f0', background: '#fff', color: '#475569', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
               Cancel
             </button>
-            <button type="submit" disabled={submitting || form.use_cases.length === 0}
+            <button type="submit" disabled={submitting || validating || form.use_cases.length === 0}
               style={{
                 flex: 2, padding: '10px 0', borderRadius: 8, border: 'none',
-                background: submitting ? '#93c5fd' : '#2563eb',
-                color: '#fff', fontWeight: 700, fontSize: 13, cursor: submitting ? 'not-allowed' : 'pointer',
+                background: (submitting || validating) ? '#93c5fd' : '#2563eb',
+                color: '#fff', fontWeight: 700, fontSize: 13, cursor: (submitting || validating) ? 'not-allowed' : 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 transition: 'background 0.15s',
               }}>
-              {submitting && <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} />}
+              {(submitting || validating) && <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} />}
               {btnLabel()}
             </button>
           </div>
+
         </form>
       </div>
     </div>
@@ -434,12 +493,19 @@ export default function DiscoveredCamerasPanel() {
     if (!tenantId) return
     setLoading(true)
     try {
-      const [disc, asgn] = await Promise.all([
+      const [disc, asgn, statusRes] = await Promise.all([
         agentAPI.getDiscoveredCameras(tenantId, true),
         agentAPI.getAssignedCameras(tenantId),
+        agentAPI.getAgentStatus(tenantId),
       ])
       setDiscovered(disc.cameras || [])
       setAssigned(asgn.cameras || [])
+
+      const isOnline = statusRes?.status === 'online'
+      setAgentOnline(isOnline)
+      if (!isOnline && statusRes?.last_seen) {
+        setAgentLastSeen(statusRes.last_seen)
+      }
     } catch (err) {
       showToast('Failed to load cameras: ' + err.message, 'error')
     } finally {
