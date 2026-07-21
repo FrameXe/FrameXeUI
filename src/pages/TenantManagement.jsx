@@ -555,7 +555,7 @@ function CreateTenantModal({ onClose, onCreated }) {
 }
 
 // ── Token Row ─────────────────────────────────────────────────────────────────
-function TokenRow({ token, onRevoke, revoking }) {
+function TokenRow({ token, onRevoke, revoking, isExpanded, onToggleExpand }) {
   const isExpired = token.expires_at && new Date(token.expires_at) < new Date()
   const status = token.revoked ? 'revoked' : isExpired ? 'expired' : 'active'
 
@@ -571,19 +571,37 @@ function TokenRow({ token, onRevoke, revoking }) {
       gridTemplateColumns: '1fr 1fr 120px 90px 80px 80px',
       alignItems: 'center', gap: 12,
       padding: '14px 20px',
-      borderBottom: '1px solid var(--border-2)',
       transition: 'background 0.15s',
     }}
     onMouseOver={e => e.currentTarget.style.background = 'var(--surface-2)'}
     onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
 
       {/* Tenant + Label */}
-      <div>
-        <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: 'var(--text)', marginBottom: 2 }}>
-          {token.tenant_id}
-        </div>
-        <div style={{ fontSize: 11, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {token.label || '—'}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {status === 'active' ? (
+          <button
+            onClick={onToggleExpand}
+            title={isExpanded ? "Collapse diagnostics" : "Expand diagnostics"}
+            style={{
+              background: 'none', border: 'none', padding: 4, cursor: 'pointer',
+              color: 'var(--text-3)', display: 'flex', alignItems: 'center',
+              transform: isExpanded ? 'rotate(90deg)' : 'none',
+              transition: 'transform 0.2s ease',
+              flexShrink: 0
+            }}
+          >
+            <ChevronRight size={16} />
+          </button>
+        ) : (
+          <div style={{ width: 24, flexShrink: 0 }} />
+        )}
+        <div style={{ overflow: 'hidden' }}>
+          <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: 'var(--text)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {token.tenant_id}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {token.label || '—'}
+          </div>
         </div>
       </div>
 
@@ -643,6 +661,244 @@ function TokenRow({ token, onRevoke, revoking }) {
   )
 }
 
+function AgentDiagnosticsPanel({ tenantId }) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  const fetchDiagnostics = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await tokenAPI.getDiagnostics(tenantId)
+      setData(res)
+    } catch (err) {
+      setError(err.message || 'Failed to load diagnostics')
+    } finally {
+      setLoading(false)
+    }
+  }, [tenantId])
+
+  useEffect(() => {
+    fetchDiagnostics()
+  }, [fetchDiagnostics])
+
+  if (loading) {
+    return (
+      <div style={{
+        padding: '24px 32px',
+        background: '#f8fafc',
+        display: 'flex', alignItems: 'center', gap: 12,
+        color: 'var(--text-3)', fontSize: 13,
+      }}>
+        <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+        <span>Fetching live agent telemetry and status logs…</span>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div style={{
+        padding: '20px 32px',
+        background: '#fff5f5',
+        color: 'var(--red)',
+        fontSize: 13,
+        display: 'flex', alignItems: 'center', gap: 10,
+      }}>
+        <AlertTriangle size={16} />
+        <span>{error.includes('404') ? `No active agent connected for tenant '${tenantId}' yet.` : error}</span>
+      </div>
+    )
+  }
+
+  const agent = data?.agent || {}
+  const logs = data?.logs || []
+  const sys = agent.system_info
+
+  // Status indicator properties
+  const isOnline = agent.status === 'online'
+  
+  return (
+    <div style={{
+      padding: '24px 32px',
+      background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)',
+      borderTop: '1px solid var(--border-2)',
+      display: 'flex', flexDirection: 'column', gap: 20,
+    }}>
+      {/* Top Header Row */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {/* Pulsing Status Badge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: isOnline ? '#dcfce7' : '#f1f5f9', border: `1px solid ${isOnline ? '#bbf7d0' : '#cbd5e1'}`, padding: '5px 12px', borderRadius: 20 }}>
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%',
+              background: isOnline ? '#22c55e' : '#64748b',
+              animation: isOnline ? 'pulseGlow 1.5s infinite' : 'none',
+              display: 'inline-block'
+            }} />
+            <span style={{ fontSize: 11, fontWeight: 800, color: isOnline ? '#15803d' : '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {isOnline ? 'Agent Online' : 'Agent Offline'}
+            </span>
+          </div>
+
+          {/* System metadata */}
+          <div style={{ fontSize: 12, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span>Host: <strong>{agent.hostname || 'Unknown'}</strong></span>
+            <span style={{ color: 'var(--border)' }}>|</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              OS: <strong>{agent.os_platform || 'Linux'}</strong>
+            </span>
+            <span style={{ color: 'var(--border)' }}>|</span>
+            <span>Version: <strong>{agent.agent_version || '1.0.0'}</strong></span>
+          </div>
+        </div>
+
+        {/* Cloudflare Tunnel URL */}
+        {agent.hls_base_url && (
+          <div style={{ fontSize: 12 }}>
+            <span style={{ color: 'var(--text-3)' }}>Cloudflare Tunnel: </span>
+            <a href={agent.hls_base_url} target="_blank" rel="noopener noreferrer" style={{
+              color: '#2563eb', fontWeight: 700, textDecoration: 'none',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              borderBottom: '1px dotted #2563eb',
+            }}>
+              {agent.hls_base_url} <ExternalLink size={11} />
+            </a>
+          </div>
+        )}
+      </div>
+
+      {/* Grid: Gauges & Logs */}
+      <div style={{ display: 'grid', gridTemplateColumns: sys ? '3fr 2fr' : '1fr', gap: 24 }}>
+        
+        {/* Telemetry Gauges */}
+        {sys ? (
+          <div style={{ background: '#fff', border: '1px solid var(--border-2)', borderRadius: 14, padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <h4 style={{ fontSize: 12, fontWeight: 800, color: 'var(--text)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border-2)', paddingBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Activity size={14} color="var(--accent)" /> Real-Time Telemetry
+            </h4>
+            
+            {/* CPU */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: 'var(--text-2)', marginBottom: 6 }}>
+                <span>CPU Utilization</span>
+                <span>{sys.cpu_percent}%</span>
+              </div>
+              <div style={{ width: '100%', height: 8, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{
+                  width: `${sys.cpu_percent}%`, height: '100%',
+                  background: sys.cpu_percent > 85 ? '#ef4444' : sys.cpu_percent > 60 ? '#f59e0b' : '#3b82f6',
+                  borderRadius: 4, transition: 'width 0.5s ease-out'
+                }} />
+              </div>
+            </div>
+
+            {/* RAM */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: 'var(--text-2)', marginBottom: 6 }}>
+                <span>RAM Usage</span>
+                <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-3)' }}>
+                  {sys.ram_used_gb} / {sys.ram_total_gb} GB ({sys.ram_percent}%)
+                </span>
+              </div>
+              <div style={{ width: '100%', height: 8, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{
+                  width: `${sys.ram_percent}%`, height: '100%',
+                  background: sys.ram_percent > 85 ? '#ef4444' : sys.ram_percent > 65 ? '#f59e0b' : '#10b981',
+                  borderRadius: 4, transition: 'width 0.5s ease-out'
+                }} />
+              </div>
+            </div>
+
+            {/* Disk Space */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: 'var(--text-2)', marginBottom: 6 }}>
+                <span>HLS Storage Space</span>
+                <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-3)' }}>
+                  {sys.disk_used_gb} / {sys.disk_total_gb} GB ({sys.disk_percent}%)
+                </span>
+              </div>
+              <div style={{ width: '100%', height: 8, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{
+                  width: `${sys.disk_percent}%`, height: '100%',
+                  background: sys.disk_percent > 90 ? '#ef4444' : sys.disk_percent > 75 ? '#f59e0b' : '#6366f1',
+                  borderRadius: 4, transition: 'width 0.5s ease-out'
+                }} />
+              </div>
+            </div>
+
+            {/* Active Streams */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 14px', marginTop: 4 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)' }}>Active Transcoding Streams</span>
+              <span style={{ fontSize: 13, fontWeight: 800, color: '#2563eb', background: '#dbeafe', padding: '3px 10px', borderRadius: 20 }}>
+                {sys.active_streams} Stream{sys.active_streams !== 1 ? 's' : ''}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div style={{ background: '#fff', border: '1px solid var(--border-2)', borderRadius: 14, padding: 20, textAlign: 'center', color: 'var(--text-3)', fontSize: 12 }}>
+            Waiting for agent heartbeat payload to receive live hardware diagnostics telemetry...
+          </div>
+        )}
+
+        {/* Liveness Event Logs */}
+        <div style={{ background: '#fff', border: '1px solid var(--border-2)', borderRadius: 14, padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <h4 style={{ fontSize: 12, fontWeight: 800, color: 'var(--text)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border-2)', paddingBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Clock size={14} color="var(--accent)" /> Uptime & Connection History
+          </h4>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 180, overflowY: 'auto', paddingRight: 4 }}>
+            {logs.length > 0 ? (
+              logs.map((log, index) => {
+                const isLogOnline = log.status === 'online'
+                return (
+                  <div key={index} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 11 }}>
+                    {/* Event bullet */}
+                    <div style={{
+                      width: 16, height: 16, borderRadius: '50%',
+                      background: isLogOnline ? '#dcfce7' : '#fee2e2',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0, marginTop: 2,
+                    }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: isLogOnline ? '#22c55e' : '#ef4444' }} />
+                    </div>
+
+                    {/* Log text */}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontWeight: 700, color: 'var(--text-2)' }}>
+                        Status changed to {isLogOnline ? 'ONLINE' : 'OFFLINE'}
+                      </span>
+                      <span style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>
+                        Reason: {log.reason === 'heartbeat_received' ? 'Heartbeat Connected' : log.reason === 'heartbeat_timeout' ? 'Connection Timeout' : log.reason} · {new Date(log.timestamp).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })
+            ) : (
+              <div style={{ color: 'var(--text-3)', fontSize: 11, textAlign: 'center', padding: '20px 0' }}>
+                No connection logs recorded for this tenant yet.
+              </div>
+            )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* Pulse glow animation styles */}
+      <style>{`
+        @keyframes pulseGlow {
+          0%   { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+          70%  { transform: scale(1.1); opacity: 0.8; box-shadow: 0 0 0 6px rgba(34,197,94,0); }
+          100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+        }
+      `}</style>
+    </div>
+  )
+}
+
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function TenantManagement() {
   const [tokens, setTokens] = useState([])
@@ -654,6 +910,7 @@ export default function TenantManagement() {
   const [refreshing, setRefreshing] = useState(false)
   const [filterTenant, setFilterTenant] = useState('')
   const [includeRevoked, setIncludeRevoked] = useState(false)
+  const [expandedToken, setExpandedToken] = useState(null)
 
   // Derived stats
   const activeCount  = tokens.filter(t => !t.revoked && !(t.expires_at && new Date(t.expires_at) < new Date())).length
@@ -974,14 +1231,23 @@ export default function TenantManagement() {
             </button>
           </div>
         ) : (
-          filtered.map(tok => (
-            <TokenRow
-              key={`${tok.tenant_id}-${tok.token_prefix}`}
-              token={tok}
-              onRevoke={handleRevoke}
-              revoking={revoking === tok.token_prefix}
-            />
-          ))
+          filtered.map(tok => {
+            const isExpanded = expandedToken === tok.token_prefix
+            return (
+              <div key={`${tok.tenant_id}-${tok.token_prefix}`} style={{ borderBottom: '1px solid var(--border-2)' }}>
+                <TokenRow
+                  token={tok}
+                  onRevoke={handleRevoke}
+                  revoking={revoking === tok.token_prefix}
+                  isExpanded={isExpanded}
+                  onToggleExpand={() => setExpandedToken(isExpanded ? null : tok.token_prefix)}
+                />
+                {isExpanded && (
+                  <AgentDiagnosticsPanel tenantId={tok.tenant_id} />
+                )}
+              </div>
+            )
+          })
         )}
       </div>
 

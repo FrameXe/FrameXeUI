@@ -504,5 +504,16 @@ export const tokenAPI = {
     api(`/api/tokens/install-tokens/verify?token=${encodeURIComponent(rawToken)}`, {
       headers: adminHeaders(),
     }),
+
+  // ── Diagnostics ───────────────────────────────────────────
+  /**
+   * Fetch diagnostics status and logs for a tenant's agent.
+   * @param {string} tenantId
+   * @returns {Promise<{ success, agent, logs }>}
+   */
+  getDiagnostics: (tenantId) =>
+    api(`/agent/diagnostics?tenant_id=${encodeURIComponent(tenantId)}`, {
+      headers: adminHeaders(),
+    }),
 }
 
