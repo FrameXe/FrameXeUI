@@ -845,6 +845,16 @@ function AgentDiagnosticsPanel({ tenantId }) {
                 {sys.active_streams} Stream{sys.active_streams !== 1 ? 's' : ''}
               </span>
             </div>
+
+            {/* GPU Details */}
+            {sys.gpu_info && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 14px', marginTop: 10 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)' }}>Hardware GPU</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#047857', background: '#d1fae5', padding: '3px 10px', borderRadius: 20, maxWidth: '60%', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={sys.gpu_info}>
+                  {sys.gpu_info}
+                </span>
+              </div>
+            )}
           </div>
         ) : (
           <div style={{ background: '#fff', border: '1px solid var(--border-2)', borderRadius: 14, padding: 20, textAlign: 'center', color: 'var(--text-3)', fontSize: 12 }}>
