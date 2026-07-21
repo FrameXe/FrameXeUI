@@ -761,6 +761,27 @@ function AgentDiagnosticsPanel({ tenantId }) {
             </span>
             <span style={{ color: 'var(--border)' }}>|</span>
             <span>Version: <strong>{agent.agent_version || '1.0.0'}</strong></span>
+            {sys && sys.network_latency_ms !== undefined && (
+              <>
+                <span style={{ color: 'var(--border)' }}>|</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  Latency: 
+                  <strong style={{ 
+                    color: sys.network_latency_ms < 100 ? 'var(--green)' : sys.network_latency_ms < 250 ? 'var(--yellow)' : 'var(--red)'
+                  }}>
+                    {sys.network_latency_ms} ms
+                  </strong>
+                  <span style={{
+                    fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 800,
+                    background: sys.network_latency_ms < 100 ? 'var(--green-bg)' : sys.network_latency_ms < 250 ? 'var(--yellow-bg)' : 'var(--red-bg)',
+                    color: sys.network_latency_ms < 100 ? 'var(--green)' : sys.network_latency_ms < 250 ? 'var(--yellow)' : 'var(--red)',
+                    letterSpacing: '0.02em'
+                  }}>
+                    {sys.network_latency_ms < 100 ? 'Excellent' : sys.network_latency_ms < 250 ? 'Good' : 'Lagging'}
+                  </span>
+                </span>
+              </>
+            )}
           </div>
         </div>
 
@@ -853,6 +874,81 @@ function AgentDiagnosticsPanel({ tenantId }) {
                 <span style={{ fontSize: 11, fontWeight: 700, color: '#047857', background: '#d1fae5', padding: '3px 10px', borderRadius: 20, maxWidth: '60%', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={sys.gpu_info}>
                   {sys.gpu_info}
                 </span>
+              </div>
+            )}
+
+            {/* Camera Transcoding Health & Metrics */}
+            {sys.streams_status && sys.streams_status.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', borderTop: '1px solid var(--border-2)', paddingTop: 12, marginBottom: 4 }}>
+                  Camera Stream Health
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {sys.streams_status.map((stream) => {
+                    const isLowFps = stream.fps > 0 && stream.fps < 12;
+                    return (
+                      <div key={stream.camera_id} style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 65px 95px 65px 75px',
+                        alignItems: 'center',
+                        gap: 8,
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: 10,
+                        padding: '10px 14px'
+                      }}>
+                        {/* Camera Name */}
+                        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={stream.name}>
+                            {stream.name}
+                          </span>
+                          <code style={{ fontSize: 9, color: 'var(--text-3)', fontFamily: 'monospace' }}>
+                            {stream.camera_id}
+                          </code>
+                        </div>
+
+                        {/* FPS */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                          <span style={{ fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', fontWeight: 600 }}>FPS</span>
+                          <span style={{ 
+                            fontSize: 12, fontWeight: 800, 
+                            color: isLowFps ? '#d97706' : '#059669' 
+                          }}>
+                            {stream.fps.toFixed(1)}
+                          </span>
+                        </div>
+
+                        {/* Bitrate */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                          <span style={{ fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', fontWeight: 600 }}>Bitrate</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-2)', fontFamily: 'monospace' }}>
+                            {stream.bitrate}
+                          </span>
+                        </div>
+
+                        {/* Speed */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                          <span style={{ fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', fontWeight: 600 }}>Speed</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-2)' }}>
+                            {stream.speed}
+                          </span>
+                        </div>
+
+                        {/* Status */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          <span style={{
+                            fontSize: 9, fontWeight: 800, padding: '2px 8px', borderRadius: 20,
+                            background: stream.status === 'active' ? 'var(--green-bg)' : 'var(--border-2)',
+                            color: stream.status === 'active' ? 'var(--green)' : 'var(--text-3)',
+                            textTransform: 'uppercase', letterSpacing: '0.03em'
+                          }}>
+                            {stream.status}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
