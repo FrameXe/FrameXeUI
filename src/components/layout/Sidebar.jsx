@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Camera, AlertTriangle,
-  SlidersHorizontal, BarChart3, Shield, Users, Radio, Building2
+  SlidersHorizontal, BarChart3, Shield, Users, Radio, Building2, Car
 } from 'lucide-react'
 import { USE_CASES } from '../../constants/useCases.js'
 import { useAllAlerts } from '../../hooks/useAlerts.js'
@@ -9,13 +9,13 @@ import { useCameras } from '../../hooks/useCameras.js'
 import { useAuthStore } from '../../store/index.js'
 
 const NAV_ITEMS = [
-  { to: '/', end: true,            icon: LayoutDashboard, label: 'Dashboard', permission: 'view_dashboard' },
-  { to: '/cameras',                icon: Camera,           label: 'Video Matrix', permission: 'view_cameras' },
-  { to: '/camera-management',      icon: SlidersHorizontal,label: 'Configuration', permission: 'manage_cameras' },
-  { to: '/agent-cameras',          icon: Radio,            label: 'Agent Cameras', permission: 'manage_cameras' },
-  { to: '/reports',                icon: BarChart3,        label: 'Intelligence Logs', permission: 'view_reports' },
-  { to: '/user-management',        icon: Users,            label: 'User Directory', permission: 'manage_users' },
-  { to: '/tenant-management',      icon: Building2,        label: 'Tenant Manager', permission: 'manage_users' },
+  { to: '/', end: true, icon: LayoutDashboard, label: 'Dashboard', permission: 'view_dashboard' },
+  { to: '/cameras', icon: Camera, label: 'Video Matrix', permission: 'view_cameras' },
+  { to: '/camera-management', icon: SlidersHorizontal, label: 'Configuration', permission: 'manage_cameras' },
+  { to: '/agent-cameras', icon: Radio, label: 'Agent Cameras', permission: 'manage_cameras' },
+  { to: '/reports', icon: BarChart3, label: 'Intelligence Logs', permission: 'view_reports' },
+  { to: '/user-management', icon: Users, label: 'User Directory', permission: 'manage_users' },
+  { to: '/tenant-management', icon: Building2, label: 'Tenant Manager', permission: 'manage_users' },
 ]
 
 export default function Sidebar() {
@@ -56,10 +56,14 @@ export default function Sidebar() {
               </div>
               {unread > 0 && (
                 <span style={{
-                  background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 800, 
+                  background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 800,
                   padding: '2px 8px', borderRadius: 20, minWidth: 20, textAlign: 'center'
                 }}>{unread}</span>
               )}
+            </NavLink>
+            <NavLink to="/vehicle-log" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
+              <Car size={16} />
+              <span>Vehicle Log</span>
             </NavLink>
           </div>
         )}
@@ -72,9 +76,9 @@ export default function Sidebar() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {USE_CASES.filter(uc => !user?.allowedUsecases || user.allowedUsecases.includes(uc.id)).map(uc => (
-                <NavLink 
-                  key={uc.id} 
-                  to={`/use-case/${uc.id}`} 
+                <NavLink
+                  key={uc.id}
+                  to={`/use-case/${uc.id}`}
                   className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
                 >
                   <span style={{ fontSize: 16 }}>{uc.emoji}</span>

@@ -52,8 +52,8 @@ function qs(params) {
 function normalizeCamera(c) {
   let useCases = Array.isArray(c.enabled_usecases) ? c.enabled_usecases
     : Array.isArray(c.assigned_use_cases) ? c.assigned_use_cases
-    : Array.isArray(c.use_cases) ? c.use_cases
-    : c.use_cases ? [c.use_cases] : []
+      : Array.isArray(c.use_cases) ? c.use_cases
+        : c.use_cases ? [c.use_cases] : []
 
   // Map 'traffic' and 'vehicle_count' interchangeably on the frontend
   if (useCases.includes('traffic') && !useCases.includes('vehicle_count')) {
@@ -63,18 +63,18 @@ function normalizeCamera(c) {
   }
 
   return {
-    id:               c.camera_id || c.id,
-    camera_id:        c.camera_id || c.id,
-    name:             c.name || c.camera_id || c.id,
-    location:         c.location || c.location_id || c.camera_location || '',
-    latitude:         c.latitude,
-    longitude:        c.longitude,
-    status:           c.status || 'active',
-    useCase:          useCases[0] === 'vehicle_count' ? 'traffic' : (useCases[0] || 'people_count'),
+    id: c.camera_id || c.id,
+    camera_id: c.camera_id || c.id,
+    name: c.name || c.camera_id || c.id,
+    location: c.location || c.location_id || c.camera_location || '',
+    latitude: c.latitude,
+    longitude: c.longitude,
+    status: c.status || 'active',
+    useCase: useCases[0] === 'vehicle_count' ? 'traffic' : (useCases[0] || 'people_count'),
     useCases,
     enabled_usecases: useCases,
-    alertCount:       c.alert_count || 0,
-    hlsUrl:           c.hls_url || c.hlsUrl || null,
+    alertCount: c.alert_count || 0,
+    hlsUrl: c.hls_url || c.hlsUrl || null,
   }
 }
 
@@ -83,21 +83,21 @@ function normalizeCamera(c) {
 // Backend bhejta hai: vehicle_count, wrong_way, congestion, speeding, illegal_parking
 // Frontend mein sab → 'traffic' id pe map hote hain (useCases.js mein id: 'traffic')
 const BACKEND_TO_FRONTEND_UC = {
-  vehicle_count:   'traffic',
-  wrong_way:       'traffic',
-  congestion:      'traffic',
-  speeding:        'traffic',
+  vehicle_count: 'traffic',
+  wrong_way: 'traffic',
+  congestion: 'traffic',
+  speeding: 'traffic',
   illegal_parking: 'traffic',
-  people_count:    'people_count',
-  license_plate:   'traffic',   // LPR bhi traffic suite mein dikh sakta hai
-  crowd_alert:     'crowd_alert',
-  intrusion:       'intrusion',
-  vehicle_speed:   'vehicle_speed',
+  people_count: 'people_count',
+  license_plate: 'traffic',   // LPR bhi traffic suite mein dikh sakta hai
+  crowd_alert: 'crowd_alert',
+  intrusion: 'intrusion',
+  vehicle_speed: 'vehicle_speed',
 }
 
 export function normalizeAlert(a, cam = {}) {
   const rawUc = a.usecase || a.type || ''
-  const uc    = BACKEND_TO_FRONTEND_UC[rawUc] ?? rawUc
+  const uc = BACKEND_TO_FRONTEND_UC[rawUc] ?? rawUc
 
   // Snapshot URLs from the backend are absolute (built from request.base_url).
   // If they ever arrive relative ("/api/snapshots/..."), prefix with API_BASE.
@@ -106,20 +106,20 @@ export function normalizeAlert(a, cam = {}) {
     return /^https?:\/\//i.test(u) ? u : `${API_BASE}${u.startsWith('/') ? '' : '/'}${u}`
   }
   const thumbnailUrl = toAbs(a.thumbnail_url || a.thumbnailUrl)
-  const fullResUrl   = toAbs(a.full_res_url || a.fullResUrl || a.snapshot_url)
+  const fullResUrl = toAbs(a.full_res_url || a.fullResUrl || a.snapshot_url)
 
   return {
-    id:           a.id || a.alert_id,
-    type:         uc,
-    cameraId:     a.camera_id || a.cameraId || cam.id || '',
-    cameraName:   a.cameraName || a.camera_name || cam.name || '',
-    location:     a.location || cam.location || '',
-    message:      a.message || 'Alert',
-    severity:     (a.severity || 'medium').toLowerCase(),
+    id: a.id || a.alert_id,
+    type: uc,
+    cameraId: a.camera_id || a.cameraId || cam.id || '',
+    cameraName: a.cameraName || a.camera_name || cam.name || '',
+    location: a.location || cam.location || '',
+    message: a.message || 'Alert',
+    severity: (a.severity || 'medium').toLowerCase(),
     acknowledged: a.acknowledged || false,
-    timestamp:    a.timestamp || a.created_at || new Date().toISOString(),
-    usecase:      uc,
-    rawUsecase:   rawUc,   // original backend usecase — debugging ke liye
+    timestamp: a.timestamp || a.created_at || new Date().toISOString(),
+    usecase: uc,
+    rawUsecase: rawUc,   // original backend usecase — debugging ke liye
     thumbnailUrl,
     fullResUrl,
   }
@@ -219,30 +219,64 @@ export const systemAPI = {
 //  ANALYTICS API
 // ════════════════════════════════════════════════════════════
 export const analyticsAPI = {
-  getTraffic:  (cameraId)    => api(`/api/analytics/traffic/${cameraId}`),
-  getPeople:   (cameraId)    => api(`/api/analytics/people/${cameraId}`),
-  getEvents:   (params = {}) => api(`/analytics/events${qs(params)}`),
-  getHistory:  (params = {}) => api(`/analytics/history${qs(params)}`),
-  getSummary:  ()            => api('/api/system/overview'),
+  getTraffic: (cameraId) => api(`/api/analytics/traffic/${cameraId}`),
+  getPeople: (cameraId) => api(`/api/analytics/people/${cameraId}`),
+  getEvents: (params = {}) => api(`/analytics/events${qs(params)}`),
+  getHistory: (params = {}) => api(`/analytics/history${qs(params)}`),
+  getSummary: () => api('/api/system/overview'),
 }
 
 // ════════════════════════════════════════════════════════════
 //  LPR API
 // ════════════════════════════════════════════════════════════
 export const lprAPI = {
-  getLive:             (cameraId)         => api(`/api/lpr/${cameraId}`),
-  getHistory:          (cameraId, p = {}) => api(`/api/lpr/${cameraId}/history${qs(p)}`),
-  search:              (p = {})           => api(`/api/lpr/search${qs(p)}`),
-  getWatchlist:        (cameraId)         => api(`/api/lpr/${cameraId}/watchlist`),
-  addToWatchlist:      (cameraId, body)   => api(`/api/lpr/${cameraId}/watchlist`, { method: 'POST', body: JSON.stringify(body) }),
-  removeFromWatchlist: (cameraId, plate)  => api(`/api/lpr/${cameraId}/watchlist/${plate}`, { method: 'DELETE' }),
+  getLive: (cameraId) => api(`/api/lpr/${cameraId}`),
+  getHistory: (cameraId, p = {}) => api(`/api/lpr/${cameraId}/history${qs(p)}`),
+  search: (p = {}) => api(`/api/lpr/search${qs(p)}`),
+  getWatchlist: (cameraId) => api(`/api/lpr/${cameraId}/watchlist`),
+  addToWatchlist: (cameraId, body) => api(`/api/lpr/${cameraId}/watchlist`, { method: 'POST', body: JSON.stringify(body) }),
+  removeFromWatchlist: (cameraId, plate) => api(`/api/lpr/${cameraId}/watchlist/${plate}`, { method: 'DELETE' }),
+}
+
+// ════════════════════════════════════════════════════════════
+//  VEHICLE DETECTION API
+// ════════════════════════════════════════════════════════════
+export function normalizeVehicleDetection(d) {
+  const toAbs = (u) => {
+    if (!u) return null
+    return /^https?:\/\//i.test(u) ? u : `${API_BASE}${u.startsWith('/') ? '' : '/'}${u}`
+  }
+  return {
+    id: d.id,
+    cameraId: d.camera_id || d.cameraId,
+    cameraName: d.camera_name || d.cameraName,
+    eventId: d.event_id || d.eventId,
+    trackId: d.track_id || d.trackId,
+    vehicleType: d.vehicle_type || d.vehicleType,
+    direction: d.direction,
+    plateNumber: d.plate_number || d.plateNumber,
+    timestamp: d.timestamp,
+    imageUrl: toAbs(d.image_url || d.imageUrl),
+  }
+}
+
+export const vehicleDetectionAPI = {
+  list: (p = {}) => api(`/api/vehicle-detections${qs(p)}`).then(d => ({
+    ...d,
+    detections: (d.detections || []).map(normalizeVehicleDetection)
+  })),
+  search: (p = {}) => api(`/api/vehicle-detections/search${qs(p)}`).then(d => ({
+    ...d,
+    results: (d.results || []).map(normalizeVehicleDetection)
+  })),
+  stats: (p = {}) => api(`/api/vehicle-detections/stats${qs(p)}`),
 }
 
 // ════════════════════════════════════════════════════════════
 //  SESSIONS API
 // ════════════════════════════════════════════════════════════
 export const sessionAPI = {
-  getAll:   (p = {}) => api(`/sessions${qs({ page: 1, ...p })}`),
+  getAll: (p = {}) => api(`/sessions${qs({ page: 1, ...p })}`),
   getStats: (p = {}) => api(`/sessions/stats${qs(p)}`),
 }
 
@@ -266,10 +300,10 @@ export const peopleAnalyticsAPI = {
     return {
       cameraId,
       currentInFrame,
-      totalToday:     rpt.summary?.total_count      || 0,
-      peakHour:       rpt.summary?.peak_hour        || '--',
-      peakCount:      rpt.summary?.peak_count       || 0,
-      avgPerHour:     rpt.summary?.average_per_hour || 0,
+      totalToday: rpt.summary?.total_count || 0,
+      peakHour: rpt.summary?.peak_hour || '--',
+      peakCount: rpt.summary?.peak_count || 0,
+      avgPerHour: rpt.summary?.average_per_hour || 0,
       capacityLimit,
       capacityStatus: currentInFrame > capacityLimit ? 'critical'
         : currentInFrame > capacityLimit * 0.7 ? 'warning' : 'ok',
@@ -283,11 +317,11 @@ export const peopleAnalyticsAPI = {
 // ════════════════════════════════════════════════════════════
 export const trafficAPI = {
   getTrafficSnapshot: (cameraId) => api(`/api/analytics/traffic/${cameraId}`),
-  getPeopleCount:     (cameraId) => api(`/api/analytics/people/${cameraId}`),
-  getCongestion:      (cameraId) => trafficAPI.getTrafficSnapshot(cameraId),
-  getVehicleCount:    (cameraId) => trafficAPI.getTrafficSnapshot(cameraId),
-  getSpeeding:        (cameraId) => trafficAPI.getTrafficSnapshot(cameraId),
-  getWrongWay:        (cameraId) => trafficAPI.getTrafficSnapshot(cameraId),
+  getPeopleCount: (cameraId) => api(`/api/analytics/people/${cameraId}`),
+  getCongestion: (cameraId) => trafficAPI.getTrafficSnapshot(cameraId),
+  getVehicleCount: (cameraId) => trafficAPI.getTrafficSnapshot(cameraId),
+  getSpeeding: (cameraId) => trafficAPI.getTrafficSnapshot(cameraId),
+  getWrongWay: (cameraId) => trafficAPI.getTrafficSnapshot(cameraId),
 }
 
 // ════════════════════════════════════════════════════════════
@@ -409,7 +443,7 @@ export const tokenAPI = {
   generate: (body) =>
     api('/api/tokens/install-tokens', {
       method: 'POST',
-      body:   JSON.stringify(body),
+      body: JSON.stringify(body),
       headers: adminHeaders(),
     }),
 
@@ -471,4 +505,4 @@ export const tokenAPI = {
       headers: adminHeaders(),
     }),
 }
-
+
