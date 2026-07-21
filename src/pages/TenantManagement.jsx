@@ -623,9 +623,19 @@ function TokenRow({ token, onRevoke, revoking, isExpanded, onToggleExpand }) {
         {formatDate(token.expires_at)}
       </div>
 
-      {/* Used count */}
-      <div style={{ fontSize: 13, fontWeight: 700, color: token.used_count > 0 ? 'var(--green)' : 'var(--text-3)', textAlign: 'center' }}>
-        {token.used_count}x
+      {/* Used count & Last registration time */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: token.used_count > 0 ? 'var(--green)' : 'var(--text-3)', marginBottom: token.last_used_at ? 2 : 0 }}>
+          {token.used_count}x
+        </div>
+        {token.last_used_at && (
+          <div 
+            style={{ fontSize: 10, color: 'var(--text-3)', whiteSpace: 'nowrap' }} 
+            title={`Last used: ${new Date(token.last_used_at).toLocaleString()}`}
+          >
+            {timeAgo(token.last_used_at)}
+          </div>
+        )}
       </div>
 
       {/* Status + Revoke */}
