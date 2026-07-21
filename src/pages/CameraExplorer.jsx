@@ -4,7 +4,7 @@ import { useCameras }  from '../hooks/useCameras.js'
 import { USE_CASES }   from '../constants/useCases.js'
 import MiniCanvas      from '../components/camera/MiniCanvas.jsx'
 import { Loading }     from '../components/shared/index.jsx'
-import { peopleAnalyticsAPI } from '../services/api.js'
+import { peopleAnalyticsAPI, tokenAPI, agentAPI } from '../services/api.js'
 import { Maximize2, Activity, Users, AlertTriangle, Clock, Search, ChevronLeft, ChevronRight } from 'lucide-react'
 
 // Sub-component to fetch and display stats lazily when expanded
@@ -83,13 +83,40 @@ function CameraStatsPanel({ cameraId, ucColor, onOpenCanvas }) {
 export default function CameraExplorer() {
   const nav = useNavigate()
   const { useCaseId } = useParams()
-  const { cameras, loading } = useCameras()
+
+  const [tenants, setTenants] = useState([])
+  const [tenantId, setTenantId] = useState(() => localStorage.getItem('vframe_selected_tenant') || '')
+
+  const { cameras, loading } = useCameras(tenantId)
   const [ucFilter, setUcFilter] = useState(useCaseId || 'all')
   const [stFilter, setStFilter] = useState('all')
   const [selectedCard, setSelectedCard] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(1)
-  const ITEMS_PER_PAGE = 24
+  const ITEMS_PER_PAGE = 9
+
+  // Load Tenants list on mount
+  useEffect(() => {
+    async function loadTenants() {
+      try {
+        const res = await tokenAPI.listTenants()
+        if (res.success && Array.isArray(res.tenants)) {
+          const loaded = res.tenants.map(t => ({
+            id: t.tenant_id,
+            name: t.tenant_id
+          }))
+          setTenants(loaded)
+          const current = localStorage.getItem('vframe_selected_tenant') || tenantId
+          const nextId = current || (loaded[0] ? loaded[0].id : '')
+          setTenantId(nextId)
+          localStorage.setItem('vframe_selected_tenant', nextId)
+        }
+      } catch (err) {
+        console.error('Failed to load dynamic tenants list:', err)
+      }
+    }
+    loadTenants()
+  }, [])
 
   useEffect(() => {
     if (useCaseId) {
@@ -120,6 +147,26 @@ export default function CameraExplorer() {
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE)
   const paginatedCameras = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
 
+  // On-demand HLS streaming heartbeat
+  useEffect(() => {
+    if (!tenantId || paginatedCameras.length === 0) return
+
+    const activeIds = paginatedCameras.map(c => c.camera_id || c.id)
+
+    async function sendActiveViewers() {
+      try {
+        await agentAPI.setActiveViewers(tenantId, activeIds)
+      } catch (err) {
+        console.error('Failed to update active viewers heartbeat:', err)
+      }
+    }
+
+    sendActiveViewers()
+
+    const timer = setInterval(sendActiveViewers, 5000)
+    return () => clearInterval(timer)
+  }, [tenantId, page, filtered.length]) // Trigger immediately on page, tenant or camera count change
+
   if (loading) return <Loading msg="Loading cameras…" />
 
   const activeCount = cameras.filter(c => c.status === 'active').length
@@ -145,6 +192,29 @@ export default function CameraExplorer() {
 
         {/* Filters */}
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Tenant Selector */}
+          <select 
+            value={tenantId}
+            onChange={e => {
+              const val = e.target.value
+              setTenantId(val)
+              localStorage.setItem('vframe_selected_tenant', val)
+            }}
+            style={{
+              background: '#fff', border: '1px solid var(--border)', color: 'var(--text)',
+              padding: '7px 12px', fontSize: 12, borderRadius: 'var(--radius-sm)',
+              fontWeight: 600, boxShadow: 'var(--shadow-sm)', outline: 'none'
+            }}
+          >
+            {tenants.length === 0 ? (
+              <option value="" disabled>No Tenants Registered</option>
+            ) : (
+              tenants.map(t => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))
+            )}
+          </select>
+
           {/* Search */}
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <Search size={14} style={{ position: 'absolute', left: 10, color: 'var(--text-3)' }} />

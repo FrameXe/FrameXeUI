@@ -131,13 +131,15 @@ export function normalizeAlert(a, cam = {}) {
 export const cameraAPI = {
 
   // GET /api/cameras/ui  (fallback: /api/cameras)
-  getAll: () =>
-    api('/api/cameras/ui')
-      .catch(() => api('/api/cameras'))
+  getAll: (tenantId) => {
+    const query = tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : ''
+    return api(`/api/cameras/ui${query}`)
+      .catch(() => api(`/api/cameras${query}`))
       .then(d => {
         const list = Array.isArray(d) ? d : (d.cameras || d.data || [])
         return list.map(normalizeCamera)
-      }),
+      })
+  },
 
   // POST /cameras/register
   register: (body) =>
@@ -358,6 +360,14 @@ function adminHeaders() {
 }
 
 export const agentAPI = {
+  // ── Active viewers (lazy HLS streams) ─────────────────────
+  setActiveViewers: (tenantId, cameraIds) =>
+    api('/agent/cameras/active-viewers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...adminHeaders() },
+      body: JSON.stringify({ tenant_id: tenantId, camera_ids: cameraIds })
+    }),
+
   // ── Agent Status ───────────────────────────────────────────
   getAgentStatus: (tenantId) =>
     api(`/agent/status?tenant_id=${encodeURIComponent(tenantId)}`),

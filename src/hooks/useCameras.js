@@ -2,28 +2,23 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { cameraAPI } from '../services/api.js'
 import { useAuthStore } from '../store/index.js'
 
-export function useCameras() {
+export function useCameras(tenantId) {
   const [cameras, setCameras] = useState([])
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
   const username  = useAuthStore(s => s.user?.username)  // stable primitive, not object
-  const hasFetched = useRef(false)
 
   const load = useCallback(() => {
     setLoading(true)
-    cameraAPI.getAll()
+    cameraAPI.getAll(tenantId)
       .then(allCams => setCameras(allCams))
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
-  }, [])  // no deps — function never recreated
+  }, [tenantId])
 
   useEffect(() => {
-    // Run once on mount, and again only if user actually changes
-    if (!hasFetched.current || username) {
-      hasFetched.current = true
-      load()
-    }
-  }, [username, load])
+    load()
+  }, [username, tenantId, load])
 
   return { cameras, loading, error, refresh: load }
 }
