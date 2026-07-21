@@ -102,12 +102,13 @@ export default function CameraExplorer() {
         const res = await tokenAPI.listTenants()
         if (res.success && Array.isArray(res.tenants)) {
           const loaded = res.tenants.map(t => ({
-            id: t.tenant_id,
-            name: t.tenant_id
+            id: t,
+            label: t.split(/[-_]/).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
           }))
           setTenants(loaded)
           const current = localStorage.getItem('vframe_selected_tenant') || tenantId
-          const nextId = current || (loaded[0] ? loaded[0].id : '')
+          const exists = loaded.some(x => x.id === current)
+          const nextId = exists ? current : (loaded[0] ? loaded[0].id : '')
           setTenantId(nextId)
           localStorage.setItem('vframe_selected_tenant', nextId)
         }
@@ -203,14 +204,15 @@ export default function CameraExplorer() {
             style={{
               background: '#fff', border: '1px solid var(--border)', color: 'var(--text)',
               padding: '7px 12px', fontSize: 12, borderRadius: 'var(--radius-sm)',
-              fontWeight: 600, boxShadow: 'var(--shadow-sm)', outline: 'none'
+              fontWeight: 600, boxShadow: 'var(--shadow-sm)', outline: 'none',
+              minWidth: 140
             }}
           >
             {tenants.length === 0 ? (
               <option value="" disabled>No Tenants Registered</option>
             ) : (
               tenants.map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
+                <option key={t.id} value={t.id}>{t.label}</option>
               ))
             )}
           </select>
