@@ -164,7 +164,7 @@ export default function CameraExplorer() {
 
     sendActiveViewers()
 
-    const timer = setInterval(sendActiveViewers, 5000)
+    const timer = setInterval(sendActiveViewers, 3000)
     return () => clearInterval(timer)
   }, [tenantId, page, filtered.length]) // Trigger immediately on page, tenant or camera count change
 

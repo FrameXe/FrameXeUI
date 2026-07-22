@@ -30,20 +30,6 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
   const ucColor  = UC_COLOR[camera.useCase] || '#2563eb'
   const st       = ST[camera.status] || ST.inactive
 
-  // Active viewed stream heartbeat for this specific camera
-  useEffect(() => {
-    const cid = camera.camera_id || camera.id
-    const tid = camera.tenant_id || localStorage.getItem('vframe_selected_tenant')
-    if (!isActive || !cid || !tid) return
-
-    const sendPing = () => {
-      agentAPI.setActiveViewers(tid, [cid]).catch(() => {})
-    }
-    sendPing()
-    const timer = setInterval(sendPing, 4000)
-    return () => clearInterval(timer)
-  }, [camera.id, camera.camera_id, camera.tenant_id, isActive])
-
   // HLS attach — instance ref mein store karo taaki render loop access kar sake
   useEffect(() => {
     if (!camera.hlsUrl) return
