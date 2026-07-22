@@ -26,7 +26,7 @@ export default function GpuWorkerDashboard() {
     if (showSpinner) setRefreshing(true)
     try {
       const res = await agentAPI.getGpuWorkersStatus()
-      if (res && res.success && Array.isArray(res.gpu_workers)) {
+      if (res && res.success && Array.isArray(res.gpu_workers) && res.gpu_workers.length > 0) {
         setWorkers(res.gpu_workers)
       } else {
         // Fallback default sample data if no GPU worker registered yet
