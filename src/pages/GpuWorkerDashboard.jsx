@@ -25,7 +25,14 @@ export default function GpuWorkerDashboard() {
   async function loadData(showSpinner = false) {
     if (showSpinner) setRefreshing(true)
     try {
-      const res = await agentAPI.getGpuWorkersStatus()
+      let res = null
+      if (agentAPI && typeof agentAPI.getGpuWorkersStatus === 'function') {
+        res = await agentAPI.getGpuWorkersStatus()
+      } else {
+        const r = await fetch('/api/gpu-workers/status')
+        res = await r.json()
+      }
+
       if (res && res.success && Array.isArray(res.gpu_workers) && res.gpu_workers.length > 0) {
         setWorkers(res.gpu_workers)
       } else {
