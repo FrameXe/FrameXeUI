@@ -530,9 +530,6 @@ export const tokenAPI = {
   /**
    * Fetch live telemetry and dynamic Cloudflare URLs of all active GPU Workers.
    */
-  getGpuWorkersStatus: () =>
-    api('/api/gpu-workers/status', {
-      headers: adminHeaders(),
-    }),
+  getGpuWorkersStatus: () => api('/api/gpu-workers/status'),
 }
 
