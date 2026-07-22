@@ -525,5 +525,14 @@ export const tokenAPI = {
     api(`/agent/diagnostics?tenant_id=${encodeURIComponent(tenantId)}`, {
       headers: adminHeaders(),
     }),
+
+  // ── GPU Workers Telemetry ─────────────────────────────────
+  /**
+   * Fetch live telemetry and dynamic Cloudflare URLs of all active GPU Workers.
+   */
+  getGpuWorkersStatus: () =>
+    api('/api/gpu-workers/status', {
+      headers: adminHeaders(),
+    }),
 }
 

@@ -19,6 +19,7 @@ import IntrusionDetails from './pages/IntrusionDetails.jsx'
 import CameraAnalytics from './pages/CameraAnalytics.jsx'
 import VehicleLog from './pages/VehicleLog.jsx'
 import DiscoveredCamerasPanel from './pages/DiscoveredCamerasPanel.jsx'
+import GpuWorkerDashboard from './pages/GpuWorkerDashboard.jsx'
 
 import { useAuthStore } from './store/index.js'
 
@@ -67,6 +68,7 @@ export default function App() {
             <Route element={<ProtectedRoute permission="manage_cameras" />}>
               <Route path="camera-management" element={<CameraManagement />} />
               <Route path="agent-cameras" element={<DiscoveredCamerasPanel />} />
+              <Route path="gpu-workers" element={<GpuWorkerDashboard />} />
             </Route>
 
             <Route element={<ProtectedRoute permission="manage_users" />}>
