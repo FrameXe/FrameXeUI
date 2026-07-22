@@ -34,7 +34,8 @@ export default function GpuWorkerDashboard() {
       }
 
       if (res && res.success && Array.isArray(res.gpu_workers) && res.gpu_workers.length > 0) {
-        setWorkers(res.gpu_workers)
+        const sorted = [...res.gpu_workers].sort((a, b) => (a.worker_id || '').localeCompare(b.worker_id || ''))
+        setWorkers(sorted)
       } else {
         // Fallback default sample data if no GPU worker registered yet
         setWorkers([
