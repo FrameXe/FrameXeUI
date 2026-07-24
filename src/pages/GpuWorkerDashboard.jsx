@@ -42,7 +42,7 @@ export default function GpuWorkerDashboard() {
           {
             worker_id: 'gpu_worker_1',
             hostname: 'GPU-Node-Alpha',
-            public_url: 'https://newspaper-tire-potatoes-last.trycloudflare.com',
+            public_url: 'http://localhost:8000',
             gpu_name: 'NVIDIA GeForce RTX 3050 (8GB)',
             gpu_utilization: 42.5,
             vram_used_mb: 3420,
@@ -89,10 +89,10 @@ export default function GpuWorkerDashboard() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Zap style={{ color: '#2563eb' }} size={26} /> GPU Worker Telemetry & Cloudflare Tunnels
+            <Zap style={{ color: '#2563eb' }} size={26} /> GPU Worker Telemetry & LAN Worker Nodes
           </h1>
           <p style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 4 }}>
-            Real-time Monitoring of Distributed GPU Workers, Cloudflare Tunnel Latency & Dynamic Camera Capacity
+            Real-time Monitoring of Distributed GPU Workers, Backend Ping Latency & Dynamic Camera Capacity
           </p>
         </div>
 
@@ -139,7 +139,7 @@ export default function GpuWorkerDashboard() {
         </div>
 
         <div style={{ background: '#fff', border: '1px solid var(--border)', padding: 18, borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)' }}>
-          <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase' }}>Cloudflare Tunnel Sync</div>
+          <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase' }}>LAN Heartbeat Sync</div>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#16a34a', marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
             <CheckCircle size={16} /> Auto-Sync Active
           </div>
@@ -228,16 +228,16 @@ export default function GpuWorkerDashboard() {
                   </div>
 
                   <div>
-                    <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600 }}>CLOUDFLARE LATENCY</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600 }}>BACKEND PING</div>
                     <div style={{ fontSize: 16, fontWeight: 700, color: '#16a34a', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Activity size={16} /> {(w.tunnel_latency_ms || 15).toFixed(1)} ms
                     </div>
                   </div>
                 </div>
 
-                {/* Cloudflare Public URL Box */}
+                {/* Worker Local URL Box */}
                 <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, marginBottom: 6 }}>CLOUDFLARE TUNNEL PUBLIC URL</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, marginBottom: 6 }}>WORKER LOCAL URL</div>
                   <div style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '8px 12px', background: '#f1f5f9', border: '1px solid var(--border)',

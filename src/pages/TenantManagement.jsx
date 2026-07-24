@@ -785,10 +785,10 @@ function AgentDiagnosticsPanel({ tenantId }) {
           </div>
         </div>
 
-        {/* Cloudflare Tunnel URL */}
+        {/* HLS Stream URL */}
         {agent.hls_base_url && (
           <div style={{ fontSize: 12 }}>
-            <span style={{ color: 'var(--text-3)' }}>Cloudflare Tunnel: </span>
+            <span style={{ color: 'var(--text-3)' }}>HLS Stream URL: </span>
             <a href={agent.hls_base_url} target="_blank" rel="noopener noreferrer" style={{
               color: '#2563eb', fontWeight: 700, textDecoration: 'none',
               display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -1218,7 +1218,7 @@ export default function TenantManagement() {
               '→',
               '3. Give details to installer',
               '→',
-              '4. Agent auto-connects via Cloudflare Tunnel ✓',
+              '4. Agent auto-connects via LAN ✓',
             ].map((s, i) => (
               <span key={i} style={{ fontWeight: s === '→' ? 400 : 600 }}>{s}</span>
             ))}

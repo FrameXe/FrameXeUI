@@ -25,12 +25,12 @@ export async function attachHLS(videoEl, hlsUrl) {
       // Chrome, Firefox, Edge — hls.js use karo
       const hls = new Hls({
         enableWorker:               true,
-        lowLatencyMode:             false,          // Disable strict low-latency to allow proper buffering over public internet tunnels
-        liveSyncDuration:           10.0,           // Sync within 10s of live edge (5 segments of 2s) to absorb network jitter
-        liveMaxLatencyDuration:     16.0,           // Allow drift up to 16s before catch-up
-        maxLiveSyncPlaybackRate:    1.1,
-        backBufferLength:           10,
-        maxBufferLength:            30,             // Maintain longer buffer to prevent stalls
+        lowLatencyMode:             true,           // Enable strict low-latency mode for local LAN access
+        liveSyncDuration:           1.5,            // Sync within 1.5s of live edge
+        liveMaxLatencyDuration:     3.0,            // Allow drift up to 3s before catch-up
+        maxLiveSyncPlaybackRate:    1.2,            // Catch up faster
+        backBufferLength:           5,
+        maxBufferLength:            10,             // Shorter buffer length for low latency
       })
 
 

@@ -3,7 +3,6 @@ import react from '@vitejs/plugin-react'
 
 // Master backend URL — docker-compose maps container :8000 → host :9002
 const BACKEND = 'http://localhost:9002'
-// const BACKEND = 'http://13.233.194.170:9002'       //ye hai server ka 
 
 export default defineConfig({
   plugins: [react()],

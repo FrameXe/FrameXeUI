@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════════════════════
 //  API SERVICE — Real backend only
 //
-//  Base URL is set via Vite proxy → http://13.60.162.231:8000
+//  Base URL is set via Vite proxy → http://localhost:9002
 //
 //  GET  /api/cameras/ui  (or /api/cameras)
 //  GET  /api/cameras/{id}/detections/{usecase}
@@ -528,7 +528,7 @@ export const tokenAPI = {
 
   // ── GPU Workers Telemetry ─────────────────────────────────
   /**
-   * Fetch live telemetry and dynamic Cloudflare URLs of all active GPU Workers.
+   * Fetch live telemetry of all active GPU Workers (local LAN URLs + GPU stats).
    */
   getGpuWorkersStatus: () => api('/api/gpu-workers/status'),
 }
