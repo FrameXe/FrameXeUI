@@ -53,6 +53,16 @@ export const USE_CASES = [
     statFn: (dets) => dets.length > 0 ? 45 : 0, // Placeholder for speed logic
     mockTypes: ['car'] 
   },
+  {
+    id: 'fire_detection',
+    label: 'Fire & Smoke Detection',
+    emoji: '🔥',
+    color: '#ff3b3b',
+    unit: 'alerts',
+    desc: 'Real-time fire and smoke detection with critical alerts',
+    statFn: (dets) => dets.length,
+    mockTypes: ['fire', 'smoke']
+  },
 ]
 
 export const UC_MAP = Object.fromEntries(USE_CASES.map(u => [u.id, u]))
@@ -93,4 +103,8 @@ export const UC_CANVAS = {
   congestion:      { color: '#00cfff', label: 'Vehicle' },
   speeding:        { color: '#ffd600', label: 'Vehicle' },
   illegal_parking: { color: '#ff9f43', label: 'Vehicle' },
+  fire_detection:  { color: '#ff3b3b', label: 'FIRE' },
+  fire:            { color: '#ff3b3b', label: 'FIRE' },
+  flame:           { color: '#ff3b3b', label: 'FIRE' },
+  smoke:           { color: '#9ca3af', label: 'SMOKE' },
 }
