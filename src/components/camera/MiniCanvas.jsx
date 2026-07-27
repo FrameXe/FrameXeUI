@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { attachHLS } from '../../services/hls.js'
+import { attachWebRTC } from '../../services/webrtc.js'
 import { sseManager } from '../../lib/sseManager.js'
 import { drawDetBox, drawMockBg } from '../../services/canvasDraw.js'
 import { UC_COLOR } from '../../constants/useCases.js'
@@ -20,26 +21,26 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
   const animRef        = useRef(null)
   const frameRef       = useRef(0)
   const detsRef        = useRef([])
-  const hlsInstanceRef = useRef(null)                  // PDT sync ke liye hls instance
-  const hlsReadyRef    = useRef(false)                 // FIX: video actually playable hai?
+  const hlsInstanceRef = useRef(null)                  // stream instance
+  const hlsReadyRef    = useRef(false)                 // FIX: video playable hai?
   const sseBufferRef   = useRef([])                    // sliding queue: [{ timestamp, objects }]
-  const [hlsLoading, setHlsLoading] = useState(false)  // FIX: loading state for overlay
+  const [hlsLoading, setHlsLoading] = useState(false)  // loading state
   const [retryKey, setRetryKey] = useState(0)
 
   const isActive = camera.status === 'active'
   const ucColor  = UC_COLOR[camera.useCase] || '#2563eb'
   const st       = ST[camera.status] || ST.inactive
+  const streamUrl = camera.webrtcUrl || camera.hlsUrl || camera.rtspUrl
 
-  // HLS attach — instance ref mein store karo taaki render loop access kar sake
+  // Stream attach (WebRTC WHEP -> HLS fallback)
   useEffect(() => {
-    if (!camera.hlsUrl) return
+    if (!streamUrl) return
     const vid = videoRef.current
     hlsReadyRef.current = false
     setHlsLoading(true)
 
     let retryTimeout = null
 
-    // Video events — jab video actually play ho sake tab hlsReadyRef flip karo
     const onCanPlay = () => {
       hlsReadyRef.current = true
       setHlsLoading(false)
@@ -62,8 +63,15 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
     vid.addEventListener('playing', onPlaying)
     vid.addEventListener('error', onError)
 
-    attachHLS(vid, camera.hlsUrl).then(h => {
-      hlsInstanceRef.current = h
+    // Try WebRTC WHEP first for real-time RTSP, fall back to HLS
+    attachWebRTC(vid, streamUrl).then(rtc => {
+      if (rtc) {
+        hlsInstanceRef.current = rtc
+      } else {
+        attachHLS(vid, streamUrl).then(h => {
+          hlsInstanceRef.current = h
+        })
+      }
     })
 
     // Watchdog: recreate player if it fails to buffer after 8s
@@ -179,7 +187,7 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
 
       // FIX: readyState >= 1 (HAVE_METADATA) use karo, aur hlsReadyRef check karo
       // Pehle readyState >= 2 tha — HLS live stream pe yeh 2-3s lag sakta hai → black screen
-      const videoReady = camera.hlsUrl && vid && hlsReadyRef.current && vid.readyState >= 1
+      const videoReady = streamUrl && vid && hlsReadyRef.current && vid.readyState >= 1
 
       // Video frame ya mock background draw karo
       if (videoReady) {

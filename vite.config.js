@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react'
 const BACKEND = 'http://localhost:9002'
 
 export default defineConfig({
+  base: './',          // Electron loads from file:// — needs relative paths
   plugins: [react()],
   server: {
     port: 5173,

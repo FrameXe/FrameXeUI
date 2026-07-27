@@ -75,6 +75,8 @@ function normalizeCamera(c) {
     enabled_usecases: useCases,
     alertCount: c.alert_count || 0,
     hlsUrl: c.hls_url || c.hlsUrl || null,
+    rtspUrl: c.rtsp_url || c.rtspUrl || c.rtsp_path || null,
+    webrtcUrl: c.webrtc_url || c.webrtcUrl || null,
   }
 }
 

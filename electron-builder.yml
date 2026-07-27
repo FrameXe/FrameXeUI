@@ -1,0 +1,45 @@
+# ══════════════════════════════════════════════════════════════
+#  ELECTRON-BUILDER CONFIGURATION
+#
+#  Builds a Windows .exe installer (NSIS) from the Vite dist output.
+#  Run: npm run electron:build
+# ══════════════════════════════════════════════════════════════
+
+appId: com.framexe.videoanalytics
+productName: FrameXe
+copyright: "Copyright © 2026 FrameXe"
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - "dist/**/*"
+  - "electron/**/*"
+  - "package.json"
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.ico
+  artifactName: "${productName}-Setup-${version}.${ext}"
+  sign: false
+  forceCodeSigning: false
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+  shortcutName: FrameXe
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  uninstallDisplayName: "FrameXe Video Analytics"
+
+asar: true
+
+# Exclude dev-only files from the package
+asarUnpack:
+  - "electron/**/*"

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { attachHLS }    from '../../services/hls.js'
+import { attachWebRTC } from '../../services/webrtc.js'
 import { sseManager }   from '../../lib/sseManager.js'
 import { drawDetBox, drawMockBg, crossesLine } from '../../services/canvasDraw.js'
 import { UC_COLOR, UC_MAP, UC_CANVAS } from '../../constants/useCases.js'
@@ -212,13 +213,14 @@ export default function CanvasEditor({ camera, onClose }) {
     })
   }, [camera.id])
 
-  // ── HLS setup ─────────────────────────────────────────────
+  // ── Stream setup (WebRTC WHEP -> HLS fallback) ────────────
+  const streamUrl = camera.webrtcUrl || camera.hlsUrl || camera.rtspUrl
   useEffect(() => {
-    if (!camera.hlsUrl) return
+    if (!streamUrl) return
     const vid = videoRef.current
     let inst  = null
     if (isMp4) {
-      vid.src = camera.hlsUrl; vid.loop = true; vid.muted = true; vid.preload = 'auto'
+      vid.src = streamUrl; vid.loop = true; vid.muted = true; vid.preload = 'auto'
       vid.play().catch(() => {})
       const t = setInterval(() => { if (vid.readyState >= 1) { setHlsReady(true); clearInterval(t) } }, 200)
       return () => { clearInterval(t); vid.pause(); vid.src = ''; setHlsReady(false) }
@@ -235,15 +237,28 @@ export default function CanvasEditor({ camera, onClose }) {
     }
     vid.addEventListener('error', onError)
 
-    attachHLS(vid, camera.hlsUrl).then(h => {
-      inst = h
-      hlsInstanceRef.current = h
-      const t = setInterval(() => {
-        if (vid.readyState >= 1) {
-          setHlsReady(true)
-          clearInterval(t)
-        }
-      }, 400)
+    attachWebRTC(vid, streamUrl).then(rtc => {
+      if (rtc) {
+        inst = rtc
+        hlsInstanceRef.current = rtc
+        const t = setInterval(() => {
+          if (vid.readyState >= 1) {
+            setHlsReady(true)
+            clearInterval(t)
+          }
+        }, 200)
+      } else {
+        attachHLS(vid, streamUrl).then(h => {
+          inst = h
+          hlsInstanceRef.current = h
+          const t = setInterval(() => {
+            if (vid.readyState >= 1) {
+              setHlsReady(true)
+              clearInterval(t)
+            }
+          }, 400)
+        })
+      }
     })
 
     // Watchdog
@@ -391,7 +406,7 @@ export default function CanvasEditor({ camera, onClose }) {
       frameRef.current++
       const W = canvas.width, H = canvas.height
       const vid = videoRef.current
-      if (camera.hlsUrl && vid?.readyState >= 1) {
+      if (streamUrl && vid?.readyState >= 1) {
         try { ctx.drawImage(vid, 0, 0, W, H) } catch(e) {}
         ctx.fillStyle = 'rgba(0,0,0,0.025)'
         for (let y = (frameRef.current * 2) % 4; y < H; y += 4) ctx.fillRect(0, y, W, 1)

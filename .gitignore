@@ -82,6 +82,7 @@ cypress/videos/
 # dist/build output
 dist/
 dist-ssr/
+release/
 *.local
 
 # Editor directories and files

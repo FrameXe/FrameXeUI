@@ -11,6 +11,8 @@
 //  in the listener map but NOT on the EventSource itself.
 // ══════════════════════════════════════════════════════════════
 
+import { API_BASE } from '../config/index.js'
+
 class SSEManager {
   constructor() {
     this.connections      = {}  // connectionKey → EventSource
@@ -18,7 +20,7 @@ class SSEManager {
     this.statusListeners  = {}  // connectionKey → Set<fn(status)>
     this.reconnectTimers  = {}  // connectionKey → setTimeout handle
     this.registeredEvents = {} // connectionKey → Set<eventName already on EventSource>
-    this.BASE_URL         = import.meta.env.VITE_API_URL || ''
+    this.BASE_URL         = import.meta.env.VITE_API_URL || API_BASE || ''
   }
 
   // ── Subscribe ──────────────────────────────────────────────

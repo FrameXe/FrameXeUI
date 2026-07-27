@@ -14,8 +14,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { alertAPI, normalizeAlert } from '../services/api.js'
 import { sseManager } from '../lib/sseManager.js'
+import { API_BASE } from '../config/index.js'
 
-const BASE_URL  = import.meta.env.VITE_API_URL  || ''
+const BASE_URL  = import.meta.env.VITE_API_URL  || API_BASE || ''
 const TENANT_ID = import.meta.env.VITE_TENANT_ID || 'tenant_demo'
 
 // SSE URL — connects to master_backend's /api/sse/alerts

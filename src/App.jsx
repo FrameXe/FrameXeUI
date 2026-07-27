@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { BrowserRouter, HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import Layout from './components/layout/Layout.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import CameraExplorer from './pages/CameraExplorer.jsx'
@@ -23,6 +23,13 @@ import GpuWorkerDashboard from './pages/GpuWorkerDashboard.jsx'
 
 import { useAuthStore } from './store/index.js'
 
+// Electron uses file:// protocol in production → BrowserRouter won't work.
+// HashRouter (/#/cameras) handles SPA routing on any protocol.
+// In browser (web), BrowserRouter continues to work as before.
+const Router = (typeof window !== 'undefined' && window.electronAPI?.isElectron)
+  ? HashRouter
+  : BrowserRouter
+
 function ProtectedRoute({ permission }) {
   const user = useAuthStore(s => s.user)
   const hasPermission = useAuthStore(s => s.hasPermission)
@@ -40,7 +47,7 @@ function ProtectedRoute({ permission }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
 
@@ -82,7 +89,7 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   )
 }
 

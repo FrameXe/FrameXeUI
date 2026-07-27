@@ -7,8 +7,8 @@
 import { API_BASE } from '../config/index.js'
 import { sseManager } from './sseManager.js'
 
-// Dev Tunnel specifically for the 3 sync endpoints
-const SYNC_BASE = 'https://nz1pvxzc-8000.inc1.devtunnels.ms'
+// Master backend URL for sync endpoints
+const SYNC_BASE = API_BASE || 'http://localhost:9002'
 
 /**
  * Compute the client-server clock offset.
