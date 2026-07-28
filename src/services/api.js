@@ -62,10 +62,31 @@ function normalizeCamera(c) {
     useCases = [...useCases, 'traffic']
   }
 
+  // ── Stream URL resolution ─────────────────────────────────────
+  // Backend NOW provides webrtc_url = "http://HOST:8889/CAMERA_ID/whep" directly.
+  // Priority: rtsp_url > webrtc_url > camera_id (bare name, webrtc.js builds WHEP URL)
+  // hls_url is deprecated on backend — will be null. Never use it for playback.
+  const hlsRaw    = c.hls_url || c.hlsUrl || null
+  const rtspRaw   = c.rtsp_url || c.rtspUrl || c.rtsp_path || null
+  const webrtcRaw = c.webrtc_url || c.webrtcUrl || null
+  const camId     = c.camera_id || c.id
+
+  // whepStreamName: used only if rtspUrl AND webrtcUrl are both missing
+  // Backend webrtc_url will be set now, so this is a safety fallback only.
+  let whepStreamName = camId
+  if (hlsRaw && !rtspRaw && !webrtcRaw) {
+    try {
+      const parsed = new URL(hlsRaw)
+      const parts  = parsed.pathname.split('/').filter(p => p && p !== 'hls' && p !== 'index.m3u8')
+      if (parts.length > 0) whepStreamName = parts.join('/')
+    } catch { /* keep camId */ }
+  }
+
+
   return {
-    id: c.camera_id || c.id,
-    camera_id: c.camera_id || c.id,
-    name: c.name || c.camera_id || c.id,
+    id: camId,
+    camera_id: camId,
+    name: c.name || camId,
     location: c.location || c.location_id || c.camera_location || '',
     latitude: c.latitude,
     longitude: c.longitude,
@@ -74,11 +95,17 @@ function normalizeCamera(c) {
     useCases,
     enabled_usecases: useCases,
     alertCount: c.alert_count || 0,
-    hlsUrl: c.hls_url || c.hlsUrl || null,
-    rtspUrl: c.rtsp_url || c.rtspUrl || c.rtsp_path || null,
-    webrtcUrl: c.webrtc_url || c.webrtcUrl || null,
+    // WebRTC WHEP: always prefer rtspUrl or explicit webrtcUrl.
+    // If neither exists, use the stream name (= camera_id) so webrtc.js
+    // builds the correct WHEP endpoint http://HOST:8889/STREAM_NAME/whep
+    rtspUrl:   rtspRaw,
+    webrtcUrl: webrtcRaw,
+    whepStreamName,   // always set — used by MiniCanvas as final fallback
+    // Keep hlsUrl for reference/debug only — never feed to WebRTC player
+    hlsUrl: hlsRaw,
   }
 }
+
 
 // ── Alert normalizer ──────────────────────────────────────────
 // Backend se aane wale usecases ko frontend UC ids pe map karo.
@@ -160,6 +187,23 @@ export const cameraAPI = {
     api(`/api/cameras/${cameraId}/config`, {
       method: 'POST',
       body: JSON.stringify({ camera_id: cameraId, roi_area: roiPoints }),
+    }),
+
+  // GET /api/cameras/{id}/line
+  getLine: (cameraId) =>
+    api(`/api/cameras/${cameraId}/line`),
+
+  // POST /api/cameras/{id}/line
+  saveLine: (cameraId, config) =>
+    api(`/api/cameras/${cameraId}/line`, {
+      method: 'POST',
+      body: JSON.stringify({ cam_id: cameraId, camera_id: cameraId, ...config }),
+    }),
+
+  // DELETE /api/cameras/{id}/line
+  deleteLine: (cameraId) =>
+    api(`/api/cameras/${cameraId}/line`, {
+      method: 'DELETE',
     }),
 }
 
@@ -340,10 +384,17 @@ export const trackerAPI = {
 //  LINE CROSSING API
 // ════════════════════════════════════════════════════════════
 export const lineAPI = {
+  get: (cameraId) => api(`/api/cameras/${cameraId}/line`),
+  save: (body) => api(`/api/cameras/${body.cam_id}/line`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  }),
+  del: (cameraId) => api(`/api/cameras/${cameraId}/line`, {
+    method: 'DELETE',
+  }),
   getCrossingCounts: (cameraId) => api(`/api/line/crossing/${cameraId}`),
   recordCrossing: (body) => api('/api/line/crossing', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   }),
   resetCrossingCounts: (cameraId) => api(`/api/line/crossing/${cameraId}/reset`, {

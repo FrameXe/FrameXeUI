@@ -1,12 +1,14 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Camera, AlertTriangle,
-  SlidersHorizontal, BarChart3, Shield, Users, Radio, Building2, Car, Zap
+  SlidersHorizontal, BarChart3, Shield, Users, Radio, Building2, Car, Zap, Microscope
 } from 'lucide-react'
 import { USE_CASES } from '../../constants/useCases.js'
 import { useAllAlerts } from '../../hooks/useAlerts.js'
 import { useCameras } from '../../hooks/useCameras.js'
 import { useAuthStore } from '../../store/index.js'
+import { subscribe, getLogs } from '../../lib/logCapture.js'
+import { useState, useEffect } from 'react'
 
 const NAV_ITEMS = [
   { to: '/', end: true, icon: LayoutDashboard, label: 'Dashboard', permission: 'view_dashboard' },
@@ -23,6 +25,16 @@ export default function Sidebar() {
   const { cameras } = useCameras()
   const { unread } = useAllAlerts(cameras)
   const user = useAuthStore(s => s.user)
+  const [errorCount, setErrorCount] = useState(
+    () => getLogs().filter(l => l.level === 'error' || l.level === 'runtime').length
+  )
+
+  useEffect(() => {
+    const unsub = subscribe(logs => {
+      setErrorCount(logs.filter(l => l.level === 'error' || l.level === 'runtime').length)
+    })
+    return unsub
+  }, [])
 
   const showSuites = user?.permissions.includes('view_cameras')
 
@@ -90,6 +102,26 @@ export default function Sidebar() {
           </div>
         )}
       </nav>
+
+      <div style={{ padding: '12px 10px', borderTop: '1px solid var(--border)' }}>
+        <NavLink
+          to="/diagnostics"
+          className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+          style={{ justifyContent: 'space-between' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Microscope size={16} />
+            <span>Diagnostics</span>
+          </div>
+          {errorCount > 0 && (
+            <span style={{
+              background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 800,
+              padding: '2px 8px', borderRadius: 20, minWidth: 20, textAlign: 'center',
+              animation: 'pulse 2s infinite',
+            }}>{errorCount}</span>
+          )}
+        </NavLink>
+      </div>
 
       <div style={{ padding: '16px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
         <div className="live-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)' }} />

@@ -18,6 +18,10 @@ files:
   - "electron/**/*"
   - "package.json"
 
+extraResources:
+  - from: "../initial_Stream_Manager/packaging/windows/ffmpeg.exe"
+    to: "ffmpeg.exe"
+
 win:
   target:
     - target: nsis

@@ -20,6 +20,7 @@ import CameraAnalytics from './pages/CameraAnalytics.jsx'
 import VehicleLog from './pages/VehicleLog.jsx'
 import DiscoveredCamerasPanel from './pages/DiscoveredCamerasPanel.jsx'
 import GpuWorkerDashboard from './pages/GpuWorkerDashboard.jsx'
+import DiagnosticPanel from './pages/DiagnosticPanel.jsx'
 
 import { useAuthStore } from './store/index.js'
 
@@ -84,6 +85,7 @@ export default function App() {
             </Route>
 
             <Route path="access-denied" element={<AccessDenied />} />
+            <Route path="diagnostics" element={<DiagnosticPanel />} />
           </Route>
         </Route>
 

@@ -100,17 +100,20 @@ export default function CameraExplorer() {
     async function loadTenants() {
       try {
         const res = await tokenAPI.listTenants()
-        if (res.success && Array.isArray(res.tenants)) {
-          const loaded = res.tenants.map(t => ({
-            id: t,
-            label: t.split(/[-_]/).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
-          }))
+        if (res && res.success && Array.isArray(res.tenants)) {
+          const loaded = res.tenants.map(t => {
+            const id = typeof t === 'string' ? t : (t?.tenant_id || t?.id || t?.label || String(t || ''))
+            const label = typeof id === 'string' && id ? id.split(/[-_]/).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') : 'Tenant'
+            return { id, label }
+          }).filter(t => t.id)
           setTenants(loaded)
-          const current = localStorage.getItem('vframe_selected_tenant') || tenantId
-          const exists = loaded.some(x => x.id === current)
-          const nextId = exists ? current : (loaded[0] ? loaded[0].id : '')
-          setTenantId(nextId)
-          localStorage.setItem('vframe_selected_tenant', nextId)
+          if (loaded.length > 0) {
+            const current = localStorage.getItem('vframe_selected_tenant') || tenantId
+            const exists = loaded.some(x => x.id === current)
+            const nextId = exists ? current : loaded[0].id
+            setTenantId(nextId)
+            localStorage.setItem('vframe_selected_tenant', nextId)
+          }
         }
       } catch (err) {
         console.error('Failed to load dynamic tenants list:', err)
@@ -127,10 +130,12 @@ export default function CameraExplorer() {
     }
   }, [useCaseId])
 
-  const filtered = cameras.filter(c => {
-    const matchesUc = ucFilter === 'all' || (c.enabled_usecases || []).includes(ucFilter)
+  const cameraList = Array.isArray(cameras) ? cameras : []
+  const filtered = cameraList.filter(c => {
+    if (!c) return false
+    const matchesUc = ucFilter === 'all' || (c.enabled_usecases || c.useCases || []).includes(ucFilter)
     const matchesSt = stFilter === 'all' || c.status === stFilter
-    const sq = searchQuery.toLowerCase()
+    const sq = (searchQuery || '').toLowerCase()
     const matchesSq = !sq || 
       (c.id || '').toLowerCase().includes(sq) || 
       (c.name || '').toLowerCase().includes(sq) || 
@@ -148,11 +153,11 @@ export default function CameraExplorer() {
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE)
   const paginatedCameras = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
 
-  // On-demand HLS streaming heartbeat
+  // On-demand HLS/WebRTC streaming heartbeat
   useEffect(() => {
     if (!tenantId || paginatedCameras.length === 0) return
 
-    const activeIds = paginatedCameras.map(c => c.camera_id || c.id)
+    const activeIds = paginatedCameras.map(c => c.camera_id || c.id).filter(Boolean)
 
     async function sendActiveViewers() {
       try {
@@ -170,7 +175,7 @@ export default function CameraExplorer() {
 
   if (loading) return <Loading msg="Loading cameras…" />
 
-  const activeCount = cameras.filter(c => c.status === 'active').length
+  const activeCount = cameraList.filter(c => c && c.status === 'active').length
 
   const getUcColor = (cam) => {
     const uc = USE_CASES.find(u => u.id === (cam.useCase || cam.enabled_usecases?.[0]))

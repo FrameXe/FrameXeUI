@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { attachHLS }    from '../../services/hls.js'
 import { attachWebRTC } from '../../services/webrtc.js'
 import { sseManager }   from '../../lib/sseManager.js'
 import { drawDetBox, drawMockBg, crossesLine } from '../../services/canvasDraw.js'
@@ -199,7 +198,9 @@ export default function CanvasEditor({ camera, onClose }) {
 
   // ── Load Line Config on mount ─────────────────────────────
   useEffect(() => {
-    lineAPI.get(camera.id).then(cfg => {
+    const camId = camera.id || camera.camera_id
+    if (!camId) return
+    cameraAPI.getLine(camId).then(cfg => {
       if (cfg?.enabled && cfg.x1_ratio != null) {
         const W = 1280, H = 720
         const line = {
@@ -210,11 +211,13 @@ export default function CanvasEditor({ camera, onClose }) {
         setLineDir(cfg.direction || 'both')
         setLinePhase('saved')
       }
-    })
-  }, [camera.id])
+    }).catch(() => {})
+  }, [camera.id, camera.camera_id])
 
-  // ── Stream setup (WebRTC WHEP -> HLS fallback) ────────────
-  const streamUrl = camera.webrtcUrl || camera.hlsUrl || camera.rtspUrl
+  // Stream source priority:
+  // 1. rtspUrl — direct RTSP URL (rtsp://...) decoded locally on Windows by Electron (port 9990)
+  // 2. webrtcUrl / whepStreamName / camera_id — fallback WHEP endpoint (port 8889)
+  const streamUrl = camera.rtspUrl || camera.webrtcUrl || camera.whepStreamName || camera.camera_id || camera.id
   useEffect(() => {
     if (!streamUrl) return
     const vid = videoRef.current
@@ -242,28 +245,19 @@ export default function CanvasEditor({ camera, onClose }) {
         inst = rtc
         hlsInstanceRef.current = rtc
         const t = setInterval(() => {
-          if (vid.readyState >= 1) {
+          const rtspImg = vid?._rtspImg
+          if (vid.readyState >= 1 || (rtspImg && rtspImg.naturalWidth > 0)) {
             setHlsReady(true)
             clearInterval(t)
           }
         }, 200)
-      } else {
-        attachHLS(vid, streamUrl).then(h => {
-          inst = h
-          hlsInstanceRef.current = h
-          const t = setInterval(() => {
-            if (vid.readyState >= 1) {
-              setHlsReady(true)
-              clearInterval(t)
-            }
-          }, 400)
-        })
       }
     })
 
     // Watchdog
     const watchdog = setTimeout(() => {
-      if (vid.readyState < 1) {
+      const rtspImg = vid?._rtspImg
+      if (vid.readyState < 1 && !(rtspImg && rtspImg.naturalWidth > 0)) {
         console.log('[HLS Watchdog] Editor Stream not ready after 8s, retrying...', camera.camera_id)
         setRetryKey(k => k + 1)
       }
@@ -277,7 +271,7 @@ export default function CanvasEditor({ camera, onClose }) {
       hlsInstanceRef.current = null
       setHlsReady(false)
     }
-  }, [camera.hlsUrl, isMp4, retryKey])
+  }, [streamUrl, isMp4, retryKey])
 
   // ── Detection feed via SSE ────────────────────────────────
   useEffect(() => {
@@ -406,8 +400,13 @@ export default function CanvasEditor({ camera, onClose }) {
       frameRef.current++
       const W = canvas.width, H = canvas.height
       const vid = videoRef.current
-      if (streamUrl && vid?.readyState >= 1) {
-        try { ctx.drawImage(vid, 0, 0, W, H) } catch(e) {}
+      const rtspImg = vid?._rtspImg
+      const videoReady = streamUrl && (vid?.readyState >= 1 || (rtspImg && rtspImg.naturalWidth > 0))
+      if (videoReady) {
+        try {
+          const drawSource = (rtspImg && rtspImg.naturalWidth > 0) ? rtspImg : vid
+          ctx.drawImage(drawSource, 0, 0, W, H)
+        } catch(e) {}
         ctx.fillStyle = 'rgba(0,0,0,0.025)'
         for (let y = (frameRef.current * 2) % 4; y < H; y += 4) ctx.fillRect(0, y, W, 1)
       } else {
@@ -662,11 +661,11 @@ export default function CanvasEditor({ camera, onClose }) {
   const saveLine = async () => {
     if (!virtualLine?.p1 || !virtualLine?.p2) return
     setLineSaving(true); setLineMsg(null)
+    const camId = camera.id || camera.camera_id
     try {
       const W = canvasRef.current?.width  || 1280
       const H = canvasRef.current?.height || 720
-      await lineAPI.save({
-        cam_id:    camera.id,
+      await cameraAPI.saveLine(camId, {
         enabled:   true,
         x1_ratio:  parseFloat((virtualLine.p1.x / W).toFixed(4)),
         y1_ratio:  parseFloat((virtualLine.p1.y / H).toFixed(4)),
@@ -684,8 +683,9 @@ export default function CanvasEditor({ camera, onClose }) {
 
   const deleteLine = async () => {
     setLineDeleting(true)
+    const camId = camera.id || camera.camera_id
     try {
-      await lineAPI.del(camera.id)
+      await cameraAPI.deleteLine(camId)
       clearLine()
       setLineMsg({ ok: true, text: '✓ Line deleted' })
       setTimeout(() => setLineMsg(null), 2000)
@@ -749,8 +749,8 @@ export default function CanvasEditor({ camera, onClose }) {
           })}
         </div>
 
-        {camera.hlsUrl
-          ? <Tag color={hlsReady ? '#00cfff' : '#ffd600'}>{hlsReady ? '● LIVE' : '◌ LOADING…'}</Tag>
+        {streamUrl
+          ? <Tag color={hlsReady ? '#00cfff' : '#ffd600'}>{hlsReady ? '⚡ WEBRTC LIVE' : '◌ LOADING…'}</Tag>
           : <Tag color='#2a4050'>NO SOURCE</Tag>}
         {unackedCount > 0 && <Tag color='#ff3b3b'>⚠ {unackedCount} ALERTS</Tag>}
 

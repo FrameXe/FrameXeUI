@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import TopBar from './TopBar.jsx'
 import Sidebar from './Sidebar.jsx'
+import { ErrorBoundary } from '../shared/ErrorBoundary.jsx'
 
 export default function Layout() {
   return (
@@ -9,7 +10,9 @@ export default function Layout() {
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Sidebar />
         <main style={{ flex: 1, overflowY: 'auto', padding: '28px 32px', background: 'var(--bg)' }}>
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { attachHLS } from '../../services/hls.js'
 import { attachWebRTC } from '../../services/webrtc.js'
 import { sseManager } from '../../lib/sseManager.js'
 import { drawDetBox, drawMockBg } from '../../services/canvasDraw.js'
@@ -21,79 +20,76 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
   const animRef        = useRef(null)
   const frameRef       = useRef(0)
   const detsRef        = useRef([])
-  const hlsInstanceRef = useRef(null)                  // stream instance
-  const hlsReadyRef    = useRef(false)                 // FIX: video playable hai?
-  const sseBufferRef   = useRef([])                    // sliding queue: [{ timestamp, objects }]
-  const [hlsLoading, setHlsLoading] = useState(false)  // loading state
+  const rtcInstanceRef  = useRef(null)                 // WebRTC peer connection instance
+  const streamReadyRef  = useRef(false)                // video is playable
+  const sseBufferRef    = useRef([])                   // sliding queue: [{ timestamp, objects }]
+  const [streamLoading, setStreamLoading] = useState(false)
   const [retryKey, setRetryKey] = useState(0)
 
   const isActive = camera.status === 'active'
   const ucColor  = UC_COLOR[camera.useCase] || '#2563eb'
   const st       = ST[camera.status] || ST.inactive
-  const streamUrl = camera.webrtcUrl || camera.hlsUrl || camera.rtspUrl
 
-  // Stream attach (WebRTC WHEP -> HLS fallback)
+  // Stream source priority:
+  // 1. rtspUrl — direct RTSP URL (rtsp://...) decoded locally on Windows by Electron (port 9990)
+  // 2. webrtcUrl / whepStreamName / camera_id — fallback WHEP endpoint (port 8889)
+  const streamUrl = camera.rtspUrl || camera.webrtcUrl || camera.whepStreamName || camera.camera_id || camera.id
+
+  // ── WebRTC WHEP Stream Attach ─────────────────────────────────
   useEffect(() => {
     if (!streamUrl) return
     const vid = videoRef.current
-    hlsReadyRef.current = false
-    setHlsLoading(true)
+    streamReadyRef.current = false
+    setStreamLoading(true)
 
     let retryTimeout = null
 
-    const onCanPlay = () => {
-      hlsReadyRef.current = true
-      setHlsLoading(false)
-      vid.play().catch(() => {})
-    }
-    const onPlaying = () => {
-      hlsReadyRef.current = true
-      setHlsLoading(false)
-    }
-    const onError = () => {
-      hlsReadyRef.current = false
-      if (!retryTimeout) {
-        retryTimeout = setTimeout(() => {
-          setRetryKey(k => k + 1)
-        }, 3000)
-      }
+    const onCanPlay = () => { streamReadyRef.current = true; setStreamLoading(false); vid.play().catch(() => {}) }
+    const onPlaying = () => { streamReadyRef.current = true; setStreamLoading(false) }
+    const onError   = () => {
+      streamReadyRef.current = false
+      if (!retryTimeout) retryTimeout = setTimeout(() => setRetryKey(k => k + 1), 5000)
     }
 
     vid.addEventListener('canplay', onCanPlay)
     vid.addEventListener('playing', onPlaying)
-    vid.addEventListener('error', onError)
+    vid.addEventListener('error',   onError)
 
-    // Try WebRTC WHEP first for real-time RTSP, fall back to HLS
-    attachWebRTC(vid, streamUrl).then(rtc => {
-      if (rtc) {
-        hlsInstanceRef.current = rtc
-      } else {
-        attachHLS(vid, streamUrl).then(h => {
-          hlsInstanceRef.current = h
-        })
+    // Poll readyState — WebRTC srcObject or local RTSP img stream
+    const readyCheck = setInterval(() => {
+      const rtspImg = vid?._rtspImg
+      if (vid && (vid.readyState >= 2 || (rtspImg && rtspImg.naturalWidth > 0))) {
+        streamReadyRef.current = true
+        setStreamLoading(false)
       }
+    }, 200)
+
+    // Attach WebRTC WHEP stream
+    attachWebRTC(vid, streamUrl).then(rtc => {
+      if (rtc) rtcInstanceRef.current = rtc
     })
 
-    // Watchdog: recreate player if it fails to buffer after 8s
+    // Watchdog: retry if stream not ready after 10s
     const watchdog = setTimeout(() => {
-      if (!hlsReadyRef.current) {
-        console.log('[HLS Watchdog] Stream not ready after 8s, retrying...', camera.camera_id)
+      if (!streamReadyRef.current) {
+        console.warn('[WebRTC Watchdog] Stream not ready after 10s, retrying...', camera.camera_id)
         setRetryKey(k => k + 1)
       }
-    }, 8000)
+    }, 10000)
 
     return () => {
+      clearInterval(readyCheck)
       clearTimeout(watchdog)
       clearTimeout(retryTimeout)
       vid.removeEventListener('canplay', onCanPlay)
       vid.removeEventListener('playing', onPlaying)
-      vid.removeEventListener('error', onError)
-      hlsInstanceRef.current?.destroy()
-      hlsInstanceRef.current = null
-      hlsReadyRef.current = false
-      setHlsLoading(false)
+      vid.removeEventListener('error',   onError)
+      rtcInstanceRef.current?.destroy()
+      rtcInstanceRef.current = null
+      streamReadyRef.current = false
+      setStreamLoading(false)
     }
-  }, [camera.hlsUrl, retryKey])
+  }, [streamUrl, retryKey])
 
   // Detection feed via SSE — PDT sync ke liye buffer mein store karo
   // Endpoint: /api/sse/cameras/${id}/detections/${usecase}
@@ -182,21 +178,20 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
     const render = () => {
       if (!running) return
       frameRef.current++
-      const vid     = videoRef.current
-      const hlsInst = hlsInstanceRef.current
+      const vid = videoRef.current
+      const rtspImg = vid?._rtspImg
 
-      // FIX: readyState >= 1 (HAVE_METADATA) use karo, aur hlsReadyRef check karo
-      // Pehle readyState >= 2 tha — HLS live stream pe yeh 2-3s lag sakta hai → black screen
-      const videoReady = streamUrl && vid && hlsReadyRef.current && vid.readyState >= 1
+      // Video is ready when WebRTC stream has HAVE_CURRENT_DATA (readyState >= 2) OR local RTSP MJPEG image is loaded
+      const videoReady = streamUrl && vid && streamReadyRef.current && (vid.readyState >= 2 || (rtspImg && rtspImg.naturalWidth > 0))
 
-      // Video frame ya mock background draw karo
+      // Draw video frame or animated mock background
       if (videoReady) {
         try {
-          ctx.drawImage(vid, 0, 0, W, H)
+          const drawSource = (rtspImg && rtspImg.naturalWidth > 0) ? rtspImg : vid
+          ctx.drawImage(drawSource, 0, 0, W, H)
           ctx.fillStyle = 'rgba(0,0,0,0.03)'
           for (let y = (frameRef.current * 2) % 4; y < H; y += 4) ctx.fillRect(0, y, W, 1)
         } catch (_) {
-          // Video element abhi ready nahi — mock bg draw karo
           drawMockBg(ctx, W, H, frameRef.current, null)
         }
       } else {
@@ -206,29 +201,18 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
       const origW = ORIG_W
       const origH = ORIG_H
 
-      // ── DIRECT TIMESTAMP SYNC ──
-      // Backend and browser share the same system clock (WSL2/Docker on same machine).
-      // Compare payload.timestamp (Unix epoch ms) to current video frame time.
+      // ── DETECTION OVERLAY SYNC ──
+      // WebRTC is near real-time (<200ms latency), so show the latest SSE detection frame.
+      // No HLS latency compensation needed.
       let targetObjects = []
-      let isSynced = false
 
-      if (videoReady && vid && hlsInst) {
-        const hlsLatencyMs = (hlsInst.latency ?? 0) * 1000
-        const videoFrameTs = Date.now() - hlsLatencyMs // when was the current video frame live?
-
-        if (sseBufferRef.current.length > 0) {
-          // Find detection whose backend timestamp is closest to current video frame time
-          const closestPayload = sseBufferRef.current.reduce((prev, curr) =>
-            Math.abs(curr.timestamp - videoFrameTs) < Math.abs(prev.timestamp - videoFrameTs) ? curr : prev
-          )
-          targetObjects = closestPayload.objects
-          isSynced = true
-        }
-      }
-
-      // Fallback: show latest if video not ready or no HLS
-      if (!isSynced && sseBufferRef.current.length > 0) {
-        targetObjects = sseBufferRef.current[sseBufferRef.current.length - 1].objects
+      if (sseBufferRef.current.length > 0) {
+        // Show the detection closest in time to now
+        const now = Date.now()
+        const closestPayload = sseBufferRef.current.reduce((prev, curr) =>
+          Math.abs(curr.timestamp - now) < Math.abs(prev.timestamp - now) ? curr : prev
+        )
+        targetObjects = closestPayload.objects
       }
 
       // ── LERP merge: targetObjects ko detsRef ke saath merge karo ──
@@ -308,8 +292,8 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
           </div>
         )}
 
-        {/* FIX: HLS loading overlay — black screen ki jagah buffering indicator */}
-        {isActive && camera.hlsUrl && hlsLoading && (
+        {/* WebRTC Stream connecting overlay */}
+        {isActive && streamUrl && streamLoading && (
           <div style={{
             position: 'absolute', inset: 0, zIndex: 2,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -324,7 +308,7 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
               animation: 'spin 0.8s linear infinite',
             }} />
             <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', fontWeight: 700, letterSpacing: '0.1em' }}>
-              BUFFERING…
+              CONNECTING…
             </span>
           </div>
         )}
@@ -357,16 +341,16 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
         )}
 
         {/* LIVE badge */}
-        {camera.hlsUrl && isActive && (
+        {streamUrl && isActive && (
           <div style={{
             position: 'absolute', bottom: 8, left: 8,
-            background: hlsLoading ? 'rgba(234,179,8,0.8)' : 'rgba(37,99,235,0.8)',
+            background: streamLoading ? 'rgba(234,179,8,0.8)' : 'rgba(37,99,235,0.8)',
             backdropFilter: 'blur(4px)',
             color: '#fff', fontSize: 9, fontWeight: 700,
             padding: '2px 7px', borderRadius: 8, letterSpacing: '0.05em',
             zIndex: 10,
             transition: 'background 0.3s',
-          }}>{hlsLoading ? '◌ CONNECTING' : 'LIVE'}</div>
+          }}>{streamLoading ? '◌ CONNECTING' : '⚡ WEBRTC LIVE'}</div>
         )}
       </div>
 
