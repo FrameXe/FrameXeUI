@@ -35,12 +35,12 @@ import { useSSE } from '../hooks/useSSE.js'
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const AVAILABLE_USE_CASES = [
-  { id: 'vehicle_count',  label: 'Vehicle Count',        emoji: '🚗' },
-  { id: 'people_count',   label: 'People Count',         emoji: '🧑' },
-  { id: 'crowd_alert',    label: 'Crowd Alert',          emoji: '🫂' },
-  { id: 'intrusion',      label: 'Intrusion Detection',  emoji: '🚧' },
-  { id: 'license_plate',  label: 'License Plate (LPR)',  emoji: '🔢' },
-  { id: 'wrong_way',      label: 'Wrong Way',            emoji: '⛔' },
+  { id: 'vehicle_count',  label: 'Vehicle Count',              emoji: '🚗' },
+  { id: 'people_count',   label: 'People Count',               emoji: '🧑' },
+  { id: 'crowd_alert',    label: 'Crowd Alert',                emoji: '🫂' },
+  { id: 'intrusion',      label: 'Intrusion Detection',        emoji: '🚧' },
+  { id: 'anpr',           label: 'ANPR (Licence Plate)',       emoji: '🚘' },
+  { id: 'wrong_way',      label: 'Wrong Way',                  emoji: '⛔' },
 ]
 
 const DEMO_TENANTS = []
