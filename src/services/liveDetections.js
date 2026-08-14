@@ -79,8 +79,10 @@ function startSseFeed(camera, usecase, onDetection) {
   // Subscribe to named event (usecase slug) AND generic 'message' fallback
   const unsub1 = sseManager.subscribe(url, backendUc, handleData)
   const unsub2 = sseManager.subscribe(url, 'message',  handleData)
-  // Some backends emit 'detection' as the event name
+  // Some backends emit 'detection', 'anpr', or 'lpr' as the event name
   const unsub3 = sseManager.subscribe(url, 'detection', handleData)
+  const unsub4 = sseManager.subscribe(url, 'anpr',      handleData)
+  const unsub5 = sseManager.subscribe(url, 'lpr',       handleData)
 
   console.log(`[Detections SSE] Subscribing: ${url}`)
 
@@ -88,6 +90,8 @@ function startSseFeed(camera, usecase, onDetection) {
     unsub1()
     unsub2()
     unsub3()
+    unsub4()
+    unsub5()
   }
 }
 
