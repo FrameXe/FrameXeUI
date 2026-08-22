@@ -36,7 +36,8 @@ export default function Sidebar() {
     return unsub
   }, [])
 
-  const showSuites = user?.permissions.includes('view_cameras')
+  const showSuites = user?.permissions?.includes('view_cameras') ?? false
+  const showMonitoring = user?.permissions?.includes('view_events') ?? false
 
   return (
     <aside style={{
@@ -57,7 +58,7 @@ export default function Sidebar() {
         ))}
 
         {/* Security & Alerts */}
-        {user?.permissions.includes('view_events') && (
+        {showMonitoring && (
           <div style={{ marginTop: 16 }}>
             <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3)', letterSpacing: '0.12em', padding: '12px 10px 8px', textTransform: 'uppercase' }}>
               Active Monitoring
