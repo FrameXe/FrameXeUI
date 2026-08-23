@@ -8,6 +8,7 @@ import { useAllAlerts } from '../../hooks/useAlerts.js'
 import { useCameras } from '../../hooks/useCameras.js'
 import { useAuthStore } from '../../store/index.js'
 import { subscribe, getLogs } from '../../lib/logCapture.js'
+import { vehicleDetectionAPI } from '../../services/api.js'
 import { useState, useEffect } from 'react'
 
 const NAV_ITEMS = [
@@ -29,12 +30,36 @@ export default function Sidebar() {
     () => getLogs().filter(l => l.level === 'error' || l.level === 'runtime').length
   )
 
+  const [vehicleSummary, setVehicleSummary] = useState({
+    vehicle_count_24h: null,
+    vehicle_count_7d: null,
+    vehicle_count_all: null,
+  })
+  const [summaryLoading, setSummaryLoading] = useState(true)
+
   useEffect(() => {
     const unsub = subscribe(logs => {
       setErrorCount(logs.filter(l => l.level === 'error' || l.level === 'runtime').length)
     })
     return unsub
   }, [])
+
+  useEffect(() => {
+    let active = true
+    vehicleDetectionAPI.getVehicleCountSummary()
+      .then(res => {
+        if (active) {
+          setVehicleSummary(res || { vehicle_count_24h: null, vehicle_count_7d: null, vehicle_count_all: null })
+          setSummaryLoading(false)
+        }
+      })
+      .catch(() => {
+        if (active) setSummaryLoading(false)
+      })
+    return () => { active = false }
+  }, [])
+
+  const display = (val) => val !== null && val !== undefined ? val.toLocaleString() : '--'
 
   const showSuites = user?.permissions?.includes('view_cameras') ?? false
   const showMonitoring = user?.permissions?.includes('view_events') ?? false
@@ -127,6 +152,53 @@ export default function Sidebar() {
       <div style={{ padding: '16px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
         <div className="live-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)' }} />
         <div style={{ fontSize: 11, color: 'var(--text-2)', fontWeight: 700 }}>AI Vision Online</div>
+      </div>
+
+      {/* Vehicle Summary Section */}
+      <div style={{ padding: '16px 10px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3)', letterSpacing: '0.12em', padding: '0 4px', textTransform: 'uppercase' }}>
+          Vehicle Summary
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+          {[
+            { label: 'LAST 24H', value: vehicleSummary.vehicle_count_24h },
+            { label: '7 DAYS',   value: vehicleSummary.vehicle_count_7d },
+            { label: 'ALL TIME', value: vehicleSummary.vehicle_count_all },
+          ].map((card, idx) => (
+            <div key={idx} style={{
+              background: '#f8fafc',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              padding: '8px 4px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 8, fontWeight: 800, color: 'var(--text-3)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                {card.label}
+              </div>
+              {summaryLoading ? (
+                <div style={{
+                  width: '80%',
+                  height: 14,
+                  background: 'var(--border)',
+                  borderRadius: 4,
+                  margin: '4px 0',
+                  opacity: 0.6,
+                }} />
+              ) : (
+                <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--text)', margin: '2px 0', lineHeight: 1.2 }}>
+                  {display(card.value)}
+                </div>
+              )}
+              <div style={{ fontSize: 8, color: 'var(--text-3)', fontWeight: 600 }}>
+                vehicles
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </aside>
   )

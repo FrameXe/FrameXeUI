@@ -49,8 +49,10 @@ export default function TrafficDetails() {
         const traffic = trafficSnap.status === 'fulfilled' ? trafficSnap.value : null
         const people  = peopleSnap.status  === 'fulfilled' ? peopleSnap.value  : null
 
+        const vehiclesInFrame = traffic ? (traffic.vehicles_in_frame ?? traffic.current_frame_count ?? (typeof traffic.vehicle_count === 'number' && traffic.vehicle_count < 1000 ? traffic.vehicle_count : 0)) : 0
+
         setMetrics({
-          congestion: traffic ? { level: traffic.congestion_level, count: traffic.vehicle_count, speed: traffic.average_speed } : null,
+          congestion: traffic ? { level: traffic.congestion_level, count: vehiclesInFrame, speed: traffic.average_speed } : null,
           parking: null,
           speeding: traffic?.statistics || null,
           counts: traffic?.counts || null,
@@ -65,7 +67,7 @@ export default function TrafficDetails() {
               track_id: 'CONGESTION', _type: 'Congestion', icon: Activity,
               color: traffic.congestion_level === 'high' ? '#ef4444' : '#3b82f6',
               title: `Level: ${traffic.congestion_level.toUpperCase()}`,
-              highlight: `${traffic.vehicle_count ?? 0} Vehicles`,
+              highlight: `${vehiclesInFrame} Vehicles`,
               timestamp: traffic.timestamp, is_synthetic: true,
             })
           }

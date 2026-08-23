@@ -318,6 +318,18 @@ export const vehicleDetectionAPI = {
     results: (d.results || []).map(normalizeVehicleDetection)
   })),
   stats: (p = {}) => api(`/api/vehicle-detections/stats${qs(p)}`),
+  getVehicleCountSummary: () =>
+    api('/api/vehicle-detections/summary')
+      .then(d => ({
+        vehicle_count_24h: d?.vehicle_count_24h ?? d?.last_24h ?? d?.count_24h ?? null,
+        vehicle_count_7d:  d?.vehicle_count_7d  ?? d?.last_7d  ?? d?.count_7d  ?? null,
+        vehicle_count_all: d?.vehicle_count_all ?? d?.all_time ?? d?.count_all ?? null,
+      }))
+      .catch(() => ({
+        vehicle_count_24h: null,
+        vehicle_count_7d:  null,
+        vehicle_count_all: null,
+      })),
 }
 
 // ════════════════════════════════════════════════════════════

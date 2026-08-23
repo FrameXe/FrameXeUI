@@ -286,18 +286,26 @@ export default function CameraAnalytics() {
     ? (peopleIn + peopleOut)
     : ((backendPeopleTotal && backendPeopleTotal > 0) ? backendPeopleTotal : Math.max(backendPeopleTotal || 0, seenPeopleIds.size))
 
-  // Vehicle: /api/analytics/traffic → counts.IN, counts.OUT, data.total_count, etc.
+  // Live in-frame count (strictly vehicles_in_frame, current_frame_count, inFrame['traffic'])
+  const vehiclesInFrame = inFrame['traffic'] ?? extractNum(vehicleStats, ['vehicles_in_frame', 'current_frame_count']) ?? 0
+  const vehicleInFrame  = vehiclesInFrame
+
+  // Cumulative total lookups (strictly separate from live in-frame count)
+  const vehicleCount24h = extractNum(vehicleStats, ['vehicle_count_24h', 'cumulative_total_today'])
+  const vehicleCount7d  = extractNum(vehicleStats, ['vehicle_count_7d'])
+  const vehicleCountAll = extractNum(vehicleStats, ['vehicle_count_all'])
+
+  // Vehicle: /api/analytics/traffic → counts.IN, counts.OUT
   const vehicleIn  = crossCounts.in  > 0 ? crossCounts.in  : (vehicleStats?.counts?.IN  ?? vehicleStats?.counts?.in  ?? extractNum(vehicleStats, ['cumulative_entering', 'line_count_in', 'count_in', 'in', 'in_count']) ?? 0)
   const vehicleOut = crossCounts.out > 0 ? crossCounts.out : (vehicleStats?.counts?.OUT ?? vehicleStats?.counts?.out ?? extractNum(vehicleStats, ['cumulative_exiting', 'line_count_out', 'count_out', 'out', 'out_count']) ?? 0)
-  const backendVehicleTotal = extractNum(vehicleStats, ['total_count', 'cumulative_total_today', 'total', 'count']) ?? 
+  const backendVehicleTotal = vehicleCount24h ?? 
                               ((vehicleIn != null || vehicleOut != null) ? (vehicleIn ?? 0) + (vehicleOut ?? 0) : null)
   const vehicleTotal = (vehicleIn > 0 || vehicleOut > 0)
     ? (vehicleIn + vehicleOut)
     : ((backendVehicleTotal && backendVehicleTotal > 0) ? backendVehicleTotal : Math.max(backendVehicleTotal || 0, seenVehicleIds.size))
   
-  const vehicleInFrame      = inFrame['traffic'] ?? extractNum(vehicleStats, ['vehicles_in_frame', 'vehicle_count']) ?? 0
-  const peopleInFrame       = inFrame['people_count'] ?? extractNum(peopleStats, ['current_frame_count', 'people_in_frame', 'count']) ?? 0
-  const congestion          = vehicleStats?.congestion_level ?? null
+  const peopleInFrame = inFrame['people_count'] ?? extractNum(peopleStats, ['current_frame_count', 'people_in_frame']) ?? 0
+  const congestion    = vehicleStats?.congestion_level ?? null
 
   const hasPeople  = displayUCs.includes('people_count')
   const hasVehicle = displayUCs.includes('traffic')
