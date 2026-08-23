@@ -170,6 +170,8 @@ export const cameraAPI = {
       })
   },
 
+  getCameraList: (tenantId) => cameraAPI.getAll(tenantId),
+
   // POST /cameras/register
   register: (body) =>
     api('/cameras/register', { method: 'POST', body: JSON.stringify(body) }),
@@ -263,15 +265,27 @@ export const systemAPI = {
   getOverview: () => api('/api/system/overview'),
 }
 
-// ════════════════════════════════════════════════════════════
-//  ANALYTICS API
-// ════════════════════════════════════════════════════════════
+// ADD ONLY: getHistoricalAnalytics() and getCameraList()
+// DO NOT modify any existing API function
+// Endpoint: GET /api/analytics/historical
+// Params: metric, period, start_date, end_date, camera_ids
 export const analyticsAPI = {
   getTraffic: (cameraId) => api(`/api/analytics/traffic/${cameraId}`),
   getPeople: (cameraId) => api(`/api/analytics/people/${cameraId}`),
   getEvents: (params = {}) => api(`/analytics/events${qs(params)}`),
   getHistory: (params = {}) => api(`/analytics/history${qs(params)}`),
   getSummary: () => api('/api/system/overview'),
+  getHistoricalAnalytics: (params = {}) => {
+    // Array of camera_ids or comma-separated string formatting
+    const queryParams = { ...params }
+    if (Array.isArray(queryParams.camera_ids)) {
+      queryParams.camera_ids = queryParams.camera_ids.join(',')
+    }
+    if (Array.isArray(queryParams.metric)) {
+      queryParams.metric = queryParams.metric.join(',')
+    }
+    return api(`/api/analytics/historical${qs(queryParams)}`)
+  },
 }
 
 // ════════════════════════════════════════════════════════════
@@ -318,8 +332,9 @@ export const vehicleDetectionAPI = {
     results: (d.results || []).map(normalizeVehicleDetection)
   })),
   stats: (p = {}) => api(`/api/vehicle-detections/stats${qs(p)}`),
-  getVehicleCountSummary: () =>
-    api('/api/vehicle-detections/summary')
+  getVehicleCountSummary: (cameraId) => {
+    const query = cameraId ? `?camera_id=${encodeURIComponent(cameraId)}` : ''
+    return api(`/api/vehicle-detections/summary${query}`)
       .then(d => ({
         vehicle_count_24h: d?.vehicle_count_24h ?? d?.last_24h ?? d?.count_24h ?? null,
         vehicle_count_7d:  d?.vehicle_count_7d  ?? d?.last_7d  ?? d?.count_7d  ?? null,
@@ -329,7 +344,8 @@ export const vehicleDetectionAPI = {
         vehicle_count_24h: null,
         vehicle_count_7d:  null,
         vehicle_count_all: null,
-      })),
+      }))
+  },
 }
 
 // ════════════════════════════════════════════════════════════

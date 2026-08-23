@@ -4,34 +4,43 @@ import { useCameras }  from '../hooks/useCameras.js'
 import { USE_CASES }   from '../constants/useCases.js'
 import MiniCanvas      from '../components/camera/MiniCanvas.jsx'
 import { Loading }     from '../components/shared/index.jsx'
-import { peopleAnalyticsAPI, tokenAPI, agentAPI } from '../services/api.js'
-import { Maximize2, Activity, Users, AlertTriangle, Clock, Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import { peopleAnalyticsAPI, vehicleDetectionAPI, tokenAPI, agentAPI } from '../services/api.js'
+import { Maximize2, Activity, Users, AlertTriangle, Clock, Search, ChevronLeft, ChevronRight, Car } from 'lucide-react'
 
-// Sub-component to fetch and display stats lazily when expanded
+// Sub-component to fetch and display stats lazily when expanded inside Video Matrix
 function CameraStatsPanel({ cameraId, ucColor, onOpenCanvas }) {
   const [stats, setStats] = useState(null)
+  const [vehSummary, setVehSummary] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setLoading(true)
-    peopleAnalyticsAPI.get(cameraId)
-      .then(setStats)
-      .catch(console.error)
-      .finally(() => setLoading(false))
+    Promise.allSettled([
+      peopleAnalyticsAPI.get(cameraId),
+      vehicleDetectionAPI.getVehicleCountSummary(cameraId),
+    ]).then(([pRes, vRes]) => {
+      if (pRes.status === 'fulfilled') setStats(pRes.value)
+      if (vRes.status === 'fulfilled') setVehSummary(vRes.value)
+    }).finally(() => setLoading(false))
   }, [cameraId])
 
-  if (loading || !stats) {
+  if (loading) {
     return <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--text-3)' }}>Extracting forensic data...</div>
   }
 
-  const { currentInFrame, totalToday, capacityLimit, capacityStatus, peakHour } = stats
+  const currentInFrame = stats?.currentInFrame ?? 0
+  const totalToday     = stats?.totalToday ?? 0
+  const capacityLimit  = stats?.capacityLimit ?? 20
+  const capacityStatus = stats?.capacityStatus ?? 'ok'
+  const peakHour       = stats?.peakHour ?? '--'
+
+  const display = (val) => val !== null && val !== undefined ? val.toLocaleString() : '--'
 
   return (
     <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
       
       {/* KPI Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-        
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase' }}>In Frame</div>
           <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--text)' }}>
@@ -63,11 +72,46 @@ function CameraStatsPanel({ cameraId, ucColor, onOpenCanvas }) {
             {peakHour}
           </div>
         </div>
+      </div>
 
+      {/* Vehicle Summary Section */}
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3)', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Car size={12} style={{ color: 'var(--accent)' }} /> Vehicle Summary
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+          {[
+            { label: 'LAST 24H', value: vehSummary?.vehicle_count_24h },
+            { label: '7 DAYS',   value: vehSummary?.vehicle_count_7d },
+            { label: 'ALL TIME', value: vehSummary?.vehicle_count_all },
+          ].map((card, idx) => (
+            <div key={idx} style={{
+              background: '#f8fafc',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              padding: '8px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-3)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                {card.label}
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 900, color: 'var(--text)', margin: '2px 0', lineHeight: 1.2 }}>
+                {display(card.value)}
+              </div>
+              <div style={{ fontSize: 9, color: 'var(--text-3)', fontWeight: 600 }}>
+                vehicles
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Action Bar */}
-      <div style={{ display: 'flex', gap: 8, marginTop: 4, paddingTop: 16, borderTop: '1px dashed var(--border-light)' }}>
+      <div style={{ display: 'flex', gap: 8, marginTop: 4, paddingTop: 12, borderTop: '1px dashed var(--border-light)' }}>
          <button onClick={onOpenCanvas} style={{ 
            flex: 1, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)', 
            padding: '10px', borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: 'pointer', 
