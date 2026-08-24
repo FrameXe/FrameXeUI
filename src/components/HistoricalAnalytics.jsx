@@ -36,7 +36,6 @@ export default function HistoricalAnalytics() {
     setEndDate,
     dateValidationError,
     data,
-    isFallback,
     sortedData,
     paginatedData,
     currentPage,
@@ -128,19 +127,6 @@ export default function HistoricalAnalytics() {
             Deep-dive multi-metric analytics and historical trend reports across nodes.
           </p>
         </div>
-
-        {/* Fallback notice — only shown when real endpoint is unavailable */}
-        {isFallback && data.length > 0 && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '8px 14px', borderRadius: 8,
-            background: '#fffbeb', border: '1px solid #fde68a',
-            fontSize: 11, fontWeight: 600, color: '#92400e',
-          }}>
-            <AlertCircle size={13} style={{ color: '#d97706', flexShrink: 0 }} />
-            Estimated data — live historical endpoint not deployed yet. Deploy the updated backend to see real DB data.
-          </div>
-        )}
 
         {/* View Toggle */}
         <div style={{ display: 'flex', background: '#f1f5f9', padding: 4, borderRadius: 10, border: '1px solid var(--border)' }}>
@@ -391,23 +377,41 @@ export default function HistoricalAnalytics() {
                         {metricMeta?.label}
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'flex-end', height: 120, gap: 16, overflowX: 'auto', padding: '10px 0' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', height: 160, gap: 14, overflowX: 'auto', padding: '10px 4px' }}>
                         {data.map((item, idx) => {
                           const val = Number(item[metricId] ?? item.count ?? 0)
-                          const heightPct = Math.min(100, Math.max(8, (val / maxVal) * 100))
+                          const heightPct = val > 0 ? Math.min(100, Math.max(10, Math.round((val / maxVal) * 100))) : 0
                           const camId = item.camera_id || item.camera_name || 'cam'
                           const barColor = camColorMap[camId] || metricMeta?.color || 'var(--accent)'
 
                           return (
-                            <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 44, flex: 1 }}>
-                              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-2)' }}>
+                            <div key={idx} style={{
+                              display: 'flex', flexDirection: 'column', alignItems: 'center',
+                              justifyContent: 'flex-end', height: '100%', minWidth: 48, flex: 1, gap: 4
+                            }}>
+                              {/* Number label */}
+                              <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-2)', marginBottom: 2 }}>
                                 {val > 0 ? val.toLocaleString() : '--'}
                               </div>
+
+                              {/* Bar track container */}
                               <div style={{
-                                width: '100%', height: `${heightPct}%`, background: barColor,
-                                borderRadius: '4px 4px 0 0', transition: 'height 0.3s ease'
-                              }} />
-                              <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
+                                width: '100%', maxWidth: 36, height: 100, display: 'flex',
+                                alignItems: 'flex-end', justifyContent: 'center', background: '#f1f5f9',
+                                borderRadius: '6px 6px 0 0', overflow: 'hidden', padding: '0 2px'
+                              }}>
+                                <div style={{
+                                  width: '100%',
+                                  height: `${heightPct}%`,
+                                  background: barColor,
+                                  borderRadius: '4px 4px 0 0',
+                                  transition: 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                                  boxShadow: val > 0 ? `0 2px 8px ${barColor}40` : 'none',
+                                }} />
+                              </div>
+
+                              {/* Date label */}
+                              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', whiteSpace: 'nowrap', marginTop: 4 }}>
                                 {item.date || item.period || `P${idx + 1}`}
                               </div>
                             </div>
