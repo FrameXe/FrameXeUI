@@ -7,7 +7,7 @@ import { Loading }       from '../components/shared/index.jsx'
 import { sseManager }    from '../lib/sseManager.js'
 import { useAuthStore, useCrossStore }  from '../store/index.js'
 import { UC_CANVAS, UC_COLOR } from '../constants/useCases.js'
-import { analyticsAPI, lineAPI }  from '../services/api.js'
+import { analyticsAPI, lineAPI, vehicleDetectionAPI }  from '../services/api.js'
 
 const BACKEND_UC = uc => uc === 'traffic' ? 'vehicle_count' : uc
 const DISPLAY_UC = uc => uc === 'vehicle_count' ? 'traffic' : uc
@@ -52,6 +52,7 @@ export default function CameraAnalytics() {
   // ── REST analytics (polled every 5s) ──────────────────────
   const [peopleStats,  setPeopleStats]  = useState(null) // from /api/analytics/people/{id}
   const [vehicleStats, setVehicleStats] = useState(null) // from /api/analytics/traffic/{id}
+  const [vehSummary,   setVehSummary]   = useState(null) // from /api/vehicle-detections/summary?camera_id=
   const [statsLoading, setStatsLoading] = useState(true)
 
   // ── In-frame count (from bbox SSE latest payload) ──────────
@@ -89,10 +90,11 @@ export default function CameraAnalytics() {
 
     const fetchStats = async () => {
       try {
-        const [pRes, vRes, cRes] = await Promise.allSettled([
+        const [pRes, vRes, cRes, sRes] = await Promise.allSettled([
           analyticsAPI.getPeople(camId),
           analyticsAPI.getTraffic(camId),
           lineAPI.getCrossingCounts(camId),
+          vehicleDetectionAPI.getVehicleCountSummary(camId),
         ])
         if (!mounted) return
         if (pRes.status === 'fulfilled') setPeopleStats(pRes.value)
@@ -100,6 +102,7 @@ export default function CameraAnalytics() {
         if (cRes.status === 'fulfilled' && cRes.value) {
           useCrossStore.getState().setCounts(camId, cRes.value.count_in || 0, cRes.value.count_out || 0)
         }
+        if (sRes.status === 'fulfilled') setVehSummary(sRes.value)
       } catch (e) {
         console.warn('[CameraAnalytics] initial stats fetch:', e)
       } finally {
@@ -496,6 +499,42 @@ export default function CameraAnalytics() {
                   width: vehicleTotal > 0 ? `${Math.min(100, (vehicleTotal / (vehicleTotal + 10)) * 100)}%` : '0%',
                   transition: 'width 0.5s',
                 }} />
+              </div>
+
+              {/* Vehicle Summary Cards (LAST 24H / 7 DAYS / ALL TIME) */}
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ fontSize: 9, fontWeight: 800, color: '#64748b', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                  Vehicle Summary
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                  {[
+                    { label: 'LAST 24H', value: vehSummary?.vehicle_count_24h ?? vehicleCount24h },
+                    { label: '7 DAYS',   value: vehSummary?.vehicle_count_7d  ?? vehicleCount7d },
+                    { label: 'ALL TIME', value: vehSummary?.vehicle_count_all ?? vehicleCountAll },
+                  ].map((card, idx) => (
+                    <div key={idx} style={{
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: 8,
+                      padding: '8px 4px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      textAlign: 'center',
+                    }}>
+                      <div style={{ fontSize: 9, fontWeight: 800, color: '#64748b', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                        {card.label}
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 900, color: '#0f172a', margin: '2px 0', lineHeight: 1.2 }}>
+                        {card.value !== null && card.value !== undefined ? Number(card.value).toLocaleString() : '--'}
+                      </div>
+                      <div style={{ fontSize: 8, color: '#94a3b8', fontWeight: 600 }}>
+                        vehicles
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
