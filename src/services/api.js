@@ -38,7 +38,9 @@ async function api(path, opts = {}) {
   })
   if (!res.ok) {
     const txt = await res.text().catch(() => '')
-    throw new Error(`HTTP ${res.status} — ${path}${txt ? ': ' + txt : ''}`)
+    const errMsg = `HTTP ${res.status} ${res.statusText || ''} — ${path}${txt ? ' | Response: ' + txt : ''}`
+    console.error(`🚨 [API Error] ${errMsg}`)
+    throw new Error(errMsg)
   }
   return res.json()
 }

@@ -131,20 +131,28 @@ export function useHistoricalAnalytics() {
     setError(null)
 
     const timer = setTimeout(async () => {
-      try {
-        const params = {
-          period: selectedPeriod,
-          metric: selectedMetrics,
-          camera_ids: selectedCameras.length > 0 ? selectedCameras : undefined,
-          ...(selectedPeriod === 'custom' ? { start_date: startDate, end_date: endDate } : {}),
-        }
+      const params = {
+        period: selectedPeriod,
+        metric: selectedMetrics,
+        camera_ids: selectedCameras.length > 0 ? selectedCameras : undefined,
+        ...(selectedPeriod === 'custom' ? { start_date: startDate, end_date: endDate } : {}),
+      }
 
+      console.log(`📊 [Historical Analytics] Fetching: Period=${params.period} | Metrics=[${(params.metric || []).join(', ')}] | Cameras=${params.camera_ids ? params.camera_ids.join(', ') : 'All Cameras'}`)
+
+      try {
         const res = await analyticsAPI.getHistoricalAnalytics(params)
         const records = Array.isArray(res) ? res : (res?.data || [])
         setData(records)
+
+        if (records.length > 0) {
+          console.log(`✅ [Historical Analytics] Success: Loaded ${records.length} record(s) from database.`, records)
+        } else {
+          console.info(`ℹ️ [Historical Analytics] Database returned 0 records for selected filters (Period: ${params.period}, Cameras: ${params.camera_ids || 'All'}).`)
+        }
       } catch (err) {
-        console.warn('[useHistoricalAnalytics] Fetch failed:', err)
-        // Set empty array on failure instead of breaking UI
+        const errMsg = err?.message || String(err)
+        console.error(`❌ [Historical Analytics] Query Failed: ${errMsg}`)
         setData([])
       } finally {
         setLoading(false)
