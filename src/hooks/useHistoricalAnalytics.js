@@ -44,9 +44,10 @@ export function useHistoricalAnalytics() {
   const [sortConfig, setSortConfig]   = useState({ key: null, direction: 'asc' })
 
   // Fetched data state
-  const [data, setData]       = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState(null)
+  const [data, setData]           = useState([])
+  const [isFallback, setIsFallback] = useState(false)
+  const [loading, setLoading]     = useState(false)
+  const [error, setError]         = useState(null)
 
   // Fetch camera list on mount
   useEffect(() => {
@@ -142,6 +143,7 @@ export function useHistoricalAnalytics() {
         const res = await analyticsAPI.getHistoricalAnalytics(params)
         const records = Array.isArray(res) ? res : (res?.data || [])
         setData(records)
+        setIsFallback(res?._fallback === true)
       } catch (err) {
         console.warn('[useHistoricalAnalytics] Fetch failed:', err)
         // Set empty array on failure instead of breaking UI
@@ -221,5 +223,6 @@ export function useHistoricalAnalytics() {
     handleSort,
     loading,
     error,
+    isFallback,
   }
 }

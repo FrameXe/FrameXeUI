@@ -36,6 +36,7 @@ export default function HistoricalAnalytics() {
     setEndDate,
     dateValidationError,
     data,
+    isFallback,
     sortedData,
     paginatedData,
     currentPage,
@@ -127,6 +128,19 @@ export default function HistoricalAnalytics() {
             Deep-dive multi-metric analytics and historical trend reports across nodes.
           </p>
         </div>
+
+        {/* Fallback notice — only shown when real endpoint is unavailable */}
+        {isFallback && data.length > 0 && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 14px', borderRadius: 8,
+            background: '#fffbeb', border: '1px solid #fde68a',
+            fontSize: 11, fontWeight: 600, color: '#92400e',
+          }}>
+            <AlertCircle size={13} style={{ color: '#d97706', flexShrink: 0 }} />
+            Estimated data — live historical endpoint not deployed yet. Deploy the updated backend to see real DB data.
+          </div>
+        )}
 
         {/* View Toggle */}
         <div style={{ display: 'flex', background: '#f1f5f9', padding: 4, borderRadius: 10, border: '1px solid var(--border)' }}>
