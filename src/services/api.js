@@ -255,8 +255,11 @@ export const alertAPI = {
 // ════════════════════════════════════════════════════════════
 export const reportAPI = {
   // GET /api/reports?camera_id=&usecase=&start_time=&end_time=
-  get: (params = {}) =>
-    api(`/api/reports${qs(params)}`),
+  get: (params = {}) => {
+    const p = { ...params }
+    if (p.usecase === 'traffic') p.usecase = 'vehicle_count'
+    return api(`/api/reports${qs(p)}`)
+  },
 }
 
 // ════════════════════════════════════════════════════════════

@@ -9,8 +9,9 @@ import { useAuthStore } from '../store/index.js'
 export default function Reports() {
   const { cameras, loading: camsLoading } = useCameras()
 
+  const [categorySel, setCategorySel] = useState('all')
   const [camSel, setCamSel] = useState('')
-  const [ucSel, setUcSel]   = useState('people_counting')
+  const [ucSel, setUcSel]   = useState('people_count')
   const [startDtm, setStartDtm] = useState(() => {
     const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString().slice(0, 16)
   })
@@ -23,6 +24,25 @@ export default function Reports() {
   const uc = UC_MAP[ucSel]
   const user = useAuthStore(s => s.user)
   const allowedUsecases = user?.allowedUsecases || []
+
+  const CATEGORIES = [
+    { id: 'all', label: '🌐 All Intelligence Suites' },
+    { id: 'people', label: '👥 People & Crowd' },
+    { id: 'vehicles', label: '🚗 Vehicle & Traffic' },
+    { id: 'safety', label: '🚨 Security & Safety' },
+  ]
+
+  const matchesCategory = (ucId, cat) => {
+    if (cat === 'all') return true
+    if (cat === 'people') return ['people_count', 'crowd_alert'].includes(ucId)
+    if (cat === 'vehicles') return ['traffic', 'vehicle_count', 'vehicle_speed'].includes(ucId)
+    if (cat === 'safety') return ['intrusion', 'fire_detection'].includes(ucId)
+    return true
+  }
+
+  const availableUsecases = USE_CASES.filter(
+    u => (allowedUsecases.length === 0 || allowedUsecases.includes(u.id)) && matchesCategory(u.id, categorySel)
+  )
 
   useEffect(() => { 
     if (cameras.length > 0) {
@@ -40,10 +60,10 @@ export default function Reports() {
   }, [cameras, camSel])
 
   useEffect(() => {
-    if (allowedUsecases.length > 0) {
-      const isAllowed = allowedUsecases.includes(ucSel)
+    if (availableUsecases.length > 0) {
+      const isAllowed = availableUsecases.some(u => u.id === ucSel)
       if (!isAllowed || !ucSel) {
-        setUcSel(allowedUsecases[0])
+        setUcSel(availableUsecases[0].id)
         setRan(false)
         setData(null)
       }
@@ -52,7 +72,7 @@ export default function Reports() {
       setRan(false)
       setData(null)
     }
-  }, [allowedUsecases, ucSel])
+  }, [categorySel, allowedUsecases])
 
   const generate = async () => {
     if (!camSel) return
@@ -102,6 +122,16 @@ export default function Reports() {
       }}>
         {[
           {
+            label: 'Suite Category', content: (
+              <select value={categorySel} onChange={e => { setCategorySel(e.target.value); setRan(false) }} style={{
+                background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)',
+                padding: '8px 14px', fontSize: 12, borderRadius: 'var(--radius-sm)', minWidth: 170, fontWeight: 600,
+              }}>
+                {CATEGORIES.map(cat => <option key={cat.id} value={cat.id}>{cat.label}</option>)}
+              </select>
+            )
+          },
+          {
             label: 'Camera', content: (
               <select value={camSel} onChange={e => { setCamSel(e.target.value); setRan(false) }} style={{
                 background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)',
@@ -117,7 +147,7 @@ export default function Reports() {
                 background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)',
                 padding: '8px 14px', fontSize: 12, borderRadius: 'var(--radius-sm)', minWidth: 160,
               }}>
-                {USE_CASES.filter(u => allowedUsecases.includes(u.id)).map(u => (
+                {availableUsecases.map(u => (
                   <option key={u.id} value={u.id}>{u.emoji} {u.label}</option>
                 ))}
               </select>
