@@ -46,9 +46,9 @@ export default function Reports() {
 
   useEffect(() => { 
     if (cameras.length > 0) {
-      const isAllowed = cameras.some(c => c.id === camSel)
-      if (!isAllowed || !camSel) {
-        setCamSel(cameras[0].id)
+      const isAllowed = !camSel || cameras.some(c => c.id === camSel)
+      if (!isAllowed) {
+        setCamSel('')
         setRan(false)
         setData(null)
       }
@@ -75,11 +75,11 @@ export default function Reports() {
   }, [categorySel, allowedUsecases])
 
   const generate = async () => {
-    if (!camSel) return
     setBusy(true)
     try {
       const d = await reportAPI.get({
-        camera_id: camSel, usecase: ucSel,
+        ...(camSel ? { camera_id: camSel } : {}),
+        usecase: ucSel,
         start_time: new Date(startDtm).toISOString(),
         end_time: new Date(endDtm).toISOString(),
       })
@@ -89,11 +89,27 @@ export default function Reports() {
 
   const exportCsv = () => {
     if (!data?.timeline) return
+    const camName = cameras.find(c => c.id === camSel)?.name || camSel || 'All Cameras'
+    const ucLabel = uc?.label || ucSel
+    const headerLines = [
+      'Report Summary',
+      `Camera,"${camName}"`,
+      `Use Case,"${ucLabel}"`,
+      `Start Time,"${startDtm}"`,
+      `End Time,"${endDtm}"`,
+      `Total Count,${data.summary?.total_count ?? 0}`,
+      `Peak Hour,"${data.summary?.peak_hour ?? 'N/A'}"`,
+      `Avg / Hour,${data.summary?.average_per_hour ?? 0}`,
+      '',
+      'Time,Count'
+    ]
     const rows = data.timeline.map(t => `${t.time},${t.count}`)
-    const blob = new Blob([['Time,Count', ...rows].join('\n')], { type: 'text/csv' })
+    const blob = new Blob([[...headerLines, ...rows].join('\n')], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url; a.download = `report_${ucSel}_${camSel}_${Date.now()}.csv`; a.click()
+    a.href = url
+    a.download = `report_${ucSel}_${camSel || 'all'}_${Date.now()}.csv`
+    a.click()
     URL.revokeObjectURL(url)
   }
 
@@ -137,6 +153,7 @@ export default function Reports() {
                 background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)',
                 padding: '8px 14px', fontSize: 12, borderRadius: 'var(--radius-sm)', minWidth: 140,
               }}>
+                <option value="">All Cameras</option>
                 {cameras.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             )
@@ -178,7 +195,7 @@ export default function Reports() {
           </div>
         ))}
 
-        <button onClick={generate} disabled={busy || !camSel} style={{
+        <button onClick={generate} disabled={busy} style={{
           background: busy ? 'var(--surface-2)' : '#2563eb', color: busy ? 'var(--text-3)' : '#fff',
           border: 'none', padding: '9px 22px', fontSize: 12, fontWeight: 600,
           borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 6,
