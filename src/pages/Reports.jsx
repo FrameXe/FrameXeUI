@@ -3,7 +3,7 @@ import { USE_CASES, UC_MAP } from '../constants/useCases.js'
 import { reportAPI } from '../services/api.js'
 import { useCameras } from '../hooks/useCameras.js'
 import { Loading } from '../components/shared/index.jsx'
-import { BarChart3, Download, RefreshCw } from 'lucide-react'
+import { BarChart3, Download, RefreshCw, FileText } from 'lucide-react'
 import { useAuthStore } from '../store/index.js'
 
 export default function Reports() {
@@ -85,6 +85,102 @@ export default function Reports() {
       })
       setData(d); setRan(true)
     } finally { setBusy(false) }
+  }
+
+  const exportPdf = () => {
+    if (!data?.timeline) return
+    const camName = cameras.find(c => c.id === camSel)?.name || camSel || 'All Cameras'
+    const ucLabel = uc?.label || ucSel
+    const totalCount = data.summary?.total_count ?? 0
+    const peakHour = data.summary?.peak_hour || 'N/A'
+    const avgHour = data.summary?.avg_per_hour ?? data.summary?.average_per_hour ?? (totalCount ? (totalCount / 24).toFixed(2) : 0)
+
+    const printWin = window.open('', '_blank')
+    if (!printWin) return
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>FrameX Analytics Report - ${ucLabel}</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; margin: 35px; color: #0f172a; background: #fff; }
+          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2563eb; padding-bottom: 14px; margin-bottom: 24px; }
+          .logo { font-size: 20px; font-weight: 800; color: #2563eb; letter-spacing: -0.5px; }
+          .badge { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 4px 12px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+          .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; margin-bottom: 24px; font-size: 12px; }
+          .meta-item { display: flex; flex-direction: column; }
+          .meta-label { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+          .meta-val { font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px; }
+          .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 28px; }
+          .card { border: 1px solid #cbd5e1; border-top: 4px solid #2563eb; border-radius: 8px; padding: 16px; text-align: center; background: #fff; }
+          .card-title { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+          .card-val { font-size: 26px; font-weight: 800; color: #0f172a; margin-top: 6px; }
+          .section-title { font-size: 14px; font-weight: 800; margin: 24px 0 12px; color: #0f172a; border-left: 4px solid #2563eb; padding-left: 10px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+          th { background: #f1f5f9; padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #475569; border-bottom: 2px solid #cbd5e1; text-transform: uppercase; }
+          td { padding: 10px 14px; border-bottom: 1px solid #e2e8f0; }
+          tr:nth-child(even) { background: #f8fafc; }
+          .footer { margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 14px; font-size: 10px; color: #94a3b8; text-align: center; }
+          @media print {
+            body { margin: 0; }
+            @page { margin: 1.5cm; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo">🎥 FRAME-X ANALYTICS REPORT</div>
+          <div class="badge">OFFICIAL REPORT</div>
+        </div>
+
+        <div class="meta-grid">
+          <div class="meta-item"><span class="meta-label">Camera</span><span class="meta-val">${camName}</span></div>
+          <div class="meta-item"><span class="meta-label">Intelligence Suite</span><span class="meta-val">${ucLabel}</span></div>
+          <div class="meta-item"><span class="meta-label">Start Time</span><span class="meta-val">${startDtm}</span></div>
+          <div class="meta-item"><span class="meta-label">End Time</span><span class="meta-val">${endDtm}</span></div>
+        </div>
+
+        <div class="cards">
+          <div class="card" style="border-top-color: #2563eb;">
+            <div class="card-title">Total Detections</div>
+            <div class="card-val">${totalCount}</div>
+          </div>
+          <div class="card" style="border-top-color: #f59e0b;">
+            <div class="card-title">Peak Hour</div>
+            <div class="card-val">${peakHour}</div>
+          </div>
+          <div class="card" style="border-top-color: #3b82f6;">
+            <div class="card-title">Avg / Hour</div>
+            <div class="card-val">${avgHour}</div>
+          </div>
+        </div>
+
+        <div class="section-title">Hourly Timeline Breakdown</div>
+        <table>
+          <thead>
+            <tr><th>Hour (Time)</th><th>Detections Count</th></tr>
+          </thead>
+          <tbody>
+            ${fullTimeline.map(t => `<tr><td><strong>${t.time}</strong></td><td>${t.count}</td></tr>`).join('')}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          Confidential & Proprietary Document • Generated by FrameX AI Video Analytics Engine • ${new Date().toLocaleString()}
+        </div>
+
+        <script>
+          window.onload = function() {
+            setTimeout(function() { window.print(); }, 300);
+          };
+        </script>
+      </body>
+      </html>
+    `
+
+    printWin.document.write(htmlContent)
+    printWin.document.close()
   }
 
   const exportCsv = () => {
@@ -217,13 +313,24 @@ export default function Reports() {
         </button>
 
         {ran && data && (
-          <button onClick={exportCsv} style={{
-            background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a',
-            padding: '9px 18px', fontSize: 12, fontWeight: 600,
-            borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 6,
-          }}>
-            <Download size={13} /> Export CSV
-          </button>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={exportPdf} style={{
+              background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8',
+              padding: '9px 18px', fontSize: 12, fontWeight: 600,
+              borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 6,
+              cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+            }}>
+              <FileText size={13} /> Export PDF
+            </button>
+            <button onClick={exportCsv} style={{
+              background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a',
+              padding: '9px 18px', fontSize: 12, fontWeight: 600,
+              borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 6,
+              cursor: 'pointer',
+            }}>
+              <Download size={13} /> Export CSV
+            </button>
+          </div>
         )}
       </div>
 
@@ -238,7 +345,7 @@ export default function Reports() {
             {[
               { label: 'Total Count', value: data.summary?.total_count ?? 0, color: uc?.color || '#2563eb' },
               { label: 'Peak Hour',   value: data.summary?.peak_hour || 'N/A', color: '#f59e0b' },
-              { label: 'Avg / Hour',  value: data.summary?.average_per_hour ?? 0, color: '#3b82f6' },
+              { label: 'Avg / Hour',  value: data.summary?.avg_per_hour ?? data.summary?.average_per_hour ?? 0, color: '#3b82f6' },
             ].map((s, i) => (
               <div key={i} style={{
                 background: '#fff', border: '1px solid var(--border)',
