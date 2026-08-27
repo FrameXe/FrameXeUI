@@ -113,7 +113,18 @@ export default function Reports() {
     URL.revokeObjectURL(url)
   }
 
-  const maxBar = data?.timeline ? Math.max(...data.timeline.map(t => t.count), 1) : 1
+  // Build 24-hour timeline grid (00:00 to 23:00) so bars render at exact hourly slots
+  const fullTimeline = Array.from({ length: 24 }, (_, h) => {
+    const hourStr = `${h.toString().padStart(2, '0')}:00`
+    const found = data?.timeline?.find(t => (t.time || t.hour) === hourStr)
+    return {
+      time: hourStr,
+      hourNum: h,
+      count: found ? found.count : 0
+    }
+  })
+
+  const maxBar = Math.max(...fullTimeline.map(t => t.count), 1)
 
   if (camsLoading) return <Loading msg="Loading…" />
 
@@ -225,9 +236,9 @@ export default function Reports() {
           {/* Summary cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
             {[
-              { label: 'Total Count', value: data.summary?.total_count, color: uc?.color || '#2563eb' },
-              { label: 'Peak Hour',   value: data.summary?.peak_hour,   color: '#f59e0b' },
-              { label: 'Avg / Hour',  value: data.summary?.average_per_hour, color: '#3b82f6' },
+              { label: 'Total Count', value: data.summary?.total_count ?? 0, color: uc?.color || '#2563eb' },
+              { label: 'Peak Hour',   value: data.summary?.peak_hour || 'N/A', color: '#f59e0b' },
+              { label: 'Avg / Hour',  value: data.summary?.average_per_hour ?? 0, color: '#3b82f6' },
             ].map((s, i) => (
               <div key={i} style={{
                 background: '#fff', border: '1px solid var(--border)',
@@ -242,31 +253,55 @@ export default function Reports() {
 
           {/* Bar chart */}
           <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '20px 24px', boxShadow: 'var(--shadow)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <BarChart3 size={16} style={{ color: uc?.color || '#2563eb' }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Hourly Timeline</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <BarChart3 size={18} style={{ color: uc?.color || '#2563eb' }} />
+                <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>24-Hour Activity Timeline</span>
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)' }}>
+                Peak: <strong style={{ color: '#f59e0b' }}>{data.summary?.peak_hour || 'N/A'}</strong> | Total: <strong style={{ color: uc?.color || '#2563eb' }}>{data.summary?.total_count || 0}</strong>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 120 }}>
-              {data.timeline?.map((d, i) => {
+
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 150, paddingBottom: 8, borderBottom: '1px solid var(--border-2)' }}>
+              {fullTimeline.map((d, i) => {
                 const pct = (d.count / maxBar) * 100
+                const isPeak = d.time === data.summary?.peak_hour
+                const barColor = isPeak ? '#f59e0b' : (uc?.color || '#2563eb')
                 return (
-                  <div key={i} title={`${d.time || d.hour}: ${d.count}`}
-                    style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}
+                  <div 
+                    key={i} 
+                    title={`${d.time}: ${d.count} detections`}
+                    style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end', gap: 4, position: 'relative' }}
                   >
+                    {d.count > 0 && (
+                      <span style={{ fontSize: 9, fontWeight: 800, color: barColor, marginBottom: 2 }}>
+                        {d.count}
+                      </span>
+                    )}
                     <div style={{
-                      width: '100%', minWidth: 4,
-                      height: `${Math.max(pct, 4)}%`,
-                      background: uc?.color || '#2563eb',
-                      borderRadius: '3px 3px 0 0',
-                      opacity: 0.75,
-                      transition: 'height 0.4s ease',
+                      width: '100%',
+                      height: d.count > 0 ? `${Math.max(pct, 8)}%` : '3px',
+                      background: d.count > 0 ? barColor : 'var(--surface-3, #e2e8f0)',
+                      borderRadius: '4px 4px 0 0',
+                      opacity: d.count > 0 ? 0.9 : 0.4,
+                      transition: 'all 0.3s ease',
+                      boxShadow: d.count > 0 ? `0 2px 8px ${barColor}40` : 'none',
                     }} />
                   </div>
                 )
               })}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 10, color: 'var(--text-3)' }}>
-              <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>23:00</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: 10, fontWeight: 700, color: 'var(--text-3)' }}>
+              <span>00:00</span>
+              <span>03:00</span>
+              <span>06:00</span>
+              <span>09:00</span>
+              <span>12:00</span>
+              <span>15:00</span>
+              <span>18:00</span>
+              <span>21:00</span>
+              <span>23:00</span>
             </div>
           </div>
 
