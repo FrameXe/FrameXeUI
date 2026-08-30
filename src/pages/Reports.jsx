@@ -374,23 +374,31 @@ export default function Reports() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
           {/* Summary cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${hasInOut ? 5 : 3}, 1fr)`, gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
             {[
-              { label: 'Total Count', value: data.summary?.total_count ?? 0, color: uc?.color || '#2563eb' },
-              ...(hasInOut ? [
-                { label: 'Total IN',  value: data.summary?.total_in ?? 0, color: '#16a34a' },
-                { label: 'Total OUT', value: data.summary?.total_out ?? 0, color: '#9333ea' },
-              ] : []),
-              { label: 'Peak Hour',   value: data.summary?.peak_hour || 'N/A', color: '#f59e0b' },
-              { label: 'Avg / Hour',  value: data.summary?.avg_per_hour ?? data.summary?.average_per_hour ?? 0, color: '#3b82f6' },
+              { 
+                label: 'Total Count', 
+                value: data.summary?.total_count ?? 0, 
+                color: uc?.color || '#2563eb',
+                sub: (data.summary?.total_in !== undefined && data.summary?.total_in !== null) 
+                  ? `IN: ${data.summary.total_in} • OUT: ${data.summary.total_out ?? 0}` 
+                  : null
+              },
+              { label: 'Peak Hour',   value: data.summary?.peak_hour || 'N/A', color: '#f59e0b', sub: null },
+              { label: 'Avg / Hour',  value: data.summary?.avg_per_hour ?? data.summary?.average_per_hour ?? 0, color: '#3b82f6', sub: null },
             ].map((s, i) => (
               <div key={i} style={{
                 background: '#fff', border: '1px solid var(--border)',
                 borderRadius: 'var(--radius)', padding: '20px 22px',
                 boxShadow: 'var(--shadow)', borderTop: `3px solid ${s.color}`,
               }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 10 }}>{s.label}</div>
-                <div style={{ fontSize: 30, fontWeight: 800, color: s.color || 'var(--text)' }}>{s.value}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 8 }}>{s.label}</div>
+                <div style={{ fontSize: 30, fontWeight: 800, color: 'var(--text)' }}>{s.value}</div>
+                {s.sub && (
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', marginTop: 4 }}>
+                    {s.sub}
+                  </div>
+                )}
               </div>
             ))}
           </div>
