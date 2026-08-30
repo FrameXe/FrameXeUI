@@ -98,6 +98,10 @@ export default function Reports() {
     const printWin = window.open('', '_blank')
     if (!printWin) return
 
+    const hasInOut = data.summary?.total_in !== null && data.summary?.total_in !== undefined
+    const totalIn = data.summary?.total_in ?? 0
+    const totalOut = data.summary?.total_out ?? 0
+
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -112,7 +116,7 @@ export default function Reports() {
           .meta-item { display: flex; flex-direction: column; }
           .meta-label { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
           .meta-val { font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px; }
-          .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 28px; }
+          .cards { display: grid; grid-template-columns: repeat(${hasInOut ? 5 : 3}, 1fr); gap: 14px; margin-bottom: 28px; }
           .card { border: 1px solid #cbd5e1; border-top: 4px solid #2563eb; border-radius: 8px; padding: 16px; text-align: center; background: #fff; }
           .card-title { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
           .card-val { font-size: 26px; font-weight: 800; color: #0f172a; margin-top: 6px; }
@@ -143,9 +147,19 @@ export default function Reports() {
 
         <div class="cards">
           <div class="card" style="border-top-color: #2563eb;">
-            <div class="card-title">Total Detections</div>
+            <div class="card-title">Total Count</div>
             <div class="card-val">${totalCount}</div>
           </div>
+          ${hasInOut ? `
+          <div class="card" style="border-top-color: #16a34a;">
+            <div class="card-title">Total IN</div>
+            <div class="card-val" style="color: #16a34a;">${totalIn}</div>
+          </div>
+          <div class="card" style="border-top-color: #9333ea;">
+            <div class="card-title">Total OUT</div>
+            <div class="card-val" style="color: #9333ea;">${totalOut}</div>
+          </div>
+          ` : ''}
           <div class="card" style="border-top-color: #f59e0b;">
             <div class="card-title">Peak Hour</div>
             <div class="card-val">${peakHour}</div>
@@ -159,10 +173,20 @@ export default function Reports() {
         <div class="section-title">Hourly Timeline Breakdown</div>
         <table>
           <thead>
-            <tr><th>Hour (Time)</th><th>Detections Count</th></tr>
+            <tr>
+              <th>Hour (Time)</th>
+              ${hasInOut ? '<th>IN Count</th><th>OUT Count</th>' : ''}
+              <th>Total Detections</th>
+            </tr>
           </thead>
           <tbody>
-            ${fullTimeline.map(t => `<tr><td><strong>${t.time}</strong></td><td>${t.count}</td></tr>`).join('')}
+            ${fullTimeline.map(t => `
+              <tr>
+                <td><strong>${t.time}</strong></td>
+                ${hasInOut ? `<td>${t.count_in ?? '-'}</td><td>${t.count_out ?? '-'}</td>` : ''}
+                <td><strong>${t.count}</strong></td>
+              </tr>
+            `).join('')}
           </tbody>
         </table>
 
@@ -187,6 +211,7 @@ export default function Reports() {
     if (!data?.timeline) return
     const camName = cameras.find(c => c.id === camSel)?.name || camSel || 'All Cameras'
     const ucLabel = uc?.label || ucSel
+    const hasInOut = data.summary?.total_in !== null && data.summary?.total_in !== undefined
     const headerLines = [
       'Report Summary',
       `Camera,"${camName}"`,
@@ -194,12 +219,20 @@ export default function Reports() {
       `Start Time,"${startDtm}"`,
       `End Time,"${endDtm}"`,
       `Total Count,${data.summary?.total_count ?? 0}`,
+      ...(hasInOut ? [
+        `Total IN,${data.summary?.total_in ?? 0}`,
+        `Total OUT,${data.summary?.total_out ?? 0}`,
+      ] : []),
       `Peak Hour,"${data.summary?.peak_hour ?? 'N/A'}"`,
       `Avg / Hour,${data.summary?.average_per_hour ?? 0}`,
       '',
-      'Time,Count'
+      hasInOut ? 'Time,IN,OUT,Total' : 'Time,Count'
     ]
-    const rows = data.timeline.map(t => `${t.time},${t.count}`)
+    const rows = data.timeline.map(t => 
+      hasInOut 
+        ? `${t.time},${t.count_in ?? 0},${t.count_out ?? 0},${t.count}`
+        : `${t.time},${t.count}`
+    )
     const blob = new Blob([[...headerLines, ...rows].join('\n')], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -341,9 +374,13 @@ export default function Reports() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
           {/* Summary cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${hasInOut ? 5 : 3}, 1fr)`, gap: 14 }}>
             {[
               { label: 'Total Count', value: data.summary?.total_count ?? 0, color: uc?.color || '#2563eb' },
+              ...(hasInOut ? [
+                { label: 'Total IN',  value: data.summary?.total_in ?? 0, color: '#16a34a' },
+                { label: 'Total OUT', value: data.summary?.total_out ?? 0, color: '#9333ea' },
+              ] : []),
               { label: 'Peak Hour',   value: data.summary?.peak_hour || 'N/A', color: '#f59e0b' },
               { label: 'Avg / Hour',  value: data.summary?.avg_per_hour ?? data.summary?.average_per_hour ?? 0, color: '#3b82f6' },
             ].map((s, i) => (
@@ -353,7 +390,7 @@ export default function Reports() {
                 boxShadow: 'var(--shadow)', borderTop: `3px solid ${s.color}`,
               }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 10 }}>{s.label}</div>
-                <div style={{ fontSize: 30, fontWeight: 800, color: 'var(--text)' }}>{s.value}</div>
+                <div style={{ fontSize: 30, fontWeight: 800, color: s.color || 'var(--text)' }}>{s.value}</div>
               </div>
             ))}
           </div>
