@@ -204,21 +204,35 @@ export default function VehicleLog() {
                   ))}
                 </div>
 
-                <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-                  {viewingDetection.imageUrl && (
-                    <button 
-                      onClick={(e) => handleDownload(e, viewingDetection)} 
-                      style={{ 
-                        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, 
-                        background: 'var(--accent)', color: '#fff', border: 'none', padding: '12px 20px', 
-                        borderRadius: 10, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' 
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.9)'}
-                      onMouseLeave={e => e.currentTarget.style.filter = 'none'}
-                    >
-                      <Download size={16} /> DOWNLOAD JPEG
-                    </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
+                  {/* Plate Crop Image */}
+                  {viewingDetection.plateCropUrl && (
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Plate Crop</div>
+                      <img
+                        src={viewingDetection.plateCropUrl}
+                        alt="Plate crop"
+                        style={{ width: '100%', maxHeight: 72, objectFit: 'contain', borderRadius: 8, border: '1px solid var(--border)', background: '#000' }}
+                      />
+                    </div>
                   )}
+
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    {viewingDetection.imageUrl && (
+                      <button
+                        onClick={(e) => handleDownload(e, viewingDetection)}
+                        style={{
+                          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                          background: 'var(--accent)', color: '#fff', border: 'none', padding: '12px 20px',
+                          borderRadius: 10, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.9)'}
+                        onMouseLeave={e => e.currentTarget.style.filter = 'none'}
+                      >
+                        <Download size={16} /> DOWNLOAD JPEG
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -469,15 +483,24 @@ export default function VehicleLog() {
                       </div>
                     </td>
                     <td style={{ padding: '16px 24px', fontWeight: 800, color: 'var(--text)', fontSize: 13 }}>
-                      {det.plateNumber ? (
-                        <span style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)' }}>
-                          {det.plateNumber}
-                        </span>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 500, fontStyle: 'italic' }}>
-                          Pending ANPR
-                        </span>
-                      )}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {det.plateCropUrl && (
+                          <img
+                            src={det.plateCropUrl}
+                            alt="Plate crop"
+                            style={{ height: 28, maxWidth: 120, objectFit: 'contain', borderRadius: 4, border: '1px solid var(--border)', background: '#000' }}
+                          />
+                        )}
+                        {det.plateNumber ? (
+                          <span style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)' }}>
+                            {det.plateNumber}
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 500, fontStyle: 'italic' }}>
+                            Pending ANPR
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td style={{ padding: '16px 24px', fontSize: 13, fontWeight: 700, color: 'var(--text-2)', textTransform: 'capitalize' }}>
                       {det.vehicleType || 'unknown'}
