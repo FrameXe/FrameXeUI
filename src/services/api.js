@@ -325,6 +325,7 @@ export function normalizeVehicleDetection(d) {
     plateNumber: d.plate_number || d.plateNumber,
     timestamp: d.timestamp,
     imageUrl: toAbs(d.image_url || d.imageUrl),
+    plateCropUrl: toAbs(d.plate_crop_url || d.plateCropUrl),
   }
 }
 

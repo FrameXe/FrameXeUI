@@ -135,8 +135,8 @@ export default function VehicleLog() {
         >
           <div 
             style={{ 
-              background: '#fff', borderRadius: 20, width: '92%', 
-              maxWidth: 960, overflow: 'hidden', boxShadow: '0 30px 60px rgba(0,0,0,0.4)',
+              background: '#fff', borderRadius: 20, width: '96%', 
+              maxWidth: 1100, overflow: 'hidden', boxShadow: '0 30px 60px rgba(0,0,0,0.4)',
               display: 'flex', flexDirection: 'column'
             }} 
             onClick={e => e.stopPropagation()}
@@ -158,13 +158,31 @@ export default function VehicleLog() {
               </button>
             </div>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', minHeight: 400 }}>
-              {/* Image Column */}
-              <div style={{ background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 0.8fr', minHeight: 400 }}>
+              {/* Full Frame Column */}
+              <div style={{ background: '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', borderRight: '1px solid #222' }}>
+                <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 6, letterSpacing: '0.05em' }}>
+                  FULL FRAME
+                </div>
                 {viewingDetection.imageUrl ? (
-                  <img src={viewingDetection.imageUrl} style={{ maxWidth: '100%', maxHeight: '450px', objectFit: 'contain' }} alt="Vehicle snapshot" />
+                  <img src={viewingDetection.imageUrl} style={{ maxWidth: '100%', maxHeight: '420px', objectFit: 'contain' }} alt="Full frame snapshot" />
                 ) : (
-                  <div style={{ color: '#94a3b8', fontSize: 14, fontWeight: 600 }}>No snapshot available</div>
+                  <div style={{ color: '#94a3b8', fontSize: 14, fontWeight: 600 }}>No frame available</div>
+                )}
+              </div>
+
+              {/* Plate Crop Column */}
+              <div style={{ background: '#0a0a0a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', borderRight: '1px solid #222' }}>
+                <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(79,109,245,0.8)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 6, letterSpacing: '0.05em' }}>
+                  PLATE CROP
+                </div>
+                {viewingDetection.plateCropUrl ? (
+                  <img src={viewingDetection.plateCropUrl} style={{ maxWidth: '100%', maxHeight: '420px', objectFit: 'contain' }} alt="Plate crop" />
+                ) : (
+                  <div style={{ color: '#64748b', fontSize: 13, fontWeight: 600, textAlign: 'center', padding: 24 }}>
+                    <div style={{ fontSize: 28, marginBottom: 8 }}>🔍</div>
+                    No plate crop available
+                  </div>
                 )}
               </div>
               
@@ -204,19 +222,33 @@ export default function VehicleLog() {
                   ))}
                 </div>
 
-                <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 24 }}>
                   {viewingDetection.imageUrl && (
                     <button 
                       onClick={(e) => handleDownload(e, viewingDetection)} 
                       style={{ 
                         flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, 
-                        background: 'var(--accent)', color: '#fff', border: 'none', padding: '12px 20px', 
-                        borderRadius: 10, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' 
+                        background: 'var(--accent)', color: '#fff', border: 'none', padding: '10px 16px', 
+                        borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 11
                       }}
                       onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.9)'}
                       onMouseLeave={e => e.currentTarget.style.filter = 'none'}
                     >
-                      <Download size={16} /> DOWNLOAD JPEG
+                      <Download size={14} /> DOWNLOAD FULL FRAME
+                    </button>
+                  )}
+                  {viewingDetection.plateCropUrl && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); const a = document.createElement('a'); a.href = viewingDetection.plateCropUrl; a.download = `plate_crop_${viewingDetection.id}.jpg`; a.click() }} 
+                      style={{ 
+                        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, 
+                        background: '#f1f5f9', color: '#0f172a', border: '1px solid #cbd5e1', padding: '10px 16px', 
+                        borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 11
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
+                      onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}
+                    >
+                      <Download size={14} /> DOWNLOAD PLATE CROP
                     </button>
                   )}
                 </div>
@@ -419,8 +451,8 @@ export default function VehicleLog() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
               <tr>
-                {['Capture Frame', 'License Plate', 'Type', 'Direction', 'Camera Source', 'Timestamp', 'Action'].map(h => (
-                  <th key={h} style={{ padding: '14px 24px', textAlign: 'left', fontSize: 11, color: T.textMuted, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {['Capture Frame', 'Plate Crop', 'License Plate', 'Type', 'Direction', 'Camera Source', 'Timestamp', 'Action'].map(h => (
+                  <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, color: T.textMuted, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     {h}
                   </th>
                 ))}
@@ -429,19 +461,19 @@ export default function VehicleLog() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: 60, textAlign: 'center' }}>
+                  <td colSpan={8} style={{ padding: 60, textAlign: 'center' }}>
                     <Loading msg="Querying records..." />
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: 40, textAlign: 'center', color: '#ef4444', fontWeight: 600 }}>
+                  <td colSpan={8} style={{ padding: 40, textAlign: 'center', color: '#ef4444', fontWeight: 600 }}>
                     Error loading detections: {error}
                   </td>
                 </tr>
               ) : detections.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: 60, textAlign: 'center', color: T.textMuted, fontWeight: 500 }}>
+                  <td colSpan={8} style={{ padding: 60, textAlign: 'center', color: T.textMuted, fontWeight: 500 }}>
                     No vehicle crossing logs found.
                   </td>
                 </tr>
@@ -453,11 +485,12 @@ export default function VehicleLog() {
                     onMouseEnter={e => e.currentTarget.style.background = '#fcfdfe'} 
                     onMouseLeave={e => e.currentTarget.style.background = 'none'}
                   >
-                    <td style={{ padding: '16px 24px' }}>
+                    {/* Full Frame Thumbnail */}
+                    <td style={{ padding: '12px 16px' }}>
                       <div 
                         onClick={() => setViewingDetection(det)}
                         style={{
-                          width: 120, height: 68, background: '#f1f5f9', borderRadius: 8, overflow: 'hidden',
+                          width: 110, height: 64, background: '#f1f5f9', borderRadius: 8, overflow: 'hidden',
                           position: 'relative', cursor: 'pointer', border: '1px solid var(--border)', transition: 'all 0.2s'
                         }}
                       >
@@ -468,7 +501,27 @@ export default function VehicleLog() {
                         )}
                       </div>
                     </td>
-                    <td style={{ padding: '16px 24px', fontWeight: 800, color: 'var(--text)', fontSize: 13 }}>
+                    {/* Plate Crop Thumbnail */}
+                    <td style={{ padding: '12px 16px' }}>
+                      <div 
+                        onClick={() => setViewingDetection(det)}
+                        style={{
+                          width: 110, height: 64, background: '#0f172a', borderRadius: 8, overflow: 'hidden',
+                          position: 'relative', cursor: 'pointer', border: '1px solid #334155', transition: 'all 0.2s',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}
+                      >
+                        {det.plateCropUrl ? (
+                          <img src={det.plateCropUrl} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} alt="Plate crop" />
+                        ) : (
+                          <div style={{ color: '#475569', fontSize: 9, fontWeight: 700, textAlign: 'center' }}>
+                            <div style={{ fontSize: 16 }}>🔍</div>
+                            NO CROP
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px 16px', fontWeight: 800, color: 'var(--text)', fontSize: 13 }}>
                       {det.plateNumber ? (
                         <span style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)' }}>
                           {det.plateNumber}
@@ -479,10 +532,10 @@ export default function VehicleLog() {
                         </span>
                       )}
                     </td>
-                    <td style={{ padding: '16px 24px', fontSize: 13, fontWeight: 700, color: 'var(--text-2)', textTransform: 'capitalize' }}>
+                    <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 700, color: 'var(--text-2)', textTransform: 'capitalize' }}>
                       {det.vehicleType || 'unknown'}
                     </td>
-                    <td style={{ padding: '16px 24px' }}>
+                    <td style={{ padding: '12px 16px' }}>
                       <span 
                         style={{ 
                           fontSize: 10, fontWeight: 800, padding: '4px 10px', borderRadius: 20,
@@ -495,7 +548,7 @@ export default function VehicleLog() {
                         {det.direction}
                       </span>
                     </td>
-                    <td style={{ padding: '16px 24px' }}>
+                    <td style={{ padding: '12px 16px' }}>
                       <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)' }}>
                         {det.cameraName || det.cameraId}
                       </div>
@@ -503,10 +556,10 @@ export default function VehicleLog() {
                         ID: {det.cameraId}
                       </div>
                     </td>
-                    <td style={{ padding: '16px 24px', fontSize: 12, color: 'var(--text-2)', fontWeight: 600 }}>
+                    <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--text-2)', fontWeight: 600 }}>
                       {new Date(det.timestamp).toLocaleString()}
                     </td>
-                    <td style={{ padding: '16px 24px' }}>
+                    <td style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button 
                           onClick={() => setViewingDetection(det)} 
