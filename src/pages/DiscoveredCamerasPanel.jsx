@@ -637,8 +637,8 @@ export default function DiscoveredCamerasPanel() {
                 setSelected(new Set())
               }}
               style={{
-                padding: '8px 32px 8px 12px', borderRadius: 8, border: '1.5px solid #e4e8f0',
-                background: '#fff', fontSize: 13, fontWeight: 600, color: '#0f172a',
+                padding: '8px 32px 8px 12px', borderRadius: 8, border: '1.5px solid var(--border)',
+                background: 'var(--surface)', fontSize: 13, fontWeight: 600, color: 'var(--text)',
                 cursor: 'pointer', outline: 'none', appearance: 'none',
               }}>
               {tenants.length === 0 ? (
@@ -653,7 +653,7 @@ export default function DiscoveredCamerasPanel() {
           </div>
           <button onClick={fetchAll} disabled={loading}
             className="btn-outline"
-            style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid #e4e8f0', background: '#fff', color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600 }}>
+            style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600 }}>
             <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> Refresh
           </button>
         </div>
@@ -663,8 +663,8 @@ export default function DiscoveredCamerasPanel() {
       <div style={{
         display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px',
         borderRadius: 10, marginBottom: 24,
-        background: agentOnline === true ? '#f0fdf4' : agentOnline === false ? '#fef2f2' : '#f8fafc',
-        border: `1.5px solid ${agentOnline === true ? '#bbf7d0' : agentOnline === false ? '#fecaca' : '#e4e8f0'}`,
+        background: agentOnline === true ? 'var(--green-bg)' : agentOnline === false ? 'var(--red-bg)' : 'var(--surface-2)',
+        border: `1.5px solid ${agentOnline === true ? '#bbf7d0' : agentOnline === false ? '#fecaca' : 'var(--border)'}`,
       }}>
         {agentOnline === true && <><Wifi size={16} color="#16a34a" /><span style={{ fontWeight: 700, color: '#16a34a', fontSize: 13 }}>Agent Online</span></>}
         {agentOnline === false && <><WifiOff size={16} color="#dc2626" /><span style={{ fontWeight: 700, color: '#dc2626', fontSize: 13 }}>Agent Offline</span>{agentLastSeen && <span style={{ fontSize: 11, color: '#94a3b8' }}>Last seen: {new Date(agentLastSeen).toLocaleString()}</span>}</>}
@@ -673,8 +673,8 @@ export default function DiscoveredCamerasPanel() {
       </div>
 
       {/* ─── Discovered / Unassigned Cameras ────────────────────────────── */}
-      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e4e8f0', marginBottom: 24, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-        <div style={{ padding: '14px 18px', borderBottom: '1px solid #e4e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', marginBottom: 24, overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Camera size={16} color="#2563eb" />
             <span style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>Unassigned Cameras</span>
@@ -766,8 +766,8 @@ export default function DiscoveredCamerasPanel() {
       </div>
 
       {/* ─── Assigned Cameras ─────────────────────────────────────────────── */}
-      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e4e8f0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-        <div style={{ padding: '14px 18px', borderBottom: '1px solid #e4e8f0', display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <Check size={16} color="#16a34a" />
           <span style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>Assigned Cameras</span>
           <Badge color="#16a34a" bg="#f0fdf4">{assigned.length}</Badge>

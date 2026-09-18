@@ -267,7 +267,7 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
       onDoubleClick={isActive ? onDoubleClick : undefined}
       className={isActive ? 'card-hover' : ''}
       style={{
-        background: '#fff', border: '1px solid var(--border)',
+        background: 'var(--surface)', border: '1px solid var(--border)',
         borderRadius: 'var(--radius)', overflow: 'hidden',
         boxShadow: 'var(--shadow)',
         cursor: isActive ? 'pointer' : 'not-allowed',

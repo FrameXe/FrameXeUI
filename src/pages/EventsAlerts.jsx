@@ -100,18 +100,17 @@ export default function EventsAlerts() {
   if ((camsLoading && cameras.length === 0) || (alertsLoading && alerts.length === 0)) return <Loading msg="Synchronizing Intelligence Feed…" />
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 28, paddingBottom: 60 }}>
-
-      {/* INSPECTION MODAL */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 30 }}>
+       {/* INSPECTION MODAL */}
       {viewingSnap && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(10px)' }} onClick={() => setViewingSnap(null)}>
-           <div style={{ background: '#fff', borderRadius: 20, width: '92%', maxWidth: 1080, overflow: 'hidden', boxShadow: '0 30px 60px rgba(0,0,0,0.4)' }} onClick={e=>e.stopPropagation()}>
-              <div style={{ padding: '20px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee' }}>
+           <div style={{ background: 'var(--surface)', borderRadius: 20, width: '92%', maxWidth: 1080, overflow: 'hidden', boxShadow: '0 30px 60px rgba(0,0,0,0.4)', border: '1px solid var(--border)' }} onClick={e=>e.stopPropagation()}>
+              <div style={{ padding: '20px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
                  <div>
                     <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--text)' }}>Incident Evidence Center</div>
                     <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600 }}>ID: {viewingSnap.id} | Camera: {viewingSnap.cameraName}</div>
                  </div>
-                 <button onClick={() => setViewingSnap(null)} style={{ background: '#f5f5f5', border: 'none', padding: 8, borderRadius: 30, cursor: 'pointer' }}><X size={20} /></button>
+                  <button onClick={() => setViewingSnap(null)} style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)', padding: 8, borderRadius: 30, cursor: 'pointer' }}><X size={20} /></button>
               </div>
               <div style={{ position: 'relative', background: '#000', aspectRatio: '16/9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {viewingSnap.fullResUrl || viewingSnap.thumbnailUrl ? (
@@ -120,7 +119,7 @@ export default function EventsAlerts() {
                     <div style={{ color: '#94a3b8', fontSize: 14, fontWeight: 600 }}>No snapshot captured for this incident</div>
                   )}
               </div>
-              <div style={{ padding: '24px', display: 'flex', justifyContent: 'flex-end', gap: 12, background: '#fafafa' }}>
+              <div style={{ padding: '24px', display: 'flex', justifyContent: 'flex-end', gap: 12, background: 'var(--surface-2)', borderTop: '1px solid var(--border)' }}>
                  <button onClick={(e) => handleDownload(e, viewingSnap)} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--accent)', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 12, fontWeight: 800, cursor: 'pointer' }}>
                     <Download size={18} /> DOWNLOAD PNG
                  </button>
@@ -130,52 +129,103 @@ export default function EventsAlerts() {
       )}
 
       {/* HEADER SECTION */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 32, fontWeight: 900, color: T.text, letterSpacing: '-0.03em' }}>System Safety Center</h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
-            <p style={{ margin: 0, fontSize: 14, color: T.textSecondary, fontWeight: 500 }}>Global monitoring and forensic investigation suite.</p>
-            <SSEStatusDot connected={connected} showLabel />
-          </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em' }}>
+            System Safety Center
+          </h1>
+          <SSEStatusDot connected={connected} showLabel />
         </div>
-        <div style={{ display: 'flex', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
            {urlAlertId && (
-             <button onClick={() => setSearchParams({})} style={{ background: '#f1f5f9', color: '#0f172a', border: '1px solid #cbd5e1', padding: '10px 24px', borderRadius: 12, fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
+             <button onClick={() => setSearchParams({})} style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)', padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>
                CLEAR ALERT FILTER
              </button>
            )}
            <button onClick={() => alerts.filter(a => !a.acknowledged).forEach(a => ack(a.cameraId, a.id))} 
-             style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 12, fontSize: 13, fontWeight: 800, cursor: 'pointer', boxShadow: '0 8px 16px rgba(239, 68, 68, 0.2)' }}>
+             style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '5px 14px', borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: 'pointer', boxShadow: '0 2px 8px rgba(239, 68, 68, 0.25)' }}>
              RESOLVE ALL ({unread})
            </button>
         </div>
       </div>
 
-      {/* INTELLIGENCE SUITE TILES - MULTI SELECT */}
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-           <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Filter by Intelligence Suites (Select Multiple)</span>
-           {selectedUCs.length > 0 && <button onClick={()=>setSelectedUCs([])} style={{ background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>CLEAR SELECTION</button>}
+      {/* INTELLIGENCE SUITE TILES - COMPACT DIFFERENTIATED FILTER PANEL */}
+      <div style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderTop: '3px solid #f59e0b',
+        borderRadius: 12,
+        padding: '10px 14px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        boxShadow: '0 2px 10px rgba(245, 158, 11, 0.05)'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+             <Filter size={13} style={{ color: '#f59e0b' }} />
+             <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+               Filter by Intelligence Suites
+             </span>
+             <span className="ai-badge" style={{
+               fontSize: 8.5, padding: '1px 6px',
+               background: 'rgba(245,158,11,0.12)', color: '#f59e0b',
+               border: '1px solid rgba(245,158,11,0.3)'
+             }}>
+               MULTI-SELECT
+             </span>
+           </div>
+           {selectedUCs.length > 0 && (
+             <button onClick={()=>setSelectedUCs([])} style={{ background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 10.5, fontWeight: 800, cursor: 'pointer' }}>
+               CLEAR SELECTION ({selectedUCs.length})
+             </button>
+           )}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 6 }}>
           {USE_CASES.filter(u => !user?.allowedUsecases || user.allowedUsecases.includes(u.id)).map(u => {
             const isActive = selectedUCs.includes(u.id)
             const ucAlerts = alerts.filter(a => a.usecase === u.id && !a.acknowledged).length
             return (
               <div key={u.id} onClick={() => toggleUC(u.id)}
                 style={{
-                  background: isActive ? `${u.color}15` : '#fff', border: `2px solid ${isActive ? u.color : T.border}`,
-                  borderRadius: 16, padding: '16px 20px', cursor: 'pointer', transition: 'all 0.2s',
-                  boxShadow: isActive ? `0 10px 20px ${u.color}15` : T.shadow,
-                  transform: isActive ? 'translateY(-2px)' : 'none',
-                  position: 'relative'
-                }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 24 }}>{u.emoji}</span>
-                  {ucAlerts > 0 && <span style={{ background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 900, padding: '2px 8px', borderRadius: 20 }}>{ucAlerts}</span>}
+                  background: isActive ? `${u.color}15` : 'var(--surface-2)',
+                  border: `1px solid ${isActive ? u.color : 'var(--border)'}`,
+                  borderLeft: `3px solid ${u.color}`,
+                  borderRadius: 8,
+                  padding: '6px 10px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 6
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = u.color
+                  e.currentTarget.style.transform = 'translateY(-1px)'
+                }}
+                onMouseLeave={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.borderColor = 'var(--border)'
+                    e.currentTarget.style.borderLeftColor = u.color
+                  }
+                  e.currentTarget.style.transform = 'none'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                  <span style={{ fontSize: 14 }}>{u.emoji}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: isActive ? u.color : 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {u.label}
+                  </span>
                 </div>
-                <div style={{ marginTop: 10, fontSize: 14, fontWeight: 800, color: isActive ? u.color : T.text }}>{u.label}</div>
-                {isActive && <CheckCircle2 size={16} style={{ position: 'absolute', bottom: 12, right: 12, color: u.color }} />}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                  {ucAlerts > 0 && (
+                    <span style={{ background: '#ef4444', color: '#fff', fontSize: 8.5, fontWeight: 900, padding: '1px 5px', borderRadius: 8 }}>
+                      {ucAlerts}
+                    </span>
+                  )}
+                  {isActive && <CheckCircle2 size={12} style={{ color: u.color }} />}
+                </div>
               </div>
             )
           })}
@@ -183,13 +233,13 @@ export default function EventsAlerts() {
       </div>
 
       {/* FILTER CONTROL CENTER */}
-      <div style={{ background: '#fff', border: `1px solid ${T.border}`, borderRadius: 20, boxShadow: T.shadow, overflow: 'hidden' }}>
-        <div style={{ padding: '24px', borderBottom: `1px solid ${T.border}`, background: '#fafbfd', display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'center' }}>
+      <div style={{ background: 'var(--surface)', border: `1px solid ${T.border}`, borderRadius: 12, boxShadow: T.shadow, overflow: 'hidden' }}>
+        <div style={{ padding: '12px 16px', borderBottom: `1px solid ${T.border}`, background: 'var(--surface-2)', display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center' }}>
            
            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Incident Status</span>
               <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} 
-                style={{ background: '#fff', border: `1px solid ${T.border}`, padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700, outline: 'none', color: statusFilter === 'active' ? '#dc2626' : '#16a34a' }}>
+                style={{ background: 'var(--surface)', border: `1px solid ${T.border}`, padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700, outline: 'none', color: statusFilter === 'active' ? '#dc2626' : '#16a34a' }}>
                  <option value="active" style={{ color: '#dc2626' }}>● Active Incidents</option>
                  <option value="resolved" style={{ color: '#16a34a' }}>● Resolved History</option>
               </select>
@@ -198,7 +248,7 @@ export default function EventsAlerts() {
            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Node Selection</span>
               <select value={camIdFilter} onChange={e => setCamIdFilter(e.target.value)} 
-                style={{ background: '#fff', border: `1px solid ${T.border}`, padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700, outline: 'none', width: 200 }}>
+                style={{ background: 'var(--surface)', border: `1px solid ${T.border}`, padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700, outline: 'none', width: 200, color: 'var(--text)' }}>
                  <option value="">All Nodes</option>
                  {cameras.map(c => <option key={c.id || c.camera_id} value={c.id || c.camera_id}>{c.name || (c.id || c.camera_id)}</option>)}
               </select>
@@ -207,7 +257,7 @@ export default function EventsAlerts() {
            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Alert Escalation</span>
               <select value={sevFilter} onChange={e => setSevFilter(e.target.value)} 
-                style={{ background: '#fff', border: `1px solid ${T.border}`, padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700, outline: 'none', width: 170 }}>
+                style={{ background: 'var(--surface)', border: `1px solid ${T.border}`, padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700, outline: 'none', width: 170, color: 'var(--text)' }}>
                  <option value="">Any Severity</option>
                  <option value="critical" style={{ color: '#ef4444' }}>Critical</option>
                  <option value="high" style={{ color: '#f97316' }}>High Priority</option>
@@ -221,15 +271,15 @@ export default function EventsAlerts() {
               <div style={{ position: 'relative' }}>
                  <Search size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: T.textMuted }} />
                  <input type="text" placeholder="Search Camera / ID / Zone..." value={camSearch} onChange={e=>setCamSearch(e.target.value)} 
-                   style={{ width: '100%', background: '#fff', border: `1px solid ${T.border}`, padding: '10px 16px 10px 38px', borderRadius: 10, fontSize: 13, outline: 'none', fontWeight: 600 }} />
-                 {camSearch && <button onClick={()=>setCamSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer' }}><X size={14} /></button>}
+                   style={{ width: '100%', background: 'var(--surface)', color: 'var(--text)', border: `1px solid ${T.border}`, padding: '10px 16px 10px 38px', borderRadius: 10, fontSize: 13, outline: 'none', fontWeight: 600 }} />
+                 {camSearch && <button onClick={()=>setCamSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text)' }}><X size={14} /></button>}
               </div>
            </div>
         </div>
 
         <div style={{ overflowX: 'auto' }}>
            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead style={{ background: '#f8fafc', borderBottom: `1px solid ${T.border}` }}>
+              <thead style={{ background: 'var(--surface-2)', borderBottom: `1px solid ${T.border}` }}>
                 <tr>
                    {['Status', 'Incident Frame', 'Security Alert', 'Node Source', 'Escalation', 'Timeline', 'Command'].map(h=>(
                      <th key={h} style={{ padding: '14px 24px', textAlign: 'left', fontSize: 11, color: T.textMuted, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
@@ -240,8 +290,8 @@ export default function EventsAlerts() {
                 {filteredAlerts.length === 0 ? <tr><td colSpan={7} style={{ padding: 80, textAlign: 'center', color: T.textMuted, fontWeight: 500 }}>Global state clear. No results for the selected combination.</td></tr> : (
                   filteredAlerts.map((a, i) => {
                     const s = SEV[a.severity] || SEV.low
-                    const rowBg = a.acknowledged ? '#f8fafc' : s.bg
-                    const rowBorder = a.acknowledged ? '#f1f5f9' : s.border
+                    const rowBg = a.acknowledged ? 'var(--surface-2)' : s.bg
+                    const rowBorder = a.acknowledged ? 'var(--border)' : s.border
                     return (
                       <tr key={a.id} 
                         style={{ borderBottom: `1px solid ${rowBorder}`, background: rowBg, opacity: a.acknowledged ? 0.7 : 1, transition: 'all 0.2s ease' }}
@@ -250,7 +300,7 @@ export default function EventsAlerts() {
                         <td style={{ padding: '16px 14px' }}>
                            <div onClick={() => setViewingSnap(a)}
                              style={{
-                               width: 160, height: 90, background: '#f1f5f9', borderRadius: 12, overflow: 'hidden',
+                               width: 160, height: 90, background: 'var(--surface-2)', borderRadius: 12, overflow: 'hidden',
                                position: 'relative', cursor: 'pointer', border: '1px solid var(--border)', transition: 'all 0.3s'
                              }}>
                               {a.thumbnailUrl || a.fullResUrl ? (
@@ -279,7 +329,7 @@ export default function EventsAlerts() {
                                <Maximize2 size={14} /> DETAILS
                              </button>
                              {!a.acknowledged ? (
-                               <button onClick={() => ack(a.cameraId, a.id)} style={{ background: '#fff', border: '1px solid var(--border)', padding: '10px 18px', borderRadius: 10, fontSize: 11, fontWeight: 900, color: 'var(--accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+                               <button onClick={() => ack(a.cameraId, a.id)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '10px 18px', borderRadius: 10, fontSize: 11, fontWeight: 900, color: 'var(--accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
                                  <CheckCircle2 size={16} /> RESOLVE
                                </button>
                              ) : (

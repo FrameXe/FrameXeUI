@@ -135,13 +135,14 @@ export default function VehicleLog() {
         >
           <div 
             style={{ 
-              background: '#fff', borderRadius: 20, width: '96%', 
+              background: 'var(--surface)', borderRadius: 20, width: '96%', 
               maxWidth: 1100, overflow: 'hidden', boxShadow: '0 30px 60px rgba(0,0,0,0.4)',
+              border: '1px solid var(--border)',
               display: 'flex', flexDirection: 'column'
             }} 
             onClick={e => e.stopPropagation()}
           >
-            <div style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee' }}>
+            <div style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
               <div>
                 <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Car size={20} style={{ color: 'var(--accent)' }} /> Vehicle Crossing Evidence
@@ -271,9 +272,9 @@ export default function VehicleLog() {
         <button 
           onClick={() => refetch()} 
           style={{ 
-            background: '#fff', border: '1px solid var(--border)', padding: '10px 16px', 
+            background: 'var(--surface)', border: '1px solid var(--border)', padding: '10px 16px', 
             borderRadius: 10, display: 'flex', alignItems: 'center', gap: 6, 
-            fontSize: 12, fontWeight: 700, cursor: 'pointer', color: 'var(--text-2)' 
+            fontSize: 12, fontWeight: 700, cursor: 'pointer', color: 'var(--text)' 
           }}
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh Log
@@ -290,7 +291,7 @@ export default function VehicleLog() {
           <div 
             key={idx} 
             style={{
-              background: '#fff', border: '1px solid var(--border)',
+              background: 'var(--surface)', border: '1px solid var(--border)',
               borderRadius: 16, padding: '20px 24px',
               boxShadow: T.shadow, borderTop: `3px solid ${tile.border}`,
               display: 'flex', justifyContent: 'space-between', alignItems: 'center'
@@ -304,7 +305,7 @@ export default function VehicleLog() {
                 {tile.value}
               </div>
             </div>
-            <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, color: tile.border }}>
+            <div style={{ background: 'var(--surface-2)', padding: 12, borderRadius: 12, color: tile.border }}>
               <tile.icon size={22} />
             </div>
           </div>
@@ -312,7 +313,7 @@ export default function VehicleLog() {
       </div>
 
       {/* FILTER CONTROL CARD */}
-      <form onSubmit={handleSearch} style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 20, padding: 24, boxShadow: T.shadow }}>
+      <form onSubmit={handleSearch} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: 24, boxShadow: T.shadow }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20 }}>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -446,10 +447,10 @@ export default function VehicleLog() {
       </form>
 
       {/* RESULTS TABLE */}
-      <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 20, boxShadow: T.shadow, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: T.shadow, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
+            <thead style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
               <tr>
                 {['Capture Frame', 'Plate Crop', 'License Plate', 'Type', 'Direction', 'Camera Source', 'Timestamp', 'Action'].map(h => (
                   <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, color: T.textMuted, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>

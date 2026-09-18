@@ -93,7 +93,7 @@ export default function DiagnosticPanel() {
       </div>
 
       {/* Toolbar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '12px 16px', background: '#fff', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)' }}>
 
         {/* Filter tabs */}
         <div style={{ display: 'flex', gap: 4 }}>
@@ -103,8 +103,8 @@ export default function DiagnosticPanel() {
               onClick={() => setFilter(f.key)}
               style={{
                 padding: '5px 12px', fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: 'pointer',
-                border: `1px solid ${filter === f.key ? 'var(--primary)' : 'var(--border)'}`,
-                background: filter === f.key ? 'var(--primary)' : '#fff',
+                border: `1px solid ${filter === f.key ? 'var(--accent)' : 'var(--border)'}`,
+                background: filter === f.key ? 'var(--accent)' : 'var(--surface)',
                 color: filter === f.key ? '#fff' : 'var(--text-3)',
                 transition: 'all 0.15s',
               }}
@@ -124,7 +124,7 @@ export default function DiagnosticPanel() {
           onChange={e => setSearch(e.target.value)}
           style={{
             padding: '6px 12px', fontSize: 12, borderRadius: 6, border: '1px solid var(--border)',
-            background: '#f8fafc', color: 'var(--text)', outline: 'none', width: 180,
+            background: 'var(--surface-2)', color: 'var(--text)', outline: 'none', width: 180,
           }}
         />
 
@@ -135,7 +135,7 @@ export default function DiagnosticPanel() {
           style={{
             padding: '6px 12px', fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: 'pointer',
             border: `1px solid ${paused ? '#f59e0b' : 'var(--border)'}`,
-            background: paused ? '#fffbeb' : '#fff',
+            background: paused ? 'var(--yellow-bg)' : 'var(--surface)',
             color: paused ? '#f59e0b' : 'var(--text-3)',
             display: 'flex', alignItems: 'center', gap: 5,
           }}
@@ -146,7 +146,7 @@ export default function DiagnosticPanel() {
         {/* Copy */}
         <button
           onClick={handleCopy}
-          style={{ padding: '6px 12px', fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: 'pointer', border: '1px solid var(--border)', background: '#fff', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 5 }}
+          style={{ padding: '6px 12px', fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 5 }}
         >
           {copied ? <><Check size={12} color="#10b981" /> Copied!</> : <><Copy size={12} /> Copy All</>}
         </button>

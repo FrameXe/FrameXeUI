@@ -1,88 +1,111 @@
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '../../store/index.js'
-import { LogOut } from 'lucide-react'
+import { LogOut, Sun, Moon, Cpu, Radio, Sparkles } from 'lucide-react'
+import AiBrandHeader from '../brand/AiLogo.jsx'
 
-export default function TopBar() {
+export default function TopBar({ onToggleSidebar, isSidebarCollapsed }) {
   const [t, setT] = useState(new Date())
   const [showDropdown, setShowDropdown] = useState(false)
+  const [theme, setTheme] = useState(() => localStorage.getItem('vframe_theme') || 'light')
   const user = useAuthStore(s => s.user)
   const logout = useAuthStore(s => s.logout)
 
-  useEffect(() => { const iv = setInterval(() => setT(new Date()), 1000); return () => clearInterval(iv) }, [])
+  useEffect(() => {
+    const iv = setInterval(() => setT(new Date()), 1000)
+    return () => clearInterval(iv)
+  }, [])
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('vframe_theme', theme)
+  }, [theme])
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === 'light' ? 'dark' : 'light'))
+  }
 
   return (
     <header style={{
       background: 'var(--surface)',
       borderBottom: '1px solid var(--border)',
-      padding: '0 28px',
-      height: 56,
+      padding: '0 16px',
+      height: 48,
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       flexShrink: 0,
       boxShadow: 'var(--shadow-sm)',
       zIndex: 100,
     }}>
-      {/* Brand */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {/* Logo mark */}
-          <div style={{
-            width: 32, height: 32, borderRadius: 8,
-            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(37,99,235,0.3)',
-          }}>
-            <span style={{ fontSize: 16 }}>🎯</span>
-          </div>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', lineHeight: 1.1, letterSpacing: '-0.02em' }}>
-              vFrameXe
-            </div>
-            <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 500, letterSpacing: '0.05em' }}>
-              AI Video Analytics
-            </div>
-          </div>
-        </div>
+      {/* Brand with AI Vision Logo */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button
+          onClick={onToggleSidebar}
+          title={isSidebarCollapsed ? 'Expand Navigation' : 'Collapse Navigation'}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: 'transparent', border: 'none', padding: '4px 6px', borderRadius: 8,
+            cursor: 'pointer', transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+        >
+          <AiBrandHeader isCollapsed={false} subtitle="NEURAL AI PLATFORM" />
+        </button>
 
-        <div style={{ width: 1, height: 28, background: 'var(--border)' }} />
-
-        <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 500 }}>
-          ACME Corporation
-        </div>
-
-        <span style={{
-          fontSize: 10, fontWeight: 600,
-          background: 'var(--green-bg)',
-          border: '1px solid #bbf7d0',
-          color: 'var(--green)',
-          padding: '3px 10px', borderRadius: 20, letterSpacing: '0.04em',
-        }}>
-          🟢 LIVE
+        {/* Live Stream Pulsing Pill */}
+        <span className="ai-badge ai-badge-emerald" style={{ padding: '2px 8px', fontSize: 10 }}>
+          <span className="live-dot" style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--ai-emerald)' }} />
+          LIVE MATRIX
         </span>
       </div>
 
-      {/* Right side */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-        <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+      {/* Right side controls */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ fontSize: 11.5, color: 'var(--text-2)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
           {t.toLocaleTimeString()}
         </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+
+        {/* Theme Switcher Button with colored icon */}
+        <button
+          onClick={toggleTheme}
+          title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+          style={{
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+            color: 'var(--text)',
+            padding: '4px 10px',
+            borderRadius: 'var(--radius-sm)',
+            display: 'flex', alignItems: 'center', gap: 5,
+            fontSize: 11, fontWeight: 600,
+            transition: 'all 0.2s ease',
+          }}
+        >
+          {theme === 'light' ? (
+            <Moon size={13} style={{ color: '#8b5cf6' }} />
+          ) : (
+            <Sun size={13} style={{ color: '#f59e0b' }} />
+          )}
+          <span>{theme === 'light' ? 'Dark' : 'Light'}</span>
+        </button>
+
+        {/* System Online Badge */}
+        <div className="ai-badge ai-badge-emerald" style={{ padding: '3px 8px' }}>
           <div className="live-dot" style={{
-            width: 8, height: 8, borderRadius: '50%',
-            background: 'var(--green)', color: 'var(--green)',
+            width: 6, height: 6, borderRadius: '50%',
+            background: 'var(--ai-emerald)',
           }} />
-          <span style={{ fontSize: 11, color: 'var(--green)', fontWeight: 600, letterSpacing: '0.04em' }}>
-            System Online
+          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.04em' }}>
+            SYSTEM SYNCHRONIZED
           </span>
         </div>
         
         {/* User avatar & dropdown */}
         {user && (
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.2 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text)' }}>
                 {user.username}
               </span>
-              <span style={{ fontSize: 9, color: 'var(--text-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <span style={{ fontSize: 8.5, color: 'var(--text-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 {user.label}
               </span>
             </div>
@@ -90,11 +113,12 @@ export default function TopBar() {
             <button 
               onClick={() => setShowDropdown(!showDropdown)}
               style={{
-                width: 32, height: 32, borderRadius: '50%',
+                width: 30, height: 30, borderRadius: '50%',
                 background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 13, fontWeight: 700, color: '#fff',
-                border: 'none', cursor: 'pointer'
+                fontSize: 12, fontWeight: 700, color: '#fff',
+                border: 'none', cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(37,99,235,0.3)',
               }}
             >
               {user.username[0].toUpperCase()}
@@ -102,9 +126,9 @@ export default function TopBar() {
 
             {showDropdown && (
               <div style={{
-                position: 'absolute', right: 0, top: 40,
-                background: '#fff', border: '1px solid var(--border)',
-                borderRadius: 10, padding: 8, minWidth: 150,
+                position: 'absolute', right: 0, top: 38,
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)', padding: 8, minWidth: 160,
                 boxShadow: 'var(--shadow-md)', zIndex: 200,
                 display: 'flex', flexDirection: 'column', gap: 4
               }}>
@@ -119,7 +143,7 @@ export default function TopBar() {
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8,
                     padding: '8px 12px', width: '100%', border: 'none',
-                    borderRadius: 6, background: 'transparent',
+                    borderRadius: 'var(--radius-sm)', background: 'transparent',
                     fontSize: 12, color: 'var(--red)', fontWeight: 600,
                     textAlign: 'left', cursor: 'pointer',
                     transition: 'background 0.15s'
@@ -138,4 +162,5 @@ export default function TopBar() {
     </header>
   )
 }
+
 

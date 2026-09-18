@@ -272,10 +272,11 @@ export default function Reports() {
 
       {/* Controls */}
       <div style={{
-        background: '#fff', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
         padding: '20px 24px', boxShadow: 'var(--shadow)',
         display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap',
       }}>
+
         {[
           {
             label: 'Suite Category', content: (
@@ -388,7 +389,7 @@ export default function Reports() {
               { label: 'Avg / Hour',  value: data.summary?.avg_per_hour ?? data.summary?.average_per_hour ?? 0, color: '#3b82f6', sub: null },
             ].map((s, i) => (
               <div key={i} style={{
-                background: '#fff', border: '1px solid var(--border)',
+                background: 'var(--surface)', border: '1px solid var(--border)',
                 borderRadius: 'var(--radius)', padding: '20px 22px',
                 boxShadow: 'var(--shadow)', borderTop: `3px solid ${s.color}`,
               }}>
@@ -404,7 +405,8 @@ export default function Reports() {
           </div>
 
           {/* Bar chart */}
-          <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '20px 24px', boxShadow: 'var(--shadow)' }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '20px 24px', boxShadow: 'var(--shadow)' }}>
+
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <BarChart3 size={18} style={{ color: uc?.color || '#2563eb' }} />

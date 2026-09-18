@@ -321,7 +321,7 @@ export default function CameraAnalytics() {
       {/* ── Header ─────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <button onClick={() => nav(-1)} style={{
-          background: '#fff', border: '1px solid var(--border)', padding: 8,
+          background: 'var(--surface)', border: '1px solid var(--border)', padding: 8,
           borderRadius: '50%', cursor: 'pointer', display: 'flex',
           color: 'var(--text)', boxShadow: 'var(--shadow-sm)',
         }}>
@@ -347,9 +347,9 @@ export default function CameraAnalytics() {
               <button key={uc} onClick={() => toggleFilter(uc)} style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
                 borderRadius: 20, cursor: 'pointer', transition: 'all 0.15s', fontWeight: 700,
-                background: on ? `${meta.color}15` : '#f1f5f9',
-                border: `1.5px solid ${on ? meta.color + '66' : '#e2e8f0'}`,
-                color: on ? meta.color : '#64748b', fontSize: 12,
+                background: on ? `${meta.color}15` : 'var(--surface-2)',
+                border: `1.5px solid ${on ? meta.color + '66' : 'var(--border)'}`,
+                color: on ? meta.color : 'var(--text-3)', fontSize: 12,
               }}>
                 <Icon size={13} />
                 {meta.label}
@@ -365,7 +365,7 @@ export default function CameraAnalytics() {
 
         <button onClick={() => nav(`/camera/${camId}`)} style={{
           display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
-          background: '#1e293b', color: '#fff', border: 'none', borderRadius: 8,
+          background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8,
           fontSize: 12, fontWeight: 700, cursor: 'pointer',
         }}>
           <Maximize2 size={14} /> FULL CANVAS
@@ -386,9 +386,9 @@ export default function CameraAnalytics() {
           {/* ── People Count Card ───────────────────────── */}
           {hasPeople && (
             <div style={{
-              flex: 1, background: '#fff', borderRadius: 'var(--radius)',
-              border: '1px solid #dbeafe', padding: '20px 24px',
-              boxShadow: '0 1px 3px rgba(59,130,246,0.08)',
+              flex: 1, background: 'var(--surface)', borderRadius: 'var(--radius)',
+              border: '1px solid var(--border)', padding: '20px 24px',
+              boxShadow: 'var(--shadow-sm)',
             }}>
               <div style={{ fontSize: 10, fontWeight: 800, color: '#93c5fd', letterSpacing: 2, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
                 <Users size={12} /> People Count
@@ -441,9 +441,9 @@ export default function CameraAnalytics() {
           {/* ── Vehicle Count Card ───────────────────────── */}
           {hasVehicle && (
             <div style={{
-              flex: 1, background: '#fff', borderRadius: 'var(--radius)',
-              border: '1px solid #d1fae5', padding: '20px 24px',
-              boxShadow: '0 1px 3px rgba(16,185,129,0.08)',
+              flex: 1, background: 'var(--surface)', borderRadius: 'var(--radius)',
+              border: '1px solid var(--border)', padding: '20px 24px',
+              boxShadow: 'var(--shadow-sm)',
             }}>
               <div style={{ fontSize: 10, fontWeight: 800, color: '#6ee7b7', letterSpacing: 2, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
                 <Car size={12} /> Vehicle Count
@@ -502,8 +502,8 @@ export default function CameraAnalytics() {
               </div>
 
               {/* Vehicle Summary Cards (LAST 24H / 7 DAYS / ALL TIME) */}
-              <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ fontSize: 9, fontWeight: 800, color: '#64748b', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                   Vehicle Summary
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
@@ -513,8 +513,8 @@ export default function CameraAnalytics() {
                     { label: 'ALL TIME', value: vehSummary?.vehicle_count_all ?? vehicleCountAll },
                   ].map((card, idx) => (
                     <div key={idx} style={{
-                      background: '#f8fafc',
-                      border: '1px solid #e2e8f0',
+                      background: 'var(--surface-2)',
+                      border: '1px solid var(--border)',
                       borderRadius: 8,
                       padding: '8px 4px',
                       display: 'flex',
@@ -523,13 +523,13 @@ export default function CameraAnalytics() {
                       justifyContent: 'center',
                       textAlign: 'center',
                     }}>
-                      <div style={{ fontSize: 9, fontWeight: 800, color: '#64748b', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                      <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-3)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                         {card.label}
                       </div>
-                      <div style={{ fontSize: 13, fontWeight: 900, color: '#0f172a', margin: '2px 0', lineHeight: 1.2 }}>
+                      <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--text)', margin: '2px 0', lineHeight: 1.2 }}>
                         {card.value !== null && card.value !== undefined ? Number(card.value).toLocaleString() : '--'}
                       </div>
-                      <div style={{ fontSize: 8, color: '#94a3b8', fontWeight: 600 }}>
+                      <div style={{ fontSize: 8, color: 'var(--text-3)', fontWeight: 600 }}>
                         vehicles
                       </div>
                     </div>
@@ -543,8 +543,8 @@ export default function CameraAnalytics() {
       </div>
 
       {/* ── Live Detection Log ────────────────────────────── */}
-      <div style={{ background: '#fff', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
-        <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Activity size={15} color="#2563eb" />
             <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>Live Detection Log</span>

@@ -17,7 +17,7 @@ const CAMERA_COLORS = [
   '#4f6df5', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#64748b'
 ]
 
-export default function HistoricalAnalytics() {
+export default function HistoricalAnalytics({ style = {}, className = '', extraAction = null }) {
   const {
     cameras,
     camerasLoading,
@@ -112,55 +112,85 @@ export default function HistoricalAnalytics() {
   const camColorMap  = Object.fromEntries(activeCamIds.map((id, i) => [id, CAMERA_COLORS[i % CAMERA_COLORS.length]]))
 
   return (
-    <div style={{
-      background: '#fff', border: '1px solid var(--border)', borderRadius: 20,
-      padding: '28px', boxShadow: 'var(--shadow-sm)', marginTop: 32, display: 'flex',
-      flexDirection: 'column', gap: 24
-    }}>
-      {/* ── Header & View Toggle ───────────────────────────────── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: 'var(--text)', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <BarChart3 size={22} style={{ color: 'var(--accent)' }} /> Historical Intelligence & Analytics
-          </h2>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-3)', fontWeight: 500 }}>
-            Deep-dive multi-metric analytics and historical trend reports across nodes.
-          </p>
+    <div 
+      className={className}
+      style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderTop: '3px solid #8b5cf6',
+        borderRadius: 12,
+        padding: '12px 14px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        boxShadow: '0 2px 12px rgba(139,92,246,0.05)',
+        marginTop: 0,
+        ...style
+      }}
+    >
+
+      {/* ── Single Unified Header ───────────────────────────────── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 7,
+            background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#8b5cf6'
+          }}>
+            <BarChart3 size={15} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <h2 style={{ margin: 0, fontSize: 14.5, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em' }}>
+              Historical Intelligence
+            </h2>
+            <span className="ai-badge" style={{ 
+              fontSize: 8.5, padding: '1px 6px', 
+              background: 'rgba(139,92,246,0.12)', color: '#8b5cf6', 
+              border: '1px solid rgba(139,92,246,0.3)' 
+            }}>
+              ANALYTICS ENGINE
+            </span>
+          </div>
         </div>
 
-        {/* View Toggle */}
-        <div style={{ display: 'flex', background: '#f1f5f9', padding: 4, borderRadius: 10, border: '1px solid var(--border)' }}>
-          <button
-            onClick={() => setViewMode('chart')}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8,
-              fontSize: 12, fontWeight: 800, cursor: 'pointer', transition: 'all 0.15s',
-              background: viewMode === 'chart' ? '#fff' : 'transparent',
-              color: viewMode === 'chart' ? 'var(--text)' : 'var(--text-3)',
-              boxShadow: viewMode === 'chart' ? 'var(--shadow-sm)' : 'none',
-              border: 'none',
-            }}
-          >
-            📊 Chart
-          </button>
-          <button
-            onClick={() => setViewMode('table')}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8,
-              fontSize: 12, fontWeight: 800, cursor: 'pointer', transition: 'all 0.15s',
-              background: viewMode === 'table' ? '#fff' : 'transparent',
-              color: viewMode === 'table' ? 'var(--text)' : 'var(--text-3)',
-              boxShadow: viewMode === 'table' ? 'var(--shadow-sm)' : 'none',
-              border: 'none',
-            }}
-          >
-            📋 Table
-          </button>
+        {/* View Toggle & Extra Action (Intelligence Reports) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', background: 'var(--surface-2)', padding: 2, borderRadius: 7, border: '1px solid var(--border)' }}>
+            <button
+              onClick={() => setViewMode('chart')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 5,
+                fontSize: 10.5, fontWeight: 800, cursor: 'pointer', transition: 'all 0.15s',
+                background: viewMode === 'chart' ? 'var(--surface)' : 'transparent',
+                color: viewMode === 'chart' ? 'var(--text)' : 'var(--text-3)',
+                boxShadow: viewMode === 'chart' ? 'var(--shadow-sm)' : 'none',
+                border: 'none',
+              }}
+            >
+              📊 Chart
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 5,
+                fontSize: 10.5, fontWeight: 800, cursor: 'pointer', transition: 'all 0.15s',
+                background: viewMode === 'table' ? 'var(--surface)' : 'transparent',
+                color: viewMode === 'table' ? 'var(--text)' : 'var(--text-3)',
+                boxShadow: viewMode === 'table' ? 'var(--shadow-sm)' : 'none',
+                border: 'none',
+              }}
+            >
+              📋 Table
+            </button>
+          </div>
+
+          {extraAction}
         </div>
       </div>
 
       {/* ── Filters Bar ───────────────────────────────────────── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, background: '#f8fafc', padding: 18, borderRadius: 14, border: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--surface-2)', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)' }}>
         
         {/* Metric Selector Checkboxes */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -202,7 +232,7 @@ export default function HistoricalAnalytics() {
           {/* Period Selector Tabs */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase' }}>Time Period</span>
-            <div style={{ display: 'flex', background: '#fff', border: '1px solid var(--border)', borderRadius: 8, padding: 2 }}>
+            <div style={{ display: 'flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: 2 }}>
               {['daily', 'weekly', 'monthly', 'custom'].map(p => (
                 <button
                   key={p}
@@ -227,7 +257,7 @@ export default function HistoricalAnalytics() {
               onClick={() => setCamDropdownOpen(prev => !prev)}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-                background: '#fff', border: '1px solid var(--border)', padding: '6px 12px', borderRadius: 8,
+                background: 'var(--surface)', border: '1px solid var(--border)', padding: '6px 12px', borderRadius: 8,
                 fontSize: 12, fontWeight: 700, color: 'var(--text)', cursor: 'pointer', minWidth: 160
               }}
             >
@@ -238,7 +268,7 @@ export default function HistoricalAnalytics() {
             {camDropdownOpen && (
               <div style={{
                 position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 100,
-                background: '#fff', border: '1px solid var(--border)', borderRadius: 10,
+                background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10,
                 boxShadow: 'var(--shadow)', padding: 8, width: 220, maxHeight: 240, overflowY: 'auto',
                 display: 'flex', flexDirection: 'column', gap: 4
               }}>
@@ -247,28 +277,46 @@ export default function HistoricalAnalytics() {
                   onClick={selectAllCameras}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6,
-                    cursor: 'pointer', fontSize: 12, fontWeight: 800, background: selectedCameras.length === 0 ? '#f1f5f9' : 'transparent'
+                    cursor: 'pointer', background: selectedCameras.length === cameras.length ? 'var(--accent-bg)' : 'transparent',
+                    fontWeight: selectedCameras.length === cameras.length ? 700 : 500,
+                    color: selectedCameras.length === cameras.length ? 'var(--accent)' : 'var(--text)',
+                    fontSize: 12
                   }}
                 >
-                  {selectedCameras.length === 0 ? <CheckSquare size={14} color="var(--accent)" /> : <Square size={14} color="#cbd5e1" />}
+                  <input
+                    type="checkbox"
+                    checked={selectedCameras.length === cameras.length}
+                    onChange={() => {}}
+                    style={{ cursor: 'pointer' }}
+                  />
                   <span>All Cameras</span>
                 </div>
-                <div style={{ borderTop: '1px solid var(--border)', margin: '2px 0' }} />
+                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+
+                {/* Individual Cameras */}
                 {cameras.map(cam => {
-                  const camId = cam.id || cam.camera_id
-                  const checked = selectedCameras.includes(camId)
+                  const id = cam.id || cam.camera_id
+                  const isChecked = selectedCameras.includes(id)
                   return (
                     <div
-                      key={camId}
-                      onClick={() => toggleCamera(camId)}
+                      key={id}
+                      onClick={() => toggleCamera(id)}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6,
-                        cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--text)'
+                        cursor: 'pointer', background: isChecked ? 'var(--accent-bg)' : 'transparent',
+                        fontWeight: isChecked ? 700 : 500,
+                        color: isChecked ? 'var(--accent)' : 'var(--text)',
+                        fontSize: 12
                       }}
                     >
-                      {checked ? <CheckSquare size={14} color="var(--accent)" /> : <Square size={14} color="#cbd5e1" />}
-                      <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {cam.name || camId}
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {}}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {cam.name || id}
                       </span>
                     </div>
                   )
@@ -277,9 +325,9 @@ export default function HistoricalAnalytics() {
             )}
           </div>
 
-          {/* Date Range Picker (Custom Period Only) */}
+          {/* Custom Date Pickers */}
           {selectedPeriod === 'custom' && (
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase' }}>Start Date</span>
                 <input
@@ -287,7 +335,7 @@ export default function HistoricalAnalytics() {
                   value={startDate}
                   onChange={e => setStartDate(e.target.value)}
                   style={{
-                    background: '#fff', border: `1px solid ${dateValidationError ? '#ef4444' : 'var(--border)'}`,
+                    background: 'var(--surface)', border: `1px solid ${dateValidationError ? '#ef4444' : 'var(--border)'}`,
                     padding: '5px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, color: 'var(--text)'
                   }}
                 />
@@ -299,7 +347,7 @@ export default function HistoricalAnalytics() {
                   value={endDate}
                   onChange={e => setEndDate(e.target.value)}
                   style={{
-                    background: '#fff', border: `1px solid ${dateValidationError ? '#ef4444' : 'var(--border)'}`,
+                    background: 'var(--surface)', border: `1px solid ${dateValidationError ? '#ef4444' : 'var(--border)'}`,
                     padding: '5px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, color: 'var(--text)'
                   }}
                 />
@@ -363,7 +411,7 @@ export default function HistoricalAnalytics() {
 
               {/* Grouped Bar Chart Visualiser */}
               <div style={{
-                background: '#fff', border: '1px solid var(--border)', borderRadius: 12, padding: '24px',
+                background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '24px',
                 display: 'flex', flexDirection: 'column', gap: 20
               }}>
                 {selectedMetrics.map(metricId => {
@@ -371,7 +419,7 @@ export default function HistoricalAnalytics() {
                   const maxVal = Math.max(...data.map(d => Number(d[metricId] || d.count || 0)), 10)
 
                   return (
-                    <div key={metricId} style={{ display: 'flex', flexDirection: 'column', gap: 8, borderBottom: '1px solid #f1f5f9', paddingBottom: 16 }}>
+                    <div key={metricId} style={{ display: 'flex', flexDirection: 'column', gap: 8, borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>
                       <div style={{ fontSize: 13, fontWeight: 800, color: metricMeta?.color || 'var(--text)', display: 'flex', alignItems: 'center', gap: 6 }}>
                         <div style={{ width: 6, height: 14, borderRadius: 2, background: metricMeta?.color }} />
                         {metricMeta?.label}
@@ -397,7 +445,7 @@ export default function HistoricalAnalytics() {
                               {/* Bar track container */}
                               <div style={{
                                 width: '100%', maxWidth: 36, height: 100, display: 'flex',
-                                alignItems: 'flex-end', justifyContent: 'center', background: '#f1f5f9',
+                                alignItems: 'flex-end', justifyContent: 'center', background: 'var(--surface-2)',
                                 borderRadius: '6px 6px 0 0', overflow: 'hidden', padding: '0 2px'
                               }}>
                                 <div style={{
@@ -428,10 +476,10 @@ export default function HistoricalAnalytics() {
       ) : (
         /* ── TABLE VIEW ─────────────────────────────────────── */
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: '#fff' }}>
+          <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--surface)' }}>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
-                <thead style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
+                <thead style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
                   <tr>
                     <th onClick={() => handleSort('date')} style={{ padding: '14px 16px', color: 'var(--text-3)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', cursor: 'pointer' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>Date/Period <ArrowUpDown size={12} /></div>
@@ -546,7 +594,7 @@ export default function HistoricalAnalytics() {
             {/* Pagination Controls */}
             {!loading && sortedData.length > 0 && (
               <div style={{
-                padding: '12px 20px', background: '#f8fafc', borderTop: '1px solid var(--border)',
+                padding: '12px 20px', background: 'var(--surface-2)', borderTop: '1px solid var(--border)',
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center'
               }}>
                 <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600 }}>
@@ -557,8 +605,9 @@ export default function HistoricalAnalytics() {
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
                     style={{
-                      background: '#fff', border: '1px solid var(--border)', borderRadius: 6,
+                      background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6,
                       padding: '4px 8px', cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                      color: 'var(--text)',
                       opacity: currentPage === 1 ? 0.5 : 1, display: 'flex'
                     }}
                   >
@@ -571,8 +620,9 @@ export default function HistoricalAnalytics() {
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
                     style={{
-                      background: '#fff', border: '1px solid var(--border)', borderRadius: 6,
+                      background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6,
                       padding: '4px 8px', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                      color: 'var(--text)',
                       opacity: currentPage === totalPages ? 0.5 : 1, display: 'flex'
                     }}
                   >

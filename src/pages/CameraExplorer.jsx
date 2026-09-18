@@ -251,7 +251,7 @@ export default function CameraExplorer() {
               localStorage.setItem('vframe_selected_tenant', val)
             }}
             style={{
-              background: '#fff', border: '1px solid var(--border)', color: 'var(--text)',
+              background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)',
               padding: '7px 12px', fontSize: 12, borderRadius: 'var(--radius-sm)',
               fontWeight: 600, boxShadow: 'var(--shadow-sm)', outline: 'none',
               minWidth: 140
@@ -275,7 +275,7 @@ export default function CameraExplorer() {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               style={{
-                background: '#fff', border: '1px solid var(--border)', color: 'var(--text)',
+                background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)',
                 padding: '7px 12px 7px 30px', fontSize: 13, borderRadius: 'var(--radius-sm)',
                 width: 200, boxShadow: 'var(--shadow-sm)', outline: 'none'
               }}
@@ -283,7 +283,7 @@ export default function CameraExplorer() {
           </div>
           
           <select value={ucFilter} onChange={e => { setUcFilter(e.target.value); if (!useCaseId) setSelectedCard(null) }} style={{
-            background: '#fff', border: '1px solid var(--border)', color: 'var(--text)',
+            background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)',
             padding: '7px 12px', fontSize: 12, borderRadius: 'var(--radius-sm)',
             fontWeight: 500, boxShadow: 'var(--shadow-sm)',
           }}>
@@ -291,7 +291,7 @@ export default function CameraExplorer() {
             {USE_CASES.map(u => <option key={u.id} value={u.id}>{u.emoji} {u.label}</option>)}
           </select>
           <select value={stFilter} onChange={e => setStFilter(e.target.value)} style={{
-            background: '#fff', border: '1px solid var(--border)', color: 'var(--text)',
+            background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)',
             padding: '7px 12px', fontSize: 12, borderRadius: 'var(--radius-sm)',
             fontWeight: 500, boxShadow: 'var(--shadow-sm)',
           }}>
@@ -307,7 +307,7 @@ export default function CameraExplorer() {
       {filtered.length === 0 ? (
         <div style={{
           padding: 48, textAlign: 'center',
-          background: '#fff', border: '1px solid var(--border)',
+          background: 'var(--surface)', border: '1px solid var(--border)',
           borderRadius: 'var(--radius)', color: 'var(--text-3)', fontSize: 13,
         }}>No cameras match your filters</div>
       ) : (
@@ -354,7 +354,7 @@ export default function CameraExplorer() {
                   overflow: 'hidden',
                   transition: 'all 0.4s cubic-bezier(0.19, 1, 0.22, 1)',
                   marginTop: isSelected ? -6 : 0,
-                  background: '#fff',
+                  background: 'var(--surface)',
                   border: isSelected ? `1px solid ${ucColor}44` : 'none',
                   borderTop: 'none',
                   borderRadius: '0 0 var(--radius) var(--radius)',
@@ -377,7 +377,7 @@ export default function CameraExplorer() {
         
         {/* Pagination Controls */}
         {totalPages > 1 && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: '#fff', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginTop: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginTop: 8 }}>
             <div style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>
               Showing <b style={{ color: 'var(--text)' }}>{(page - 1) * ITEMS_PER_PAGE + 1}</b> to <b style={{ color: 'var(--text)' }}>{Math.min(page * ITEMS_PER_PAGE, filtered.length)}</b> of <b style={{ color: 'var(--text)' }}>{filtered.length}</b> cameras
             </div>
@@ -387,9 +387,9 @@ export default function CameraExplorer() {
                 onClick={() => setPage(p => Math.max(1, p - 1))} 
                 disabled={page === 1}
                 style={{
-                  padding: '6px 12px', background: page === 1 ? '#f1f5f9' : '#fff', 
+                  padding: '6px 12px', background: page === 1 ? 'var(--surface-2)' : 'var(--surface)', 
                   border: '1px solid var(--border)', borderRadius: 6,
-                  color: page === 1 ? '#94a3b8' : 'var(--text)', cursor: page === 1 ? 'not-allowed' : 'pointer',
+                  color: page === 1 ? 'var(--text-3)' : 'var(--text)', cursor: page === 1 ? 'not-allowed' : 'pointer',
                   display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600
                 }}
               >
@@ -404,9 +404,9 @@ export default function CameraExplorer() {
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))} 
                 disabled={page === totalPages}
                 style={{
-                  padding: '6px 12px', background: page === totalPages ? '#f1f5f9' : '#fff', 
+                  padding: '6px 12px', background: page === totalPages ? 'var(--surface-2)' : 'var(--surface)', 
                   border: '1px solid var(--border)', borderRadius: 6,
-                  color: page === totalPages ? '#94a3b8' : 'var(--text)', cursor: page === totalPages ? 'not-allowed' : 'pointer',
+                  color: page === totalPages ? 'var(--text-3)' : 'var(--text)', cursor: page === totalPages ? 'not-allowed' : 'pointer',
                   display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600
                 }}
               >

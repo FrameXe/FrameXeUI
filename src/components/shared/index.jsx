@@ -3,10 +3,11 @@
 export function KpiCard({ title, value, color = '#2563eb', icon: Icon, sub, trend }) {
   return (
     <div className="card-hover" style={{
-      background: '#fff', border: '1px solid var(--border)',
+      background: 'var(--surface)', border: '1px solid var(--border)',
       borderRadius: 'var(--radius)', padding: '20px 22px',
       boxShadow: 'var(--shadow)', borderLeft: `3px solid ${color}`,
     }}>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 10 }}>

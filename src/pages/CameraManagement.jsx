@@ -108,7 +108,7 @@ export default function CameraManagement() {
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             style={{
-              background: '#fff', border: '1px solid var(--border)', color: 'var(--text)',
+              background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)',
               padding: '8px 12px 8px 30px', fontSize: 13, borderRadius: 'var(--radius-sm)',
               width: 250, boxShadow: 'var(--shadow-sm)', outline: 'none'
             }}
@@ -119,7 +119,7 @@ export default function CameraManagement() {
       {/* Camera list */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {filteredCams.length === 0 ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-3)', background: '#fff', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-3)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
             No cameras match your search.
           </div>
         ) : (
@@ -128,7 +128,7 @@ export default function CameraManagement() {
           const stColor = cam.status === 'active' ? '#16a34a' : cam.status === 'error' ? '#dc2626' : '#94a3b8'
           return (
             <div key={cam.id} style={{
-              background: '#fff', border: '1px solid var(--border)',
+              background: 'var(--surface)', border: '1px solid var(--border)',
               borderRadius: 'var(--radius)', padding: 20,
               boxShadow: 'var(--shadow)',
               opacity: isOffline ? 0.6 : 1, transition: 'all 0.2s',
@@ -286,7 +286,7 @@ export default function CameraManagement() {
       
       {/* Pagination Controls */}
       {totalPages > 1 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: '#fff', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginTop: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginTop: 8 }}>
           <div style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>
             Showing <b style={{ color: 'var(--text)' }}>{(page - 1) * ITEMS_PER_PAGE + 1}</b> to <b style={{ color: 'var(--text)' }}>{Math.min(page * ITEMS_PER_PAGE, filteredCams.length)}</b> of <b style={{ color: 'var(--text)' }}>{filteredCams.length}</b> cameras
           </div>
@@ -296,9 +296,9 @@ export default function CameraManagement() {
               onClick={() => setPage(p => Math.max(1, p - 1))} 
               disabled={page === 1}
               style={{
-                padding: '6px 12px', background: page === 1 ? '#f1f5f9' : '#fff', 
+                padding: '6px 12px', background: page === 1 ? 'var(--surface-2)' : 'var(--surface)', 
                 border: '1px solid var(--border)', borderRadius: 6,
-                color: page === 1 ? '#94a3b8' : 'var(--text)', cursor: page === 1 ? 'not-allowed' : 'pointer',
+                color: page === 1 ? 'var(--text-3)' : 'var(--text)', cursor: page === 1 ? 'not-allowed' : 'pointer',
                 display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600
               }}
             >
@@ -313,9 +313,9 @@ export default function CameraManagement() {
               onClick={() => setPage(p => Math.min(totalPages, p + 1))} 
               disabled={page === totalPages}
               style={{
-                padding: '6px 12px', background: page === totalPages ? '#f1f5f9' : '#fff', 
+                padding: '6px 12px', background: page === totalPages ? 'var(--surface-2)' : 'var(--surface)', 
                 border: '1px solid var(--border)', borderRadius: 6,
-                color: page === totalPages ? '#94a3b8' : 'var(--text)', cursor: page === totalPages ? 'not-allowed' : 'pointer',
+                color: page === totalPages ? 'var(--text-3)' : 'var(--text)', cursor: page === totalPages ? 'not-allowed' : 'pointer',
                 display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600
               }}
             >

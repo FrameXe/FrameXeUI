@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useAuthStore } from '../store/index.js'
 import { useNavigate } from 'react-router-dom'
-import { Shield, Key, User, ArrowRight } from 'lucide-react'
+import { Shield, Key, User, ArrowRight, Sparkles } from 'lucide-react'
+import { AiLogoMark } from '../components/brand/AiLogo.jsx'
 
 export default function Login() {
   const [username, setUsername] = useState('')
@@ -40,13 +41,13 @@ export default function Login() {
     }}>
       {/* Decorative Blur Orbs */}
       <div style={{
-        position: 'absolute', width: '350px', height: '350px', borderRadius: '50%',
-        background: 'rgba(37, 99, 235, 0.15)', filter: 'blur(80px)',
+        position: 'absolute', width: '400px', height: '400px', borderRadius: '50%',
+        background: 'rgba(6, 182, 212, 0.15)', filter: 'blur(90px)',
         top: '10%', left: '15%'
       }} />
       <div style={{
-        position: 'absolute', width: '350px', height: '350px', borderRadius: '50%',
-        background: 'rgba(124, 58, 237, 0.15)', filter: 'blur(80px)',
+        position: 'absolute', width: '400px', height: '400px', borderRadius: '50%',
+        background: 'rgba(139, 92, 246, 0.15)', filter: 'blur(90px)',
         bottom: '10%', right: '15%'
       }} />
 
@@ -54,13 +55,13 @@ export default function Login() {
       <div style={{
         width: '100%',
         maxWidth: '460px',
-        background: 'rgba(15, 23, 42, 0.65)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        background: 'rgba(15, 23, 42, 0.75)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
         borderRadius: '24px',
         padding: '40px',
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.4)',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 30px rgba(6, 182, 212, 0.1)',
         zIndex: 10,
         display: 'flex',
         flexDirection: 'column',
@@ -69,25 +70,40 @@ export default function Login() {
         {/* Logo / Header */}
         <div style={{ textAlign: 'center' }}>
           <div style={{
-            width: '56px', height: '56px', borderRadius: '16px',
-            background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 20px rgba(37,99,235,0.4)',
-            margin: '0 auto 16px'
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '16px',
+            filter: 'drop-shadow(0 0 20px rgba(6, 182, 212, 0.4))'
           }}>
-            <span style={{ fontSize: '26px' }}>🎯</span>
+            <AiLogoMark size={64} animated={true} />
           </div>
-          <h1 style={{
-            fontSize: '24px', fontWeight: 800, color: '#fff',
-            letterSpacing: '-0.02em', margin: '0 0 6px',
-            background: 'linear-gradient(90deg, #fff, #94a3b8)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent'
-          }}>
-            vFrameXe UI
-          </h1>
-          <p style={{ fontSize: '13px', color: '#94a3b8', fontWeight: 500 }}>
-            Sign in to access AI Video Analytics Center
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 4 }}>
+            <h1 style={{
+              fontSize: '28px', fontWeight: 900, color: '#fff',
+              letterSpacing: '-0.03em', margin: 0,
+            }}>
+              Frame<span style={{
+                background: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #8b5cf6 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}>Xe</span>
+            </h1>
+            <span style={{
+              fontSize: 10,
+              fontWeight: 800,
+              padding: '2px 6px',
+              borderRadius: 4,
+              background: 'linear-gradient(135deg, rgba(6,182,212,0.2), rgba(139,92,246,0.2))',
+              border: '1px solid rgba(6,182,212,0.4)',
+              color: '#22d3ee',
+              letterSpacing: '0.05em'
+            }}>
+              AI VISION
+            </span>
+          </div>
+          <p style={{ fontSize: '13px', color: '#94a3b8', fontWeight: 500, margin: '4px 0 0' }}>
+            Enterprise Neural Video Analytics & Intelligence Platform
           </p>
         </div>
 

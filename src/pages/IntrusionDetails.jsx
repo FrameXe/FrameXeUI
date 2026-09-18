@@ -82,7 +82,7 @@ export default function IntrusionDetails() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         <button onClick={() => nav(-1)} style={{
-          background: '#fff', border: '1px solid var(--border)', padding: 8, borderRadius: '50%',
+          background: 'var(--surface)', border: '1px solid var(--border)', padding: 8, borderRadius: '50%',
           cursor: 'pointer', display: 'flex', color: 'var(--text)', boxShadow: 'var(--shadow-sm)'
         }}>
           <ArrowLeft size={18} />
@@ -122,7 +122,7 @@ export default function IntrusionDetails() {
           </div>
 
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
-             <div style={{ background: '#fff', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 20, flex: 1 }}>
+             <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 20, flex: 1 }}>
                 <h3 style={{ margin: '0 0 16px 0', fontSize: 14, color: 'var(--text-2)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 8 }}><Activity size={16}/> Stream Intel</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                    <div>
@@ -136,10 +136,10 @@ export default function IntrusionDetails() {
                 </div>
              </div>
              
-             <div style={{ background: '#fff', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 20, flex: 1 }}>
+             <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 20, flex: 1 }}>
                <h3 style={{ margin: '0 0 16px 0', fontSize: 14, color: 'var(--text-2)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 8 }}><ShieldAlert size={16} /> Threat Assessment</h3>
                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                 <div style={{ background: '#fef2f2', color: '#ef4444', width: 48, height: 48, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 900 }}>
+                 <div style={{ background: 'var(--red-bg)', color: 'var(--red)', width: 48, height: 48, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 900 }}>
                    {liveEvents.length > 0 ? 'CRIT' : 'OK'}
                  </div>
                  <div style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.4 }}>
@@ -150,8 +150,8 @@ export default function IntrusionDetails() {
           </div>
         </div>
 
-        <div style={{ background: '#fff', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
-           <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+           <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text)', letterSpacing: '-0.01em' }}>
                  <Camera size={18} color={config.color} /> Live Detection Stream
               </h2>
@@ -159,12 +159,12 @@ export default function IntrusionDetails() {
 
            <div style={{ overflowX: 'auto', maxHeight: 400 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
-                <thead style={{ background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>
+                <thead style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
                   <tr>
-                    <th style={{ padding: '12px 20px', color: '#64748b', fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Tracking ID</th>
-                    <th style={{ padding: '12px 20px', color: '#64748b', fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Classification</th>
-                    <th style={{ padding: '12px 20px', color: '#64748b', fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Timestamp</th>
-                    <th style={{ padding: '12px 20px', color: '#64748b', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', textAlign: 'right' }}>AI Confidence</th>
+                    <th style={{ padding: '12px 20px', color: 'var(--text-3)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Tracking ID</th>
+                    <th style={{ padding: '12px 20px', color: 'var(--text-3)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Classification</th>
+                    <th style={{ padding: '12px 20px', color: 'var(--text-3)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Timestamp</th>
+                    <th style={{ padding: '12px 20px', color: 'var(--text-3)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', textAlign: 'right' }}>AI Confidence</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -174,7 +174,7 @@ export default function IntrusionDetails() {
                   {liveEvents.map((ev, idx) => {
                     const Icon = ev.icon
                     return (
-                      <tr key={`${ev.track_id}-${idx}`} style={{ borderBottom: '1px solid #e2e8f0', background: '#fff', transition: 'background 0.2s' }}>
+                      <tr key={`${ev.track_id}-${idx}`} style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)', transition: 'background 0.2s' }}>
                         <td style={{ padding: '12px 20px', fontWeight: 800, color: 'var(--text)' }}>
                            #{ev.track_id}
                         </td>

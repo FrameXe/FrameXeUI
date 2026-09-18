@@ -146,7 +146,7 @@ export default function TrafficDetails() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         <button onClick={() => nav(-1)} style={{
-          background: '#fff', border: '1px solid var(--border)', padding: 8, borderRadius: '50%',
+          background: 'var(--surface)', border: '1px solid var(--border)', padding: 8, borderRadius: '50%',
           cursor: 'pointer', display: 'flex', color: 'var(--text)', boxShadow: 'var(--shadow-sm)'
         }}>
           <ArrowLeft size={18} />
@@ -181,63 +181,63 @@ export default function TrafficDetails() {
           </div>
 
           {/* Quick Metrics */}
-          <div style={{ background: '#fff', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 18, flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 18, flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
              <h3 style={{ margin: 0, fontSize: 13, color: 'var(--text-2)', textTransform: 'uppercase', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}><Activity size={15}/> Live Fleet Telemetry</h3>
              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
                 {metrics.counts && (
                   <>
-                    <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: 'span 2' }}>
+                    <div style={{ background: 'var(--surface-2)', padding: 12, borderRadius: 8, border: '1px solid var(--border)', gridColumn: 'span 2' }}>
                       <div style={{ fontSize: 9, color: 'var(--text-3)', fontWeight: 800, textTransform: 'uppercase' }}>TOTAL VEHICLE FLOW</div>
                       <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--text)', marginTop: 4 }}>{metrics.counts.IN + metrics.counts.OUT}</div>
                     </div>
-                    <div style={{ background: '#f0fdf4', padding: 10, borderRadius: 8, border: '1px solid #dcfce7' }}>
-                      <div style={{ fontSize: 9, color: '#10b981', fontWeight: 800 }}>INFLOW</div>
-                      <div style={{ fontSize: 20, fontWeight: 900, color: '#10b981' }}>{metrics.counts.IN}</div>
+                    <div style={{ background: 'var(--green-bg)', padding: 10, borderRadius: 8, border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 9, color: 'var(--green)', fontWeight: 800 }}>INFLOW</div>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--green)' }}>{metrics.counts.IN}</div>
                     </div>
-                    <div style={{ background: '#fef2f2', padding: 10, borderRadius: 8, border: '1px solid #fee2e2' }}>
-                      <div style={{ fontSize: 9, color: '#ef4444', fontWeight: 800 }}>OUTFLOW</div>
-                      <div style={{ fontSize: 20, fontWeight: 900, color: '#ef4444' }}>{metrics.counts.OUT}</div>
+                    <div style={{ background: 'var(--red-bg)', padding: 10, borderRadius: 8, border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 9, color: 'var(--red)', fontWeight: 800 }}>OUTFLOW</div>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--red)' }}>{metrics.counts.OUT}</div>
                     </div>
                   </>
                 )}
                 {metrics.congestion && (
-                  <div style={{ background: metrics.congestion.level === 'high' ? '#fee2e2' : '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: 'span 2' }}>
-                    <div style={{ fontSize: 9, color: metrics.congestion.level === 'high' ? '#ef4444' : 'var(--text-3)', fontWeight: 800, textTransform: 'uppercase' }}>NETWORK CONGESTION</div>
-                    <div style={{ fontSize: 18, fontWeight: 900, color: metrics.congestion.level === 'high' ? '#ef4444' : 'var(--text)', marginTop: 4 }}>{metrics.congestion.level.toUpperCase()}</div>
+                  <div style={{ background: metrics.congestion.level === 'high' ? 'var(--red-bg)' : 'var(--surface-2)', padding: 12, borderRadius: 8, border: '1px solid var(--border)', gridColumn: 'span 2' }}>
+                    <div style={{ fontSize: 9, color: metrics.congestion.level === 'high' ? 'var(--red)' : 'var(--text-3)', fontWeight: 800, textTransform: 'uppercase' }}>NETWORK CONGESTION</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: metrics.congestion.level === 'high' ? 'var(--red)' : 'var(--text)', marginTop: 4 }}>{metrics.congestion.level.toUpperCase()}</div>
                     <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 600 }}>{metrics.congestion.count} Units In-Frame</div>
                   </div>
                 )}
                 {metrics.speeding && (
-                  <div style={{ background: '#f0f9ff', padding: 12, borderRadius: 8, border: '1px solid #e0f2fe', gridColumn: 'span 2' }}>
-                    <div style={{ fontSize: 9, color: '#0369a1', fontWeight: 800, textTransform: 'uppercase' }}>VELOCITY METRICS</div>
-                    <div style={{ fontSize: 18, fontWeight: 900, color: '#0369a1', marginTop: 4 }}>{metrics.speeding.average_speed} <span style={{ fontSize: 11 }}>KM/H AVG</span></div>
-                    <div style={{ fontSize: 10, color: '#0369a190', fontWeight: 600 }}>Peak Recorded: {metrics.speeding.highest_speed}</div>
+                  <div style={{ background: 'var(--accent-bg)', padding: 12, borderRadius: 8, border: '1px solid var(--border)', gridColumn: 'span 2' }}>
+                    <div style={{ fontSize: 9, color: 'var(--accent)', fontWeight: 800, textTransform: 'uppercase' }}>VELOCITY METRICS</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--accent)', marginTop: 4 }}>{metrics.speeding.average_speed} <span style={{ fontSize: 11 }}>KM/H AVG</span></div>
+                    <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 600 }}>Peak Recorded: {metrics.speeding.highest_speed}</div>
                   </div>
                 )}
              </div>
           </div>
 
-          <div style={{ background: '#fff', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 18, flex: 1 }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 18, flex: 1 }}>
              <h3 style={{ margin: '0 0 14px 0', fontSize: 13, color: 'var(--text-2)', textTransform: 'uppercase', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}><ShieldAlert size={15} /> System Integrity</h3>
              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-               <div style={{ background: '#1e293b', color: '#fff', width: 42, height: 42, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 900 }}>AI</div>
+               <div style={{ background: 'var(--surface-2)', color: 'var(--text)', width: 42, height: 42, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 900 }}>AI</div>
                <div style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 600, lineHeight: 1.3 }}>
-                 <span style={{ color: '#ef4444', fontWeight: 800 }}>{liveEvents.filter(e => e.color === '#ef4444').length} priority incidents</span> detected recently.
+                 <span style={{ color: 'var(--red)', fontWeight: 800 }}>{liveEvents.filter(e => e.color === '#ef4444').length} priority incidents</span> detected recently.
                </div>
              </div>
           </div>
         </div>
 
         {/* Detection Log */}
-        <div style={{ background: '#fff', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
-           <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: '#f8fafc' }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+           <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
               <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text)' }}>
                  <Camera size={18} color={config.color} /> Live Detection Stream
               </h2>
            </div>
            <div style={{ overflowX: 'auto', maxHeight: 400 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
-                <thead style={{ background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>
+                <thead style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
                   <tr>
                     <th style={{ padding: '16px 20px', color: '#64748b', fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Reference</th>
                     <th style={{ padding: '16px 20px', color: '#64748b', fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Event</th>

@@ -101,7 +101,7 @@ export default function GpuWorkerDashboard() {
           disabled={refreshing}
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
-            background: '#fff', border: '1px solid var(--border)',
+            background: 'var(--surface)', border: '1px solid var(--border)',
             padding: '8px 16px', borderRadius: 'var(--radius-sm)',
             fontSize: 13, fontWeight: 600, color: 'var(--text)',
             cursor: 'pointer', boxShadow: 'var(--shadow-sm)', outline: 'none'
@@ -114,31 +114,31 @@ export default function GpuWorkerDashboard() {
 
       {/* Summary Stat Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 28 }}>
-        <div style={{ background: '#fff', border: '1px solid var(--border)', padding: 18, borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: 18, borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)' }}>
           <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase' }}>Active GPU Workers</div>
           <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
             {onlineCount} / {workers.length}
-            <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 10, background: '#f0fdf4', color: '#16a34a', fontWeight: 600 }}>
+            <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 10, background: 'var(--green-bg)', color: 'var(--green)', fontWeight: 600 }}>
               {onlineCount > 0 ? 'Healthy' : 'Offline'}
             </span>
           </div>
         </div>
 
-        <div style={{ background: '#fff', border: '1px solid var(--border)', padding: 18, borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: 18, borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)' }}>
           <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase' }}>Total Active Processing</div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#2563eb', marginTop: 6 }}>
             {totalCams} <span style={{ fontSize: 14, color: 'var(--text-3)', fontWeight: 500 }}>Cameras</span>
           </div>
         </div>
 
-        <div style={{ background: '#fff', border: '1px solid var(--border)', padding: 18, borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: 18, borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)' }}>
           <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase' }}>Estimated Remaining Capacity</div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#16a34a', marginTop: 6 }}>
             +{totalCapacity} <span style={{ fontSize: 14, color: 'var(--text-3)', fontWeight: 500 }}>More Feeds</span>
           </div>
         </div>
 
-        <div style={{ background: '#fff', border: '1px solid var(--border)', padding: 18, borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: 18, borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)' }}>
           <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase' }}>LAN Heartbeat Sync</div>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#16a34a', marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
             <CheckCircle size={16} /> Auto-Sync Active
@@ -154,12 +154,12 @@ export default function GpuWorkerDashboard() {
 
           return (
             <div key={w.worker_id} style={{
-              background: '#fff', border: '1px solid var(--border)',
+              background: 'var(--surface)', border: '1px solid var(--border)',
               borderRadius: 'var(--radius)', overflow: 'hidden',
               boxShadow: 'var(--shadow)'
             }}>
               {/* Card Header */}
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <Server size={20} style={{ color: '#2563eb' }} />
                   <div>
