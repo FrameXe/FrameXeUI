@@ -270,7 +270,7 @@ export default function EventsAlerts() {
               <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Keyword Search</span>
               <div style={{ position: 'relative' }}>
                  <Search size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: T.textMuted }} />
-                 <input type="text" placeholder="Search Camera / ID / Zone..." value={camSearch} onChange={e=>setCamSearch(e.target.value)} 
+                 <input type="text" value={camSearch} onChange={e=>setCamSearch(e.target.value)} 
                    style={{ width: '100%', background: 'var(--surface)', color: 'var(--text)', border: `1px solid ${T.border}`, padding: '10px 16px 10px 38px', borderRadius: 10, fontSize: 13, outline: 'none', fontWeight: 600 }} />
                  {camSearch && <button onClick={()=>setCamSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text)' }}><X size={14} /></button>}
               </div>

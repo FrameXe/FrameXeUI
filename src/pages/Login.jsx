@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuthStore } from '../store/index.js'
 import { useNavigate } from 'react-router-dom'
-import { Shield, Key, User, ArrowRight, Sparkles } from 'lucide-react'
+import { Shield, Key, User, ArrowRight } from 'lucide-react'
 import { AiLogoMark } from '../components/brand/AiLogo.jsx'
 
 export default function Login() {
@@ -19,14 +19,6 @@ export default function Login() {
     }
   }
 
-  const handlePreset = (presetUser, presetPass) => {
-    setUsername(presetUser)
-    setPassword(presetPass)
-    const success = login(presetUser, presetPass)
-    if (success) {
-      navigate('/')
-    }
-  }
 
   return (
     <div style={{
@@ -141,7 +133,6 @@ export default function Login() {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter username"
                 style={{
                   width: '100%',
                   padding: '12px 16px 12px 42px',
@@ -178,7 +169,6 @@ export default function Login() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
                 style={{
                   width: '100%',
                   padding: '12px 16px 12px 42px',
@@ -237,76 +227,17 @@ export default function Login() {
 
         <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)' }} />
 
-        {/* Presets Grid */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>
-            Quick Demo Presets
-          </span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <button
-              onClick={() => handlePreset('admin', 'admin123')}
-              style={{
-                padding: '10px 14px',
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.05)',
-                borderRadius: '10px',
-                color: '#fff',
-                fontSize: '12px',
-                fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                transition: 'all 0.2s',
-                textAlign: 'left'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(37, 99, 235, 0.1)'
-                e.currentTarget.style.borderColor = 'rgba(37, 99, 235, 0.3)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'
-              }}
-            >
-              <div>
-                <div style={{ color: '#60a5fa' }}>Super Admin</div>
-                <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>All cameras & user directory settings</div>
-              </div>
-              <ArrowRight size={14} style={{ opacity: 0.6 }} />
-            </button>
-
-            <button
-              onClick={() => handlePreset('operator', 'password')}
-              style={{
-                padding: '10px 14px',
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.05)',
-                borderRadius: '10px',
-                color: '#fff',
-                fontSize: '12px',
-                fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                transition: 'all 0.2s',
-                textAlign: 'left'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(16, 185, 129, 0.1)'
-                e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.3)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'
-              }}
-            >
-              <div>
-                <div style={{ color: '#34d399' }}>Standard User</div>
-                <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>Dashboard & cameras CAM-1, CAM-4</div>
-              </div>
-              <ArrowRight size={14} style={{ opacity: 0.6 }} />
-            </button>
-          </div>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          fontSize: '11px',
+          color: '#64748b',
+          fontWeight: 500
+        }}>
+          <Shield size={13} style={{ color: '#06b6d4' }} />
+          <span>Secure Enterprise Access Control</span>
         </div>
       </div>
     </div>

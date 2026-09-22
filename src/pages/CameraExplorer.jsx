@@ -271,7 +271,6 @@ export default function CameraExplorer() {
             <Search size={14} style={{ position: 'absolute', left: 10, color: 'var(--text-3)' }} />
             <input 
               type="text" 
-              placeholder="Search cameras..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               style={{

@@ -191,7 +191,6 @@ export default function UserManagement() {
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search user, role, tenant..."
               style={{
                 width: '100%', padding: '6px 10px 6px 28px',
                 fontSize: 11, background: 'var(--surface)',
@@ -620,7 +619,6 @@ export default function UserManagement() {
                     <input
                       type="text"
                       disabled={!!editingUsername}
-                      placeholder="e.g. sachin"
                       value={username}
                       onChange={e => setUsername(e.target.value)}
                       style={{
@@ -638,7 +636,6 @@ export default function UserManagement() {
                     <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }}><Key size={14} /></span>
                     <input
                       type="text"
-                      placeholder="Assign access password"
                       value={password}
                       onChange={e => setPassword(e.target.value)}
                       style={{
@@ -654,7 +651,6 @@ export default function UserManagement() {
                   <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-2)' }}>User Name/Label</label>
                   <input
                     type="text"
-                    placeholder="e.g. Sachin Dev (Zone B)"
                     value={label}
                     onChange={e => setLabel(e.target.value)}
                     style={{
@@ -669,7 +665,6 @@ export default function UserManagement() {
                   <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-2)' }}>Tenant ID <span style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 400 }}>(Leave blank for Super Admin)</span></label>
                   <input
                     type="text"
-                    placeholder="e.g. arjangarh-rajeev"
                     value={tenantId}
                     onChange={e => setTenantId(e.target.value.toLowerCase().trim())}
                     style={{

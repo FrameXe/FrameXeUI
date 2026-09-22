@@ -18,6 +18,11 @@ const fs = require('fs')
 const isDev = !app.isPackaged
 let mainWindow = null
 
+// Set Windows App User Model ID so taskbar displays app icon properly
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.framexe.videoanalytics')
+}
+
 // Active FFmpeg processes: url → { proc, clients: Set<http.ServerResponse> }
 const activeStreams = new Map()
 
@@ -179,12 +184,17 @@ rtspServer.listen(RTSP_SERVER_PORT, '127.0.0.1', () => {
 })
 
 function createWindow() {
+  const iconPath = process.platform === 'win32'
+    ? path.join(__dirname, '..', 'build', 'icon.ico')
+    : path.join(__dirname, '..', 'build', 'icon.png')
+
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
     minWidth: 1024,
     minHeight: 700,
     title: 'FrameXe — Video Analytics Platform',
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
     backgroundColor: '#0a0e1a',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),

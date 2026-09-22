@@ -252,7 +252,6 @@ function AssignModal({ cameras, tenantId, onClose, onSuccess }) {
             <div style={{ position: 'relative' }}>
               <MapPin size={14} style={{ position: 'absolute', left: 10, top: 10, color: '#94a3b8' }} />
               <input
-                placeholder="e.g. Block A – Gate 1"
                 value={form.zone} onChange={e => setForm(f => ({ ...f, zone: e.target.value }))}
                 style={{ ...inputStyle, paddingLeft: 32 }}
               />
@@ -264,7 +263,6 @@ function AssignModal({ cameras, tenantId, onClose, onSuccess }) {
             <div style={{ marginBottom: 16 }}>
               <label style={labelStyle}>IP Address / Host (Override for VPN/NAT)</label>
               <input
-                placeholder="e.g. 100.104.56.87"
                 value={form.ip} onChange={e => setForm(f => ({ ...f, ip: e.target.value }))}
                 style={inputStyle}
               />
@@ -277,13 +275,13 @@ function AssignModal({ cameras, tenantId, onClose, onSuccess }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div style={{ position: 'relative' }}>
                 <User size={13} style={{ position: 'absolute', left: 10, top: 10, color: '#94a3b8' }} />
-                <input placeholder="Username" value={form.username}
+                <input value={form.username}
                   onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
                   style={{ ...inputStyle, paddingLeft: 30 }} />
               </div>
               <div style={{ position: 'relative' }}>
                 <Lock size={13} style={{ position: 'absolute', left: 10, top: 10, color: '#94a3b8' }} />
-                <input placeholder="Password" type="password" value={form.password}
+                <input type="password" value={form.password}
                   onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                   style={{ ...inputStyle, paddingLeft: 30 }} />
               </div>
@@ -306,12 +304,12 @@ function AssignModal({ cameras, tenantId, onClose, onSuccess }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: 10 }}>
               <div style={{ position: 'relative' }}>
                 <Link2 size={13} style={{ position: 'absolute', left: 10, top: 10, color: '#94a3b8' }} />
-                <input placeholder="/cam/realmonitor?channel=1&subtype=0"
+                <input
                   value={form.rtsp_path}
                   onChange={e => setForm(f => ({ ...f, rtsp_path: e.target.value }))}
                   style={{ ...inputStyle, paddingLeft: 30, fontSize: 11 }} />
               </div>
-              <input placeholder="Port" type="number" value={form.rtsp_port}
+              <input type="number" value={form.rtsp_port}
                 onChange={e => setForm(f => ({ ...f, rtsp_port: e.target.value }))}
                 style={inputStyle} />
             </div>

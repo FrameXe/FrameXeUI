@@ -324,7 +324,6 @@ export default function VehicleLog() {
               <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: T.textMuted }} />
               <input 
                 type="text" 
-                placeholder="License plate..." 
                 value={plateInput} 
                 onChange={e => setPlateInput(e.target.value)} 
                 style={{ 

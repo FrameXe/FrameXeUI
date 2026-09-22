@@ -371,7 +371,6 @@ export default function Dashboard() {
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search camera, IP, location..."
                 style={{
                   width: '100%', padding: '4px 10px 4px 24px',
                   fontSize: 10.5, background: 'var(--surface-2)',

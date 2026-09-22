@@ -84,18 +84,13 @@ const loadDynamicUsers = () => {
   return defaults
 }
 
-// Auth store with localStorage persistence
-const initialUser = (() => {
-  try {
-    const saved = localStorage.getItem('vframe_auth_user')
-    return saved ? JSON.parse(saved) : null
-  } catch (e) {
-    return null
-  }
-})()
+// Auth store: App startup always prompts for credentials first
+try {
+  localStorage.removeItem('vframe_auth_user')
+} catch (e) {}
 
 export const useAuthStore = create((set, get) => ({
-  user: initialUser,
+  user: null,
   users: loadDynamicUsers(),
   error: null,
   

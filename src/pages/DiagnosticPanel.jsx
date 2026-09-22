@@ -119,7 +119,6 @@ export default function DiagnosticPanel() {
         {/* Search */}
         <input
           type="text"
-          placeholder="Search logs..."
           value={search}
           onChange={e => setSearch(e.target.value)}
           style={{

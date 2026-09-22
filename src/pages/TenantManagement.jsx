@@ -426,7 +426,6 @@ function CreateTenantModal({ onClose, onCreated }) {
                 id="tenant-id-input"
                 value={form.tenant_id}
                 onChange={e => set('tenant_id', e.target.value.toLowerCase())}
-                placeholder="e.g. arjangarh-rajeev"
                 autoFocus
                 style={{
                   width: '100%', padding: '11px 14px',
@@ -483,7 +482,6 @@ function CreateTenantModal({ onClose, onCreated }) {
               id="tenant-label-input"
               value={form.label}
               onChange={e => set('label', e.target.value)}
-              placeholder="e.g. Site A - Floor 2"
               style={{
                 width: '100%', padding: '11px 14px',
                 border: '1.5px solid var(--border)',
@@ -508,7 +506,6 @@ function CreateTenantModal({ onClose, onCreated }) {
               max={3650}
               value={form.expires_in_days}
               onChange={e => set('expires_in_days', e.target.value)}
-              placeholder="e.g. 365"
               style={{
                 width: '100%', padding: '11px 14px',
                 border: `1.5px solid ${errors.expires_in_days ? 'var(--red)' : 'var(--border)'}`,

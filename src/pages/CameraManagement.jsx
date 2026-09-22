@@ -104,7 +104,6 @@ export default function CameraManagement() {
           <Search size={14} style={{ position: 'absolute', left: 10, color: 'var(--text-3)' }} />
           <input 
             type="text" 
-            placeholder="Search by ID or location..." 
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             style={{
