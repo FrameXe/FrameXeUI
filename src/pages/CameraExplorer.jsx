@@ -86,7 +86,7 @@ function CameraStatsPanel({ cameraId, ucColor, onOpenCanvas }) {
             { label: 'ALL TIME', value: vehSummary?.vehicle_count_all },
           ].map((card, idx) => (
             <div key={idx} style={{
-              background: '#f8fafc',
+              background: 'var(--surface-2)',
               border: '1px solid var(--border)',
               borderRadius: 8,
               padding: '8px',

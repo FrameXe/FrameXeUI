@@ -8,15 +8,15 @@ import {
 } from 'lucide-react'
 
 const T = {
-  bg: '#f8f9fc',
-  card: '#ffffff',
-  border: '#e2e8f0',
-  text: '#1a202c',
-  textSecondary: '#64748b',
-  textMuted: '#94a3b8',
-  accent: '#4f6df5',
-  accentLight: '#eef2ff',
-  shadow: '0 4px 12px rgba(0,0,0,0.05)',
+  bg: 'var(--bg)',
+  card: 'var(--surface)',
+  border: 'var(--border)',
+  text: 'var(--text)',
+  textSecondary: 'var(--text-2)',
+  textMuted: 'var(--text-3)',
+  accent: 'var(--accent)',
+  accentLight: 'var(--accent-bg)',
+  shadow: 'var(--shadow)',
   radius: 12,
 }
 
@@ -153,7 +153,7 @@ export default function VehicleLog() {
               </div>
               <button 
                 onClick={() => setViewingDetection(null)} 
-                style={{ background: '#f5f5f5', border: 'none', padding: 8, borderRadius: '50%', cursor: 'pointer', display: 'flex' }}
+                style={{ background: 'var(--surface-2)', border: 'none', padding: 8, borderRadius: '50%', cursor: 'pointer', display: 'flex', color: 'var(--text)' }}
               >
                 <X size={18} />
               </button>
@@ -188,7 +188,7 @@ export default function VehicleLog() {
               </div>
               
               {/* Metadata Details Column */}
-              <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderLeft: '1px solid #f1f5f9', background: '#fafbfe' }}>
+              <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderLeft: '1px solid var(--border)', background: 'var(--surface)' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Vehicle Properties</span>
                   
@@ -200,7 +200,7 @@ export default function VehicleLog() {
                     { label: 'Track ID', value: viewingDetection.trackId ?? 'N/A' },
                     { label: 'Crossing Timestamp', value: new Date(viewingDetection.timestamp).toLocaleString() },
                   ].map((item, idx) => (
-                    <div key={idx} style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: 8 }}>
+                    <div key={idx} style={{ borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
                       <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600 }}>{item.label}</div>
                       <div style={{ 
                         fontSize: 14, 
@@ -243,11 +243,11 @@ export default function VehicleLog() {
                       onClick={(e) => { e.stopPropagation(); const a = document.createElement('a'); a.href = viewingDetection.plateCropUrl; a.download = `plate_crop_${viewingDetection.id}.jpg`; a.click() }} 
                       style={{ 
                         flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, 
-                        background: '#f1f5f9', color: '#0f172a', border: '1px solid #cbd5e1', padding: '10px 16px', 
+                        background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)', padding: '10px 16px', 
                         borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 11
                       }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
-                      onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--border)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'var(--surface-2)'}
                     >
                       <Download size={14} /> DOWNLOAD PLATE CROP
                     </button>
@@ -422,12 +422,12 @@ export default function VehicleLog() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24, borderTop: '1px solid #f1f5f9', paddingTop: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 20 }}>
           <button 
             type="button" 
             onClick={handleClear} 
             style={{ 
-              background: '#f1f5f9', color: '#0f172a', border: '1px solid #cbd5e1', 
+              background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)', 
               padding: '10px 20px', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer' 
             }}
           >
@@ -482,16 +482,16 @@ export default function VehicleLog() {
                 detections.map((det) => (
                   <tr 
                     key={det.id} 
-                    style={{ borderBottom: '1px solid #f1f5f9', transition: 'all 0.2s ease' }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#fcfdfe'} 
-                    onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                    style={{ borderBottom: '1px solid var(--border)', transition: 'all 0.2s ease' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'} 
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   >
                     {/* Full Frame Thumbnail */}
                     <td style={{ padding: '12px 16px' }}>
                       <div 
                         onClick={() => setViewingDetection(det)}
                         style={{
-                          width: 110, height: 64, background: '#f1f5f9', borderRadius: 8, overflow: 'hidden',
+                          width: 110, height: 64, background: 'var(--surface-2)', borderRadius: 8, overflow: 'hidden',
                           position: 'relative', cursor: 'pointer', border: '1px solid var(--border)', transition: 'all 0.2s'
                         }}
                       >
@@ -524,7 +524,7 @@ export default function VehicleLog() {
                     </td>
                     <td style={{ padding: '12px 16px', fontWeight: 800, color: 'var(--text)', fontSize: 13 }}>
                       {det.plateNumber ? (
-                        <span style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)' }}>
+                        <span style={{ background: 'var(--surface-2)', padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)' }}>
                           {det.plateNumber}
                         </span>
                       ) : (
@@ -540,9 +540,9 @@ export default function VehicleLog() {
                       <span 
                         style={{ 
                           fontSize: 10, fontWeight: 800, padding: '4px 10px', borderRadius: 20,
-                          background: det.direction === 'entering' ? '#f0fdf4' : '#fffbeb',
-                          border: `1px solid ${det.direction === 'entering' ? '#bbf7d0' : '#fde68a'}`,
-                          color: det.direction === 'entering' ? '#16a34a' : '#d97706',
+                          background: det.direction === 'entering' ? 'rgba(34, 197, 94, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                          border: `1px solid ${det.direction === 'entering' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+                          color: det.direction === 'entering' ? '#16a34a' : '#f59e0b',
                           textTransform: 'uppercase'
                         }}
                       >
@@ -583,7 +583,7 @@ export default function VehicleLog() {
 
         {/* PAGINATION FOOTER */}
         {!loading && detections.length > 0 && (
-          <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ padding: '16px 24px', background: 'var(--surface)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600 }}>
               Showing {((appliedFilters.page - 1) * appliedFilters.pageSize) + 1} - {Math.min(appliedFilters.page * appliedFilters.pageSize, total)} of {total} records
             </span>
@@ -592,7 +592,7 @@ export default function VehicleLog() {
                 disabled={appliedFilters.page === 1}
                 onClick={() => handlePageChange(appliedFilters.page - 1)}
                 style={{ 
-                  background: appliedFilters.page === 1 ? 'transparent' : '#fff', 
+                  background: appliedFilters.page === 1 ? 'transparent' : 'var(--surface-2)', 
                   border: '1px solid var(--border)', padding: 6, borderRadius: 8, 
                   cursor: appliedFilters.page === 1 ? 'not-allowed' : 'pointer', display: 'flex',
                   color: appliedFilters.page === 1 ? 'var(--text-muted)' : 'var(--text)'
@@ -607,7 +607,7 @@ export default function VehicleLog() {
                 disabled={appliedFilters.page === totalPages}
                 onClick={() => handlePageChange(appliedFilters.page + 1)}
                 style={{ 
-                  background: appliedFilters.page === totalPages ? 'transparent' : '#fff', 
+                  background: appliedFilters.page === totalPages ? 'transparent' : 'var(--surface-2)', 
                   border: '1px solid var(--border)', padding: 6, borderRadius: 8, 
                   cursor: appliedFilters.page === totalPages ? 'not-allowed' : 'pointer', display: 'flex',
                   color: appliedFilters.page === totalPages ? 'var(--text-muted)' : 'var(--text)'

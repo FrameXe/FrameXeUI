@@ -12,24 +12,24 @@ import {
 } from 'lucide-react'
 
 const T = {
-  bg: '#f8f9fc',
-  card: '#ffffff',
-  border: '#e2e8f0',
-  text: '#1a202c',
-  textSecondary: '#64748b',
-  textMuted: '#94a3b8',
-  accent: '#4f6df5',
-  accentLight: '#eef2ff',
+  bg: 'var(--bg)',
+  card: 'var(--surface)',
+  border: 'var(--border)',
+  text: 'var(--text)',
+  textSecondary: 'var(--text-2)',
+  textMuted: 'var(--text-3)',
+  accent: 'var(--accent)',
+  accentLight: 'var(--accent-bg)',
   danger: '#ef4444',
-  shadow: '0 4px 12px rgba(0,0,0,0.05)',
+  shadow: 'var(--shadow)',
   radius: 12,
 }
 
 const SEV = {
-  critical: { bg: '#fef2f2', border: '#fecaca', color: '#dc2626', badge: '#ef4444' },
-  high: { bg: '#fff7ed', border: '#fed7aa', color: '#ea580c', badge: '#f97316' },
-  medium: { bg: '#fefce8', border: '#fde68a', color: '#ca8a04', badge: '#eab308' },
-  low: { bg: '#f0fdf4', border: '#bbf7d0', color: '#16a34a', badge: '#22c55e' },
+  critical: { bg: 'rgba(239, 68, 68, 0.12)', border: 'rgba(239, 68, 68, 0.3)', color: '#ef4444', badge: '#ef4444' },
+  high:     { bg: 'rgba(249, 115, 22, 0.12)', border: 'rgba(249, 115, 22, 0.3)', color: '#f97316', badge: '#f97316' },
+  medium:   { bg: 'rgba(234, 179, 8, 0.12)', border: 'rgba(234, 179, 8, 0.3)', color: '#eab308', badge: '#eab308' },
+  low:      { bg: 'rgba(34, 197, 94, 0.12)', border: 'rgba(34, 197, 94, 0.3)', color: '#22c55e', badge: '#22c55e' },
 }
 
 export default function EventsAlerts() {

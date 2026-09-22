@@ -14,7 +14,7 @@ const ST = {
   offline:  { color: '#94a3b8', bg: '#f8fafc', border: '#e2e8f0', label: 'Offline' },
 }
 
-export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleClick }) {
+export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleClick, hideInfo = false, style = {} }) {
   const canvasRef      = useRef(null)
   const videoRef       = useRef(null)
   const animRef        = useRef(null)
@@ -267,12 +267,13 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
       onDoubleClick={isActive ? onDoubleClick : undefined}
       className={isActive ? 'card-hover' : ''}
       style={{
-        background: 'var(--surface)', border: '1px solid var(--border)',
+        background: 'var(--surface)', border: hideInfo ? 'none' : '1px solid var(--border)',
         borderRadius: 'var(--radius)', overflow: 'hidden',
-        boxShadow: 'var(--shadow)',
+        boxShadow: hideInfo ? 'none' : 'var(--shadow)',
         cursor: isActive ? 'pointer' : 'not-allowed',
         opacity: isActive ? 1 : 0.65,
         transition: 'all 0.2s',
+        ...style,
       }}
     >
       <video ref={videoRef} style={{ position: 'absolute', width: '1px', height: '1px', opacity: 0.001, pointerEvents: 'none', overflow: 'hidden' }} muted playsInline autoPlay />
@@ -355,12 +356,14 @@ export default function MiniCanvas({ camera, activeUseCase, onClick, onDoubleCli
       </div>
 
       {/* Info bar */}
-      <div style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{camera.name}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{camera.location}</div>
+      {!hideInfo && (
+        <div style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{camera.name}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{camera.location}</div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

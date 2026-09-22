@@ -87,9 +87,10 @@ function TokenRevealBox({ token, tenantId, onClose }) {
       animation: 'fadeIn 0.2s ease-out',
     }}>
       <div style={{
-        background: '#fff',
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
         borderRadius: 18,
-        boxShadow: '0 24px 64px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.1)',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.2)',
         width: '100%', maxWidth: 560,
         overflow: 'hidden',
         animation: 'slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1)',
@@ -120,28 +121,24 @@ function TokenRevealBox({ token, tenantId, onClose }) {
               background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8,
               width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', color: '#fff', transition: 'background 0.15s',
-            }} onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.25)'}
-               onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}>
+            }}>
               <X size={16} />
             </button>
           </div>
-
-          {/* Warning banner */}
-          <div style={{
-            marginTop: 16,
-            background: 'rgba(251,191,36,0.2)',
-            border: '1px solid rgba(251,191,36,0.4)',
-            borderRadius: 10, padding: '10px 14px',
-            display: 'flex', alignItems: 'center', gap: 10,
-          }}>
-            <AlertTriangle size={15} color="#fbbf24" />
-            <span style={{ fontSize: 12, color: '#fef3c7', fontWeight: 600 }}>
-              This token is shown ONCE. Copy and save it now.
-            </span>
-          </div>
         </div>
 
-        {/* Token section */}
+        {/* Warning strip */}
+        <div style={{
+          background: '#78350f', borderBottom: '1px solid #92400e',
+          padding: '10px 28px', display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <AlertTriangle size={15} color="#fbbf24" />
+          <span style={{ fontSize: 12, color: '#fef3c7', fontWeight: 600 }}>
+            Save this token now. It will not be shown again.
+          </span>
+        </div>
+
+        {/* Body */}
         <div style={{ padding: '24px 28px', maxHeight: '70vh', overflowY: 'auto' }}>
 
           {/* Master Backend URL field */}
@@ -150,17 +147,17 @@ function TokenRevealBox({ token, tenantId, onClose }) {
               Master Backend URL
             </label>
             <div style={{
-              background: '#f8faff',
-              border: '1.5px solid #c7d7fc',
+              background: 'var(--surface-2)',
+              border: '1.5px solid var(--border)',
               borderRadius: 12, padding: '12px 14px',
               display: 'flex', alignItems: 'center', gap: 12,
             }}>
-              <code style={{ fontFamily: 'monospace', fontSize: 13, color: '#1e40af', flex: 1, wordBreak: 'break-all' }}>
+              <code style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--accent)', flex: 1, wordBreak: 'break-all' }}>
                 {backendUrl}
               </code>
               <button onClick={() => copy(backendUrl, 'url')} style={{
-                background: copied === 'url' ? '#f0fdf4' : 'var(--accent-bg)',
-                border: `1px solid ${copied === 'url' ? '#86efac' : '#c7d7fc'}`,
+                background: copied === 'url' ? 'var(--green-bg)' : 'var(--accent-bg)',
+                border: `1px solid ${copied === 'url' ? 'var(--green)' : 'var(--border)'}`,
                 borderRadius: 8, padding: '6px 12px', cursor: 'pointer',
                 color: copied === 'url' ? 'var(--green)' : 'var(--accent)',
                 fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6,
@@ -177,17 +174,17 @@ function TokenRevealBox({ token, tenantId, onClose }) {
               Tenant ID
             </label>
             <div style={{
-              background: '#f8faff',
-              border: '1.5px solid #c7d7fc',
+              background: 'var(--surface-2)',
+              border: '1.5px solid var(--border)',
               borderRadius: 12, padding: '12px 14px',
               display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
             }}>
-              <code style={{ fontFamily: 'monospace', fontSize: 14, fontWeight: 700, color: '#1e40af' }}>
+              <code style={{ fontFamily: 'monospace', fontSize: 14, fontWeight: 700, color: 'var(--accent)' }}>
                 {tenantId}
               </code>
               <button onClick={() => copy(tenantId, 'tid')} style={{
-                background: copied === 'tid' ? '#f0fdf4' : 'var(--accent-bg)',
-                border: `1px solid ${copied === 'tid' ? '#86efac' : '#c7d7fc'}`,
+                background: copied === 'tid' ? 'var(--green-bg)' : 'var(--accent-bg)',
+                border: `1px solid ${copied === 'tid' ? 'var(--green)' : 'var(--border)'}`,
                 borderRadius: 8, padding: '6px 12px', cursor: 'pointer',
                 color: copied === 'tid' ? 'var(--green)' : 'var(--accent)',
                 fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6,
@@ -204,14 +201,14 @@ function TokenRevealBox({ token, tenantId, onClose }) {
               Install Token
             </label>
             <div style={{
-              background: '#f8faff',
-              border: '1.5px solid #c7d7fc',
+              background: 'var(--surface-2)',
+              border: '1.5px solid var(--border)',
               borderRadius: 12, padding: '12px 14px',
               display: 'flex', alignItems: 'center', gap: 12,
             }}>
               <code style={{
                 flex: 1, fontFamily: 'monospace', fontSize: 13,
-                color: revealed ? '#1e40af' : 'transparent',
+                color: revealed ? 'var(--accent)' : 'transparent',
                 textShadow: revealed ? 'none' : '0 0 8px rgba(30,64,175,0.5)',
                 filter: revealed ? 'none' : 'blur(5px)',
                 userSelect: revealed ? 'auto' : 'none',
@@ -229,8 +226,8 @@ function TokenRevealBox({ token, tenantId, onClose }) {
                   {revealed ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
                 <button onClick={() => copy(token, 'token')} style={{
-                  background: copied === 'token' ? '#f0fdf4' : 'var(--accent-bg)',
-                  border: `1px solid ${copied === 'token' ? '#86efac' : '#c7d7fc'}`,
+                  background: copied === 'token' ? 'var(--green-bg)' : 'var(--accent-bg)',
+                  border: `1px solid ${copied === 'token' ? 'var(--green)' : 'var(--border)'}`,
                   borderRadius: 8, padding: '6px 12px', cursor: 'pointer',
                   color: copied === 'token' ? 'var(--green)' : 'var(--accent)',
                   fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6,
@@ -246,10 +243,10 @@ function TokenRevealBox({ token, tenantId, onClose }) {
           <div style={{ marginBottom: 24 }}>
             <button onClick={() => copy(setupInfoString, 'all')} style={{
               width: '100%',
-              background: copied === 'all' ? '#dcfce7' : '#eff6ff',
-              border: `1.5px dashed ${copied === 'all' ? '#22c55e' : '#3b82f6'}`,
+              background: copied === 'all' ? 'var(--green-bg)' : 'var(--accent-bg)',
+              border: `1.5px dashed ${copied === 'all' ? 'var(--green)' : 'var(--accent)'}`,
               borderRadius: 12, padding: '14px', cursor: 'pointer',
-              color: copied === 'all' ? '#15803d' : '#1d4ed8',
+              color: copied === 'all' ? 'var(--green)' : 'var(--accent)',
               fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               transition: 'all 0.15s',
             }}>
@@ -259,11 +256,11 @@ function TokenRevealBox({ token, tenantId, onClose }) {
 
           {/* Steps */}
           <div style={{
-            background: 'linear-gradient(135deg, #f0f9ff 0%, #eff6ff 100%)',
-            border: '1px solid #bfdbfe',
+            background: 'var(--accent-bg)',
+            border: '1px solid var(--border)',
             borderRadius: 12, padding: '16px 18px',
           }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: '#1e40af', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
               <Zap size={13} /> Next Steps
             </div>
             {[
@@ -281,7 +278,7 @@ function TokenRevealBox({ token, tenantId, onClose }) {
                 }}>
                   {s.n}
                 </div>
-                <span style={{ fontSize: 12, color: '#1e40af', lineHeight: 1.5 }}>{s.text}</span>
+                <span style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>{s.text}</span>
               </div>
             ))}
           </div>
@@ -365,9 +362,10 @@ function CreateTenantModal({ onClose, onCreated }) {
       animation: 'fadeIn 0.2s ease-out',
     }}>
       <div style={{
-        background: '#fff',
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
         borderRadius: 18,
-        boxShadow: '0 24px 64px rgba(0,0,0,0.14)',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.3)',
         width: '100%', maxWidth: 480,
         overflow: 'hidden',
         animation: 'slideUp 0.28s cubic-bezier(0.34,1.56,0.64,1)',
@@ -381,11 +379,11 @@ function CreateTenantModal({ onClose, onCreated }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
               <div style={{
                 width: 38, height: 38, borderRadius: 10,
-                background: 'linear-gradient(135deg, #eff6ff, #dbeafe)',
-                border: '1px solid #bfdbfe',
+                background: 'var(--accent-bg)',
+                border: '1px solid var(--border)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                <Building2 size={18} color="#2563eb" />
+                <Building2 size={18} color="var(--accent)" />
               </div>
               <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', margin: 0 }}>Register Tenant</h2>
             </div>
@@ -436,7 +434,7 @@ function CreateTenantModal({ onClose, onCreated }) {
                   borderRadius: 10, fontSize: 14, fontFamily: 'monospace',
                   fontWeight: 600, color: 'var(--text)',
                   outline: 'none', transition: 'border 0.15s',
-                  background: tenantIdOk ? 'var(--green-bg)' : '#fff',
+                  background: tenantIdOk ? 'var(--green-bg)' : 'var(--surface-2)',
                 }}
                 onFocus={e => { if (!errors.tenant_id && !tenantIdOk) e.target.style.borderColor = 'var(--accent)' }}
                 onBlur={e => { if (!tenantIdOk) e.target.style.borderColor = errors.tenant_id ? 'var(--red)' : 'var(--border)' }}
@@ -489,6 +487,7 @@ function CreateTenantModal({ onClose, onCreated }) {
               style={{
                 width: '100%', padding: '11px 14px',
                 border: '1.5px solid var(--border)',
+                background: 'var(--surface-2)',
                 borderRadius: 10, fontSize: 14, color: 'var(--text)',
                 outline: 'none', transition: 'border 0.15s',
               }}
@@ -513,6 +512,7 @@ function CreateTenantModal({ onClose, onCreated }) {
               style={{
                 width: '100%', padding: '11px 14px',
                 border: `1.5px solid ${errors.expires_in_days ? 'var(--red)' : 'var(--border)'}`,
+                background: 'var(--surface-2)',
                 borderRadius: 10, fontSize: 14, color: 'var(--text)',
                 outline: 'none', transition: 'border 0.15s',
               }}
@@ -711,7 +711,8 @@ function AgentDiagnosticsPanel({ tenantId }) {
     return (
       <div style={{
         padding: '20px 32px',
-        background: '#fff5f5',
+        background: 'var(--red-bg)',
+        border: '1px solid #fca5a5',
         color: 'var(--red)',
         fontSize: 13,
         display: 'flex', alignItems: 'center', gap: 10,
@@ -732,22 +733,22 @@ function AgentDiagnosticsPanel({ tenantId }) {
   return (
     <div style={{
       padding: '24px 32px',
-      background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)',
-      borderTop: '1px solid var(--border-2)',
+      background: 'var(--surface-2)',
+      borderTop: '1px solid var(--border)',
       display: 'flex', flexDirection: 'column', gap: 20,
     }}>
       {/* Top Header Row */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {/* Pulsing Status Badge */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: isOnline ? '#dcfce7' : '#f1f5f9', border: `1px solid ${isOnline ? '#bbf7d0' : '#cbd5e1'}`, padding: '5px 12px', borderRadius: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: isOnline ? 'var(--green-bg)' : 'var(--surface)', border: `1px solid ${isOnline ? 'var(--green)' : 'var(--border)'}`, padding: '5px 12px', borderRadius: 20 }}>
             <span style={{
               width: 8, height: 8, borderRadius: '50%',
-              background: isOnline ? '#22c55e' : '#64748b',
+              background: isOnline ? '#22c55e' : 'var(--text-3)',
               animation: isOnline ? 'pulseGlow 1.5s infinite' : 'none',
               display: 'inline-block'
             }} />
-            <span style={{ fontSize: 11, fontWeight: 800, color: isOnline ? '#15803d' : '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <span style={{ fontSize: 11, fontWeight: 800, color: isOnline ? 'var(--green)' : 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               {isOnline ? 'Agent Online' : 'Agent Offline'}
             </span>
           </div>
@@ -805,8 +806,8 @@ function AgentDiagnosticsPanel({ tenantId }) {
         
         {/* Telemetry Gauges */}
         {sys ? (
-          <div style={{ background: '#fff', border: '1px solid var(--border-2)', borderRadius: 14, padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <h4 style={{ fontSize: 12, fontWeight: 800, color: 'var(--text)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border-2)', paddingBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <h4 style={{ fontSize: 12, fontWeight: 800, color: 'var(--text)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border)', paddingBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
               <Activity size={14} color="var(--accent)" /> Real-Time Telemetry
             </h4>
             
@@ -816,7 +817,7 @@ function AgentDiagnosticsPanel({ tenantId }) {
                 <span>CPU Utilization</span>
                 <span>{sys.cpu_percent}%</span>
               </div>
-              <div style={{ width: '100%', height: 8, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: 8, background: 'var(--surface-2)', borderRadius: 4, overflow: 'hidden' }}>
                 <div style={{
                   width: `${sys.cpu_percent}%`, height: '100%',
                   background: sys.cpu_percent > 85 ? '#ef4444' : sys.cpu_percent > 60 ? '#f59e0b' : '#3b82f6',
@@ -833,7 +834,7 @@ function AgentDiagnosticsPanel({ tenantId }) {
                   {sys.ram_used_gb} / {sys.ram_total_gb} GB ({sys.ram_percent}%)
                 </span>
               </div>
-              <div style={{ width: '100%', height: 8, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: 8, background: 'var(--surface-2)', borderRadius: 4, overflow: 'hidden' }}>
                 <div style={{
                   width: `${sys.ram_percent}%`, height: '100%',
                   background: sys.ram_percent > 85 ? '#ef4444' : sys.ram_percent > 65 ? '#f59e0b' : '#10b981',
@@ -850,7 +851,7 @@ function AgentDiagnosticsPanel({ tenantId }) {
                   {sys.disk_used_gb} / {sys.disk_total_gb} GB ({sys.disk_percent}%)
                 </span>
               </div>
-              <div style={{ width: '100%', height: 8, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: 8, background: 'var(--surface-2)', borderRadius: 4, overflow: 'hidden' }}>
                 <div style={{
                   width: `${sys.disk_percent}%`, height: '100%',
                   background: sys.disk_percent > 90 ? '#ef4444' : sys.disk_percent > 75 ? '#f59e0b' : '#6366f1',
@@ -860,18 +861,18 @@ function AgentDiagnosticsPanel({ tenantId }) {
             </div>
 
             {/* Active Streams */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 14px', marginTop: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', marginTop: 4 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)' }}>Active Transcoding Streams</span>
-              <span style={{ fontSize: 13, fontWeight: 800, color: '#2563eb', background: '#dbeafe', padding: '3px 10px', borderRadius: 20 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--accent)', background: 'var(--accent-bg)', padding: '3px 10px', borderRadius: 20 }}>
                 {sys.active_streams} Stream{sys.active_streams !== 1 ? 's' : ''}
               </span>
             </div>
 
             {/* GPU Details */}
             {sys.gpu_info && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 14px', marginTop: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', marginTop: 10 }}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)' }}>Hardware GPU</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#047857', background: '#d1fae5', padding: '3px 10px', borderRadius: 20, maxWidth: '60%', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={sys.gpu_info}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--green)', background: 'var(--green-bg)', padding: '3px 10px', borderRadius: 20, maxWidth: '60%', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={sys.gpu_info}>
                   {sys.gpu_info}
                 </span>
               </div>
@@ -892,8 +893,8 @@ function AgentDiagnosticsPanel({ tenantId }) {
                         gridTemplateColumns: '1fr 65px 95px 65px 75px',
                         alignItems: 'center',
                         gap: 8,
-                        background: '#f8fafc',
-                        border: '1px solid #e2e8f0',
+                        background: 'var(--surface-2)',
+                        border: '1px solid var(--border)',
                         borderRadius: 10,
                         padding: '10px 14px'
                       }}>
@@ -953,14 +954,14 @@ function AgentDiagnosticsPanel({ tenantId }) {
             )}
           </div>
         ) : (
-          <div style={{ background: '#fff', border: '1px solid var(--border-2)', borderRadius: 14, padding: 20, textAlign: 'center', color: 'var(--text-3)', fontSize: 12 }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, textAlign: 'center', color: 'var(--text-3)', fontSize: 12 }}>
             Waiting for agent heartbeat payload to receive live hardware diagnostics telemetry...
           </div>
         )}
 
         {/* Liveness Event Logs */}
-        <div style={{ background: '#fff', border: '1px solid var(--border-2)', borderRadius: 14, padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <h4 style={{ fontSize: 12, fontWeight: 800, color: 'var(--text)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border-2)', paddingBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <h4 style={{ fontSize: 12, fontWeight: 800, color: 'var(--text)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border)', paddingBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
             <Clock size={14} color="var(--accent)" /> Uptime & Connection History
           </h4>
 
@@ -1149,26 +1150,26 @@ export default function TenantManagement() {
         </div>
       </div>
 
-      {/* Stats cards */}
+      {/* Stats row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
         {[
           {
             label: 'Active Tokens', value: activeCount,
             icon: <Activity size={18} color="#2563eb" />,
-            bg: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-            border: '#bfdbfe', color: '#1e40af',
+            bg: 'var(--surface)',
+            border: 'var(--border)', color: '#2563eb',
           },
           {
             label: 'Total Tenants', value: tenants.length,
             icon: <Building2 size={18} color="#7c3aed" />,
-            bg: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
-            border: '#c4b5fd', color: '#6d28d9',
+            bg: 'var(--surface)',
+            border: 'var(--border)', color: '#7c3aed',
           },
           {
             label: 'Revoked Tokens', value: revokedCount,
             icon: <Shield size={18} color="#dc2626" />,
-            bg: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
-            border: '#fca5a5', color: '#dc2626',
+            bg: 'var(--surface)',
+            border: 'var(--border)', color: '#dc2626',
           },
         ].map(s => (
           <div key={s.label} style={{
@@ -1178,7 +1179,7 @@ export default function TenantManagement() {
           }}>
             <div style={{
               width: 42, height: 42, borderRadius: 10,
-              background: '#fff', border: `1px solid ${s.border}`,
+              background: 'var(--surface-2)', border: `1px solid ${s.border}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: 'var(--shadow-sm)',
             }}>
@@ -1186,7 +1187,7 @@ export default function TenantManagement() {
             </div>
             <div>
               <div style={{ fontSize: 26, fontWeight: 800, color: s.color, lineHeight: 1 }}>{loading ? '—' : s.value}</div>
-              <div style={{ fontSize: 12, color: s.color, opacity: 0.75, marginTop: 2 }}>{s.label}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>{s.label}</div>
             </div>
           </div>
         ))}
@@ -1194,8 +1195,8 @@ export default function TenantManagement() {
 
       {/* How it works banner */}
       <div style={{
-        background: 'linear-gradient(135deg, #f0f9ff 0%, #eff6ff 100%)',
-        border: '1px solid #bfdbfe',
+        background: 'var(--accent-bg)',
+        border: '1px solid var(--border)',
         borderRadius: 14, padding: '16px 20px',
         marginBottom: 24,
         display: 'flex', alignItems: 'flex-start', gap: 14,
@@ -1209,8 +1210,8 @@ export default function TenantManagement() {
           <Terminal size={16} color="#fff" />
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: '#1e40af', marginBottom: 6 }}>How Agent Installation Works</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 12, color: '#3b82f6' }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--accent)', marginBottom: 6 }}>How Agent Installation Works</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 12, color: 'var(--text-2)' }}>
             {[
               '1. Add Tenant here',
               '→',

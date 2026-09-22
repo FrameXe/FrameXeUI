@@ -401,7 +401,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Vertical List of Cameras */}
+        {/* Camera Boxes Grid: Cam 1, Cam 2, Cam 3... with Cam ID */}
         {filteredCameras.length === 0 ? (
           <div style={{ 
             padding: 24, background: 'var(--surface-2)', border: '1px dashed var(--border)', 
@@ -411,10 +411,15 @@ export default function Dashboard() {
             No camera feeds found matching &ldquo;{searchQuery}&rdquo;.
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {filteredCameras.map((cam) => {
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: 12
+          }}>
+            {filteredCameras.map((cam, idx) => {
               const isActive = cam.status === 'active'
               const camUcs = cam.enabled_usecases || [cam.useCase] || []
+              const camNum = idx + 1
 
               return (
                 <div
@@ -422,116 +427,113 @@ export default function Dashboard() {
                   style={{
                     background: 'var(--surface-2)',
                     border: '1px solid var(--border)',
-                    borderRadius: 10,
-                    padding: '8px 12px',
-                    display: 'grid',
-                    gridTemplateColumns: '160px 1fr',
-                    gap: 14,
-                    alignItems: 'center',
-                    borderLeft: `3px solid ${isActive ? '#06b6d4' : 'var(--border)'}`,
+                    borderRadius: 12,
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    borderTop: `3px solid ${isActive ? '#06b6d4' : 'var(--border)'}`,
+                    boxShadow: 'var(--shadow-sm)',
                     transition: 'all 0.2s ease',
                   }}
                   onMouseEnter={e => {
                     e.currentTarget.style.borderColor = '#06b6d4'
+                    e.currentTarget.style.transform = 'translateY(-2px)'
                     e.currentTarget.style.boxShadow = 'var(--shadow-md)'
                   }}
                   onMouseLeave={e => {
                     e.currentTarget.style.borderColor = 'var(--border)'
-                    e.currentTarget.style.borderLeftColor = isActive ? '#06b6d4' : 'var(--border)'
-                    e.currentTarget.style.boxShadow = 'none'
+                    e.currentTarget.style.borderTopColor = isActive ? '#06b6d4' : 'var(--border)'
+                    e.currentTarget.style.transform = 'none'
+                    e.currentTarget.style.boxShadow = 'var(--shadow-sm)'
                   }}
                 >
-                  {/* Left Side: Live Stream Preview Window */}
+                  {/* Top Header: CAM 1, CAM 2... with Cam ID & Location */}
                   <div style={{
-                    width: '100%', height: 96, borderRadius: 7, background: '#000',
-                    overflow: 'hidden', position: 'relative', border: '1px solid var(--border)',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)', cursor: 'pointer'
-                  }}
-                  onClick={() => nav(`/camera/${cam.id}/${cam.useCase || 'people_count'}`)}
-                  >
-                    <MiniCanvas 
-                      camera={cam} 
-                      activeUseCase={cam.useCase || 'people_count'} 
-                    />
-                    
-                    {/* Live Badge Overlay */}
-                    <div style={{
-                      position: 'absolute', top: 5, left: 5,
-                      background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
-                      padding: '2px 6px', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 4
-                    }}>
-                      <span className="live-dot" style={{ 
-                        width: 5, height: 5, borderRadius: '50%', 
-                        background: isActive ? 'var(--ai-emerald)' : '#94a3b8' 
-                      }} />
-                      <span style={{ fontSize: 8, fontWeight: 800, color: '#fff', letterSpacing: '0.04em' }}>
-                        {isActive ? 'LIVE STREAM' : 'OFFLINE'}
+                    padding: '8px 12px',
+                    background: 'var(--surface)',
+                    borderBottom: '1px solid var(--border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                      <span style={{
+                        background: '#06b6d4',
+                        color: '#fff',
+                        fontSize: 9.5,
+                        fontWeight: 900,
+                        padding: '2px 7px',
+                        borderRadius: 5,
+                        letterSpacing: '0.04em',
+                        flexShrink: 0
+                      }}>
+                        CAM {camNum}
                       </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <span 
+                            onClick={() => nav(`/camera/${cam.id}/${cam.useCase || 'people_count'}`)}
+                            title={cam.name || `Camera ${camNum}`}
+                            style={{ 
+                              fontSize: 12, fontWeight: 800, color: 'var(--text)', 
+                              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                              cursor: 'pointer' 
+                            }}
+                          >
+                            {cam.name || `Camera ${camNum}`}
+                          </span>
+                          <span style={{ fontSize: 10, fontFamily: 'monospace', color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>
+                            ({cam.id})
+                          </span>
+                        </div>
+                        <span style={{ fontSize: 9.5, color: 'var(--text-3)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          📍 {cam.location || 'Zone Entrance'}
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Stream Info Overlay */}
-                    <div style={{
-                      position: 'absolute', bottom: 5, right: 5,
-                      background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
-                      padding: '1px 5px', borderRadius: 3, fontSize: 8, fontWeight: 700, color: '#e2e8f0',
-                      fontFamily: 'monospace'
-                    }}>
-                      1080p · 25 FPS
-                    </div>
+                    <span className={isActive ? 'ai-badge ai-badge-emerald' : 'ai-badge'} style={{ fontSize: 8.5, padding: '2px 6px', flexShrink: 0 }}>
+                      {isActive ? '● LIVE' : 'OFFLINE'}
+                    </span>
                   </div>
 
-                  {/* Right Side: Comprehensive Camera Information */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, textAlign: 'left', minWidth: 0 }}>
-                    
-                    {/* Top Row: Camera Name, Location & Status */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                        <span 
-                          onClick={() => nav(`/camera/${cam.id}/${cam.useCase || 'people_count'}`)}
-                          style={{ 
-                            fontSize: 13.5, fontWeight: 800, color: 'var(--text)', 
-                            cursor: 'pointer', transition: 'color 0.15s ease' 
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
-                          onMouseLeave={e => e.currentTarget.style.color = 'var(--text)'}
-                        >
-                          {cam.name || cam.id}
-                        </span>
-                        <span style={{ 
-                          fontSize: 8.5, fontWeight: 700, padding: '1px 6px', borderRadius: 4,
-                          background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-3)' 
-                        }}>
-                          {cam.location || 'Zone Entrance'}
-                        </span>
-                      </div>
+                  {/* Video Canvas Preview Window */}
+                  <div
+                    style={{
+                      position: 'relative',
+                      width: '100%',
+                      aspectRatio: '16/9',
+                      background: '#000',
+                      cursor: 'pointer',
+                      overflow: 'hidden'
+                    }}
+                    onClick={() => nav(`/camera/${cam.id}/${cam.useCase || 'people_count'}`)}
+                  >
+                    <MiniCanvas
+                      camera={cam}
+                      activeUseCase={cam.useCase || 'people_count'}
+                      hideInfo={true}
+                    />
+                  </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span className={isActive ? 'ai-badge ai-badge-emerald' : 'ai-badge'} style={{ fontSize: 8.5, padding: '1px 6px' }}>
-                          {isActive ? '● SYNCHRONIZED' : 'OFFLINE'}
-                        </span>
-                        <span style={{ fontSize: 9.5, fontFamily: 'monospace', color: 'var(--text-3)', fontWeight: 600 }}>
-                          {cam.ip || '192.168.1.100'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Middle Row: Protocol Details */}
-                    <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 500 }}>
-                      <span>Source: </span>
-                      <span style={{ fontFamily: 'monospace', color: 'var(--text-2)', fontWeight: 600 }}>
-                        {cam.rtspUrl ? cam.rtspUrl : `Local WHEP Edge Pipeline (camera_${cam.id})`}
-                      </span>
-                    </div>
-
-                    {/* Active Pipelines on this Camera */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 8.5, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Active Pipelines:
-                      </span>
+                  {/* Bottom Footer: Pipelines & View Button - NO RTSP STRING */}
+                  <div style={{
+                    padding: '8px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                    background: 'var(--surface-2)',
+                    borderTop: '1px solid var(--border)',
+                    marginTop: 'auto'
+                  }}>
+                    {/* Active Pipelines */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', minWidth: 0, flex: 1 }}>
                       {camUcs.length === 0 ? (
-                        <span style={{ fontSize: 9.5, color: 'var(--text-3)' }}>No active suites assigned</span>
+                        <span style={{ fontSize: 9, color: 'var(--text-3)' }}>No suites</span>
                       ) : (
-                        camUcs.map(ucId => {
+                        camUcs.slice(0, 3).map(ucId => {
                           const meta = UC_META[ucId]
                           if (!meta) return null
                           const IconComp = meta.icon
@@ -540,12 +542,13 @@ export default function Dashboard() {
                               key={ucId}
                               style={{
                                 display: 'inline-flex', alignItems: 'center', gap: 3,
-                                fontSize: 8.5, fontWeight: 800,
-                                padding: '1.5px 6px', borderRadius: 4,
+                                fontSize: 8, fontWeight: 800,
+                                padding: '1.5px 5px', borderRadius: 4,
                                 background: `${meta.color}15`,
                                 border: `1px solid ${meta.color}35`,
-                                color: meta.color, letterSpacing: '0.02em'
+                                color: meta.color
                               }}
+                              title={meta.label}
                             >
                               <IconComp size={9} />
                               <span>{meta.label}</span>
@@ -553,60 +556,61 @@ export default function Dashboard() {
                           )
                         })
                       )}
+                      {camUcs.length > 3 && (
+                        <span style={{ fontSize: 8.5, color: 'var(--text-3)', fontWeight: 700 }}>
+                          +{camUcs.length - 3}
+                        </span>
+                      )}
                     </div>
 
-                    {/* Bottom Row: Direct Action Links */}
-                    <div style={{ 
-                      marginTop: 1, paddingTop: 5, borderTop: '1px solid var(--border)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 9.5, color: 'var(--text-3)', fontWeight: 600 }}>
-                        <CheckCircle2 size={11} style={{ color: 'var(--ai-emerald)' }} />
-                        <span>Edge Decoded · 14ms Latency</span>
-                      </div>
+                    {/* Action buttons */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                      <button
+                        onClick={() => nav(`/camera-management`)}
+                        title="Configure Camera"
+                        style={{
+                          background: 'var(--surface)', border: '1px solid var(--border)',
+                          color: 'var(--text-3)', padding: '3px 6px', borderRadius: 5,
+                          fontSize: 9, fontWeight: 700, cursor: 'pointer',
+                          display: 'flex', alignItems: 'center',
+                          transition: 'all 0.15s ease'
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.color = 'var(--text)'
+                          e.currentTarget.style.borderColor = 'var(--accent)'
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.color = 'var(--text-3)'
+                          e.currentTarget.style.borderColor = 'var(--border)'
+                        }}
+                      >
+                        <SlidersHorizontal size={10} />
+                      </button>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <button
-                          onClick={() => nav(`/camera-management`)}
-                          style={{
-                            background: 'var(--surface)', border: '1px solid var(--border)',
-                            color: 'var(--text-2)', padding: '3px 8px', borderRadius: 5,
-                            fontSize: 9.5, fontWeight: 700, cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', gap: 3,
-                            transition: 'all 0.15s ease'
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'var(--surface)'}
-                        >
-                          <SlidersHorizontal size={10} />
-                          <span>Configure</span>
-                        </button>
-
-                        <button
-                          onClick={() => nav(`/camera/${cam.id}/${cam.useCase || 'people_count'}`)}
-                          style={{
-                            background: 'var(--surface)', border: '1px solid #06b6d4',
-                            color: '#06b6d4', padding: '3px 8px', borderRadius: 5,
-                            fontSize: 9.5, fontWeight: 800, cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', gap: 3,
-                            transition: 'all 0.15s ease'
-                          }}
-                          onMouseEnter={e => {
-                            e.currentTarget.style.background = '#06b6d4'
-                            e.currentTarget.style.color = '#fff'
-                          }}
-                          onMouseLeave={e => {
-                            e.currentTarget.style.background = 'var(--surface)'
-                            e.currentTarget.style.color = '#06b6d4'
-                          }}
-                        >
-                          <Eye size={10} />
-                          <span>Inspect Stream →</span>
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => nav(`/camera/${cam.id}/${cam.useCase || 'people_count'}`)}
+                        style={{
+                          background: 'var(--surface)', border: '1px solid #06b6d4',
+                          color: '#06b6d4', padding: '3px 8px', borderRadius: 5,
+                          fontSize: 9, fontWeight: 800, cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', gap: 3,
+                          transition: 'all 0.15s ease'
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.background = '#06b6d4'
+                          e.currentTarget.style.color = '#fff'
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.background = 'var(--surface)'
+                          e.currentTarget.style.color = '#06b6d4'
+                        }}
+                      >
+                        <Eye size={10} />
+                        <span>View</span>
+                      </button>
                     </div>
-
                   </div>
+
                 </div>
               )
             })}

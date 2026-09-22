@@ -349,15 +349,15 @@ export default function Reports() {
         {ran && data && (
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={exportPdf} style={{
-              background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8',
+              background: 'var(--accent-bg)', border: '1px solid var(--border)', color: 'var(--accent)',
               padding: '9px 18px', fontSize: 12, fontWeight: 600,
               borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 6,
-              cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+              cursor: 'pointer', boxShadow: 'var(--shadow-sm)',
             }}>
               <FileText size={13} /> Export PDF
             </button>
             <button onClick={exportCsv} style={{
-              background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a',
+              background: 'var(--green-bg)', border: '1px solid var(--border)', color: 'var(--green)',
               padding: '9px 18px', fontSize: 12, fontWeight: 600,
               borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 6,
               cursor: 'pointer',
@@ -460,7 +460,7 @@ export default function Reports() {
           </div>
 
           {/* Timeline table */}
-          <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
             <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Timeline Data</span>
             </div>
@@ -474,7 +474,7 @@ export default function Reports() {
                 </thead>
                 <tbody>
                   {data.timeline?.map((d, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid var(--border-2)', background: i % 2 === 0 ? '#fff' : 'var(--surface-2)' }}>
+                    <tr key={i} style={{ borderBottom: '1px solid var(--border-2)', background: i % 2 === 0 ? 'var(--surface)' : 'var(--surface-2)' }}>
                       <td style={{ padding: '10px 16px', color: 'var(--text-2)', fontWeight: 500 }}>{d.time || d.hour}</td>
                       <td style={{ padding: '10px 16px' }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: uc?.color || '#2563eb' }}>{d.count}</span>

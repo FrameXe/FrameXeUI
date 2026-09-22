@@ -220,20 +220,21 @@ function AssignModal({ cameras, tenantId, onClose, onSuccess }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{
-        background: '#fff', borderRadius: 16, width: 520, maxWidth: '94vw',
+        background: 'var(--surface)', borderRadius: 16, width: 520, maxWidth: '94vw',
         maxHeight: '90vh', overflowY: 'auto',
-        boxShadow: '0 24px 60px rgba(0,0,0,0.18)',
+        boxShadow: 'var(--shadow-lg, 0 24px 60px rgba(0,0,0,0.4))',
+        border: '1px solid var(--border)',
       }}>
         {/* Header */}
         <div style={{
-          padding: '20px 24px 16px', borderBottom: '1px solid #e4e8f0',
+          padding: '20px 24px 16px', borderBottom: '1px solid var(--border)',
           display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
         }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>
               {isMulti ? `Assign ${cameras.length} cameras` : `Assign ${firstCam.ip}`}
             </div>
-            <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>
               {isMulti
                 ? `Cameras: ${cameras.slice(0, 3).map(c => c.ip).join(', ')}${cameras.length > 3 ? ` +${cameras.length - 3} more` : ''}`
                 : `${firstCam.manufacturer || 'Camera'} · ${firstCam.discovery_method || 'ONVIF'}`}
@@ -330,9 +331,9 @@ function AssignModal({ cameras, tenantId, onClose, onSuccess }) {
                   style={{
                     padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
                     border: '1.5px solid', cursor: 'pointer',
-                    background: form.use_cases.includes(uc.id) ? '#2563eb' : '#f8f9fd',
-                    borderColor: form.use_cases.includes(uc.id) ? '#2563eb' : '#e4e8f0',
-                    color: form.use_cases.includes(uc.id) ? '#fff' : '#475569',
+                    background: form.use_cases.includes(uc.id) ? '#2563eb' : 'var(--surface-2)',
+                    borderColor: form.use_cases.includes(uc.id) ? '#2563eb' : 'var(--border)',
+                    color: form.use_cases.includes(uc.id) ? '#fff' : 'var(--text)',
                     transition: 'all 0.15s',
                   }}>{uc.emoji} {uc.label}</button>
               ))}
@@ -349,8 +350,8 @@ function AssignModal({ cameras, tenantId, onClose, onSuccess }) {
           {/* Summary */}
           {isMulti && (
             <div style={{
-              marginTop: 16, padding: '10px 14px', background: '#f0fdf4',
-              borderRadius: 8, fontSize: 12, color: '#166534', display: 'flex', gap: 8, alignItems: 'center',
+              marginTop: 16, padding: '10px 14px', background: 'rgba(22, 163, 74, 0.12)',
+              borderRadius: 8, fontSize: 12, color: '#16a34a', display: 'flex', gap: 8, alignItems: 'center',
             }}>
               <Info size={13} />
               {form.apply_creds_to_all && form.apply_uc_to_all
@@ -367,10 +368,10 @@ function AssignModal({ cameras, tenantId, onClose, onSuccess }) {
           {validationError && (
             <div style={{
               marginTop: 14, padding: '10px 14px',
-              background: validationError.startsWith('⚠️') ? '#fffbeb' : '#fef2f2',
-              border: `1px solid ${validationError.startsWith('⚠️') ? '#fcd34d' : '#fca5a5'}`,
+              background: validationError.startsWith('⚠️') ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+              border: `1px solid ${validationError.startsWith('⚠️') ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
               borderRadius: 8, fontSize: 12,
-              color: validationError.startsWith('⚠️') ? '#92400e' : '#991b1b',
+              color: validationError.startsWith('⚠️') ? '#f59e0b' : '#ef4444',
               lineHeight: 1.5,
             }}>
               {validationError}
@@ -380,7 +381,7 @@ function AssignModal({ cameras, tenantId, onClose, onSuccess }) {
           {/* Actions */}
           <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
             <button type="button" onClick={onClose}
-              style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: '1.5px solid #e4e8f0', background: '#fff', color: '#475569', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+              style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
               Cancel
             </button>
             <button type="submit" disabled={submitting || validating || form.use_cases.length === 0}
@@ -418,22 +419,22 @@ function ToggleRow({ checked, onChange, label }) {
 // ── Shared styles ─────────────────────────────────────────────────────────────
 
 const inputStyle = {
-  width: '100%', padding: '8px 12px', border: '1.5px solid #e4e8f0',
-  borderRadius: 8, fontSize: 13, outline: 'none', background: '#f8f9fd',
-  color: '#0f172a', transition: 'border-color 0.15s',
+  width: '100%', padding: '8px 12px', border: '1.5px solid var(--border)',
+  borderRadius: 8, fontSize: 13, outline: 'none', background: 'var(--surface-2)',
+  color: 'var(--text)', transition: 'border-color 0.15s',
 }
 const labelStyle = {
-  display: 'block', fontSize: 11, fontWeight: 700, color: '#64748b',
+  display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-3)',
   textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6,
 }
 const tableHeaderStyle = {
-  padding: '10px 14px', fontSize: 10, fontWeight: 800, color: '#94a3b8',
+  padding: '10px 14px', fontSize: 10, fontWeight: 800, color: 'var(--text-3)',
   textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap',
-  background: '#f8f9fd', borderBottom: '1px solid #e4e8f0',
+  background: 'var(--surface-2)', borderBottom: '1px solid var(--border)',
 }
 const tdStyle = {
-  padding: '11px 14px', fontSize: 12, color: '#0f172a',
-  borderBottom: '1px solid #f1f5f9', verticalAlign: 'middle',
+  padding: '11px 14px', fontSize: 12, color: 'var(--text)',
+  borderBottom: '1px solid var(--border)', verticalAlign: 'middle',
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -604,24 +605,24 @@ export default function DiscoveredCamerasPanel() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div style={{ padding: '24px', height: '100%', overflowY: 'auto', background: '#f4f6fb' }}>
+    <div style={{ padding: '24px', height: '100%', overflowY: 'auto', background: 'var(--bg)' }}>
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .cam-row:hover { background: #f8f9fd !important; }
-        .btn-outline:hover { background: #f1f5f9 !important; }
+        .cam-row:hover { background: var(--surface-2) !important; }
+        .btn-outline:hover { background: var(--surface-2) !important; }
         .assign-btn:hover { background: #1d4ed8 !important; }
-        .unassign-btn:hover { background: #fef2f2 !important; color: #dc2626 !important; }
+        .unassign-btn:hover { background: rgba(239, 68, 68, 0.15) !important; color: #ef4444 !important; }
       `}</style>
 
       {/* ─── Header ─────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', margin: 0 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', margin: 0 }}>
             📡 Agent Camera Manager
           </h1>
-          <p style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
+          <p style={{ color: 'var(--text-3)', fontSize: 13, marginTop: 4 }}>
             Discover → assign cameras → Stream Manager hot-loads RTSP streams
           </p>
         </div>
@@ -638,7 +639,7 @@ export default function DiscoveredCamerasPanel() {
               }}
               style={{
                 padding: '8px 32px 8px 12px', borderRadius: 8, border: '1.5px solid var(--border)',
-                background: 'var(--surface)', fontSize: 13, fontWeight: 600, color: 'var(--text)',
+                background: 'var(--surface)', color: 'var(--text)', fontSize: 13, fontWeight: 600,
                 cursor: 'pointer', outline: 'none', appearance: 'none',
               }}>
               {tenants.length === 0 ? (
@@ -653,7 +654,12 @@ export default function DiscoveredCamerasPanel() {
           </div>
           <button onClick={fetchAll} disabled={loading}
             className="btn-outline"
-            style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600 }}>
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '8px 14px', borderRadius: 8, border: '1.5px solid var(--border)',
+              background: 'var(--surface)', color: 'var(--text)', fontSize: 13, fontWeight: 600,
+              cursor: loading ? 'not-allowed' : 'pointer',
+            }}>
             <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> Refresh
           </button>
         </div>
@@ -677,7 +683,7 @@ export default function DiscoveredCamerasPanel() {
         <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Camera size={16} color="#2563eb" />
-            <span style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>Unassigned Cameras</span>
+            <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>Unassigned Cameras</span>
             <Badge>{discovered.length}</Badge>
           </div>
           {selected.size > 0 && (
@@ -720,7 +726,7 @@ export default function DiscoveredCamerasPanel() {
               </thead>
               <tbody>
                 {discovered.map(cam => (
-                  <tr key={cam.ip} className="cam-row" style={{ background: selected.has(cam.ip) ? '#eff6ff' : '#fff' }}>
+                  <tr key={cam.ip} className="cam-row" style={{ background: selected.has(cam.ip) ? 'rgba(37, 99, 235, 0.15)' : 'transparent' }}>
                     <td style={{ ...tdStyle, width: 44 }}>
                       <input type="checkbox"
                         checked={selected.has(cam.ip)}
@@ -745,7 +751,7 @@ export default function DiscoveredCamerasPanel() {
                     <td style={tdStyle}>
                       {cam.auth_required
                         ? <Badge color="#d97706" bg="#fffbeb">Auth Required</Badge>
-                        : <Badge color="#16a34a" bg="#f0fdf4">Open</Badge>}
+                        : <Badge color="#16a34a" bg="rgba(22, 163, 74, 0.15)">Open</Badge>}
                     </td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>
                       <button onClick={() => openSingleAssign(cam)} className="assign-btn"
@@ -769,8 +775,8 @@ export default function DiscoveredCamerasPanel() {
       <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
         <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <Check size={16} color="#16a34a" />
-          <span style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>Assigned Cameras</span>
-          <Badge color="#16a34a" bg="#f0fdf4">{assigned.length}</Badge>
+          <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>Assigned Cameras</span>
+          <Badge color="#16a34a" bg="rgba(22, 163, 74, 0.15)">{assigned.length}</Badge>
         </div>
 
         {assigned.length === 0 ? (
@@ -797,7 +803,7 @@ export default function DiscoveredCamerasPanel() {
                   <tr key={cam.camera_id} className="cam-row">
                     <td style={{ ...tdStyle, display: 'flex', alignItems: 'center', gap: 8 }}>
                       <StatusDot status={cam.stream_status || 'unknown'} />
-                      <span style={{ fontSize: 11, color: '#475569', fontWeight: 600 }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600 }}>
                         {cam.stream_status === 'up' ? 'Streaming' : cam.stream_status === 'down' ? 'Down' : 'Unknown'}
                       </span>
                     </td>
@@ -805,13 +811,13 @@ export default function DiscoveredCamerasPanel() {
                       {cam.ip}
                     </td>
                     <td style={tdStyle}>
-                      <span style={{ fontSize: 12, color: '#0f172a' }}>{cam.zone || '—'}</span>
+                      <span style={{ fontSize: 12, color: 'var(--text)' }}>{cam.zone || '—'}</span>
                     </td>
                     <td style={tdStyle}>{cam.model || cam.manufacturer || '—'}</td>
                     <td style={tdStyle}>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                         {(cam.use_cases || []).map(uc => (
-                          <Badge key={uc} color="#2563eb" bg="#eff6ff">{uc}</Badge>
+                          <Badge key={uc} color="var(--accent)" bg="var(--surface-2)">{uc}</Badge>
                         ))}
                       </div>
                     </td>
@@ -821,8 +827,8 @@ export default function DiscoveredCamerasPanel() {
                     <td style={{ ...tdStyle, textAlign: 'right' }}>
                       <button onClick={() => handleUnassign(cam.camera_id)} className="unassign-btn"
                         style={{
-                          padding: '5px 12px', borderRadius: 7, border: '1.5px solid #e4e8f0',
-                          background: '#fff', color: '#475569', fontSize: 12, fontWeight: 600,
+                          padding: '5px 12px', borderRadius: 7, border: '1.5px solid var(--border)',
+                          background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, fontWeight: 600,
                           cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5,
                           transition: 'all 0.15s',
                         }}>

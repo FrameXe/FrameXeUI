@@ -88,13 +88,13 @@ export default function HistoricalAnalytics({ style = {}, className = '', extraA
   const renderCongestionBadge = (level) => {
     if (!level) return '--'
     const l = String(level).toLowerCase()
-    let bg = '#f1f5f9', color = '#64748b', border = '#cbd5e1'
+    let bg = 'rgba(100, 116, 139, 0.12)', color = 'var(--text-2)', border = 'var(--border)'
     if (l === 'low') {
-      bg = '#f0fdf4'; color = '#15803d'; border = '#bbf7d0'
+      bg = 'rgba(34, 197, 94, 0.12)'; color = '#22c55e'; border = 'rgba(34, 197, 94, 0.3)'
     } else if (l === 'medium') {
-      bg = '#fefce8'; color = '#a16207'; border = '#fef08a'
+      bg = 'rgba(245, 158, 11, 0.12)'; color = '#f59e0b'; border = 'rgba(245, 158, 11, 0.3)'
     } else if (l === 'high') {
-      bg = '#fef2f2'; color = '#b91c1c'; border = '#fecaca'
+      bg = 'rgba(239, 68, 68, 0.12)'; color = '#ef4444'; border = 'rgba(239, 68, 68, 0.3)'
     }
     return (
       <span style={{
@@ -209,7 +209,7 @@ export default function HistoricalAnalytics({ style = {}, className = '', extraA
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 20,
                     fontSize: 12, fontWeight: 700, cursor: isOnlyOne ? 'not-allowed' : 'pointer',
-                    background: selected ? `${m.color}15` : '#fff',
+                    background: selected ? `${m.color}15` : 'var(--surface)',
                     border: `1.5px solid ${selected ? m.color : 'var(--border)'}`,
                     color: selected ? m.color : 'var(--text-3)',
                     opacity: isOnlyOne ? 0.7 : 1,
@@ -359,7 +359,7 @@ export default function HistoricalAnalytics({ style = {}, className = '', extraA
         {/* Date Validation Error Alert */}
         {dateValidationError && (
           <div style={{
-            background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626',
+            background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444',
             padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700,
             display: 'flex', alignItems: 'center', gap: 8
           }}>
@@ -375,27 +375,27 @@ export default function HistoricalAnalytics({ style = {}, className = '', extraA
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {loading ? (
             /* Skeleton Loading for Chart */
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '40px 20px', background: '#f8fafc', borderRadius: 12, border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '40px 20px', background: 'var(--surface-2)', borderRadius: 12, border: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ width: 140, height: 16, background: '#e2e8f0', borderRadius: 4 }} />
-                <div style={{ width: 200, height: 16, background: '#e2e8f0', borderRadius: 4 }} />
+                <div style={{ width: 140, height: 16, background: 'var(--border)', borderRadius: 4 }} />
+                <div style={{ width: 200, height: 16, background: 'var(--border)', borderRadius: 4 }} />
               </div>
               <div style={{ display: 'flex', alignItems: 'flex-end', height: 200, gap: 20, justifyContent: 'space-around', paddingTop: 20 }}>
                 {[60, 120, 80, 150, 90, 110, 140].map((h, i) => (
-                  <div key={i} style={{ width: 40, height: h, background: '#cbd5e1', borderRadius: '6px 6px 0 0', opacity: 0.6 }} />
+                  <div key={i} style={{ width: 40, height: h, background: 'var(--border)', borderRadius: '6px 6px 0 0', opacity: 0.6 }} />
                 ))}
               </div>
             </div>
           ) : data.length === 0 ? (
             /* Empty State */
-            <div style={{ padding: '48px 20px', textAlign: 'center', background: '#f8fafc', borderRadius: 12, border: '1px dashed var(--border)', color: 'var(--text-3)', fontSize: 13, fontWeight: 600 }}>
+            <div style={{ padding: '48px 20px', textAlign: 'center', background: 'var(--surface-2)', borderRadius: 12, border: '1px dashed var(--border)', color: 'var(--text-3)', fontSize: 13, fontWeight: 600 }}>
               No data available for selected filters
             </div>
           ) : (
             /* Custom Grouped SVG / CSS Bar Chart */
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {/* Legend mapping camera → color */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', padding: '10px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', padding: '10px 14px', background: 'var(--surface-2)', borderRadius: 8, border: '1px solid var(--border)' }}>
                 <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase' }}>Camera Color Legend:</span>
                 {activeCamIds.map(camId => {
                   const camObj = cameras.find(c => (c.id || c.camera_id) === camId)
@@ -523,19 +523,19 @@ export default function HistoricalAnalytics({ style = {}, className = '', extraA
                   {loading ? (
                     /* Skeleton Rows */
                     Array.from({ length: 5 }).map((_, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '14px 16px' }}><div style={{ width: 80, height: 14, background: '#f1f5f9', borderRadius: 4 }} /></td>
-                        <td style={{ padding: '14px 16px' }}><div style={{ width: 120, height: 14, background: '#f1f5f9', borderRadius: 4 }} /></td>
-                        {selectedMetrics.includes('vehicle_count') && <td style={{ padding: '14px 16px' }}><div style={{ width: 50, height: 14, background: '#f1f5f9', borderRadius: 4 }} /></td>}
-                        {selectedMetrics.includes('people_count') && <td style={{ padding: '14px 16px' }}><div style={{ width: 50, height: 14, background: '#f1f5f9', borderRadius: 4 }} /></td>}
+                      <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '14px 16px' }}><div style={{ width: 80, height: 14, background: 'var(--surface-2)', borderRadius: 4 }} /></td>
+                        <td style={{ padding: '14px 16px' }}><div style={{ width: 120, height: 14, background: 'var(--surface-2)', borderRadius: 4 }} /></td>
+                        {selectedMetrics.includes('vehicle_count') && <td style={{ padding: '14px 16px' }}><div style={{ width: 50, height: 14, background: 'var(--surface-2)', borderRadius: 4 }} /></td>}
+                        {selectedMetrics.includes('people_count') && <td style={{ padding: '14px 16px' }}><div style={{ width: 50, height: 14, background: 'var(--surface-2)', borderRadius: 4 }} /></td>}
                         {selectedMetrics.includes('people_flow') && (
                           <>
-                            <td style={{ padding: '14px 16px' }}><div style={{ width: 40, height: 14, background: '#f1f5f9', borderRadius: 4 }} /></td>
-                            <td style={{ padding: '14px 16px' }}><div style={{ width: 40, height: 14, background: '#f1f5f9', borderRadius: 4 }} /></td>
+                            <td style={{ padding: '14px 16px' }}><div style={{ width: 40, height: 14, background: 'var(--surface-2)', borderRadius: 4 }} /></td>
+                            <td style={{ padding: '14px 16px' }}><div style={{ width: 40, height: 14, background: 'var(--surface-2)', borderRadius: 4 }} /></td>
                           </>
                         )}
-                        {selectedMetrics.includes('vehicle_types') && <td style={{ padding: '14px 16px' }}><div style={{ width: 140, height: 14, background: '#f1f5f9', borderRadius: 4 }} /></td>}
-                        {selectedMetrics.includes('congestion') && <td style={{ padding: '14px 16px' }}><div style={{ width: 60, height: 14, background: '#f1f5f9', borderRadius: 4 }} /></td>}
+                        {selectedMetrics.includes('vehicle_types') && <td style={{ padding: '14px 16px' }}><div style={{ width: 140, height: 14, background: 'var(--surface-2)', borderRadius: 4 }} /></td>}
+                        {selectedMetrics.includes('congestion') && <td style={{ padding: '14px 16px' }}><div style={{ width: 60, height: 14, background: 'var(--surface-2)', borderRadius: 4 }} /></td>}
                       </tr>
                     ))
                   ) : paginatedData.length === 0 ? (
@@ -547,7 +547,7 @@ export default function HistoricalAnalytics({ style = {}, className = '', extraA
                     </tr>
                   ) : (
                     paginatedData.map((row, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td style={{ padding: '14px 16px', fontWeight: 700, color: 'var(--text)' }}>
                           {row.date || row.period || '--'}
                         </td>

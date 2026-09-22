@@ -186,8 +186,8 @@ export default function CameraManagement() {
                           display: 'flex', alignItems: 'center', gap: 7,
                           padding: '8px 16px', fontSize: 13, fontWeight: 700,
                           background: active ? `${uc.color}10` : 'var(--surface-2)',
-                          border: `1.5px solid ${active ? uc.color + '66' : '#e2e8f0'}`,
-                          color: active ? uc.color : '#64748b',
+                          border: `1.5px solid ${active ? uc.color + '66' : 'var(--border)'}`,
+                          color: active ? uc.color : 'var(--text-3)',
                           borderRadius: 20, cursor: 'pointer', transition: 'all 0.15s',
                           boxShadow: active ? `0 2px 8px ${uc.color}20` : 'none',
                         }}
@@ -204,14 +204,14 @@ export default function CameraManagement() {
                 
                 {/* Traffic Block */}
                 {cam.enabled_usecases.includes('traffic') && (
-                  <div style={{ marginTop: 8, padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, borderLeft: '4px solid #0ea5e9' }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: '#475569', textTransform: 'uppercase', marginBottom: 12 }}>Traffic Sub-Models Configuration</div>
+                  <div style={{ marginTop: 8, padding: 16, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, borderLeft: '4px solid #0ea5e9' }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-2)', textTransform: 'uppercase', marginBottom: 12 }}>Traffic Sub-Models Configuration</div>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       {TRAFFIC_SUB_MODELS.map(sub => {
                         const subActive = cam.enabled_usecases.includes(sub.id)
                         return (
                           <button key={sub.id} onClick={() => toggle(cam.id, sub.id)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, background: subActive ? `${sub.color}15` : '#fff', border: `1px solid ${subActive ? sub.color : '#cbd5e1'}`, color: subActive ? sub.color : '#64748b', borderRadius: 8, cursor: 'pointer', transition: 'all 0.1s' }}>
+                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, background: subActive ? `${sub.color}15` : 'var(--surface)', border: `1px solid ${subActive ? sub.color : 'var(--border)'}`, color: subActive ? sub.color : 'var(--text-3)', borderRadius: 8, cursor: 'pointer', transition: 'all 0.1s' }}>
                             <span>{sub.emoji}</span><span>{sub.label}</span>{subActive && <Check size={12} />}
                           </button>
                         )
@@ -222,14 +222,14 @@ export default function CameraManagement() {
 
                 {/* People Count Block */}
                 {cam.enabled_usecases.includes('people_count') && (
-                  <div style={{ marginTop: 8, padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, borderLeft: '4px solid #4f6df5' }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: '#475569', textTransform: 'uppercase', marginBottom: 12 }}>People Counting Constraints</div>
+                  <div style={{ marginTop: 8, padding: 16, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, borderLeft: '4px solid #4f6df5' }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-2)', textTransform: 'uppercase', marginBottom: 12 }}>People Counting Constraints</div>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       {PEOPLE_SUB_MODELS.map(sub => {
                         const subActive = cam.enabled_usecases.includes(sub.id)
                         return (
                           <button key={sub.id} onClick={() => toggle(cam.id, sub.id)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, background: subActive ? `${sub.color}15` : '#fff', border: `1px solid ${subActive ? sub.color : '#cbd5e1'}`, color: subActive ? sub.color : '#64748b', borderRadius: 8, cursor: 'pointer', transition: 'all 0.1s' }}>
+                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, background: subActive ? `${sub.color}15` : 'var(--surface)', border: `1px solid ${subActive ? sub.color : 'var(--border)'}`, color: subActive ? sub.color : 'var(--text-3)', borderRadius: 8, cursor: 'pointer', transition: 'all 0.1s' }}>
                             <span>{sub.emoji}</span><span>{sub.label}</span>{subActive && <Check size={12} />}
                           </button>
                         )
@@ -240,14 +240,14 @@ export default function CameraManagement() {
 
                 {/* Crowd Alert Block */}
                 {cam.enabled_usecases.includes('crowd_alert') && (
-                  <div style={{ marginTop: 8, padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, borderLeft: '4px solid #f59e0b' }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: '#475569', textTransform: 'uppercase', marginBottom: 12 }}>Crowd Intelligence Logic</div>
+                  <div style={{ marginTop: 8, padding: 16, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, borderLeft: '4px solid #f59e0b' }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-2)', textTransform: 'uppercase', marginBottom: 12 }}>Crowd Intelligence Logic</div>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       {CROWD_SUB_MODELS.map(sub => {
                         const subActive = cam.enabled_usecases.includes(sub.id)
                         return (
                           <button key={sub.id} onClick={() => toggle(cam.id, sub.id)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, background: subActive ? `${sub.color}15` : '#fff', border: `1px solid ${subActive ? sub.color : '#cbd5e1'}`, color: subActive ? sub.color : '#64748b', borderRadius: 8, cursor: 'pointer', transition: 'all 0.1s' }}>
+                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, background: subActive ? `${sub.color}15` : 'var(--surface)', border: `1px solid ${subActive ? sub.color : 'var(--border)'}`, color: subActive ? sub.color : 'var(--text-3)', borderRadius: 8, cursor: 'pointer', transition: 'all 0.1s' }}>
                             <span>{sub.emoji}</span><span>{sub.label}</span>{subActive && <Check size={12} />}
                           </button>
                         )
@@ -258,14 +258,14 @@ export default function CameraManagement() {
 
                 {/* Intrusion Block */}
                 {cam.enabled_usecases.includes('intrusion') && (
-                  <div style={{ marginTop: 8, padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, borderLeft: '4px solid #ef4444' }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: '#475569', textTransform: 'uppercase', marginBottom: 12 }}>Perimeter Intrusion Ruleset</div>
+                  <div style={{ marginTop: 8, padding: 16, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, borderLeft: '4px solid #ef4444' }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-2)', textTransform: 'uppercase', marginBottom: 12 }}>Perimeter Intrusion Ruleset</div>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       {INTRUSION_SUB_MODELS.map(sub => {
                         const subActive = cam.enabled_usecases.includes(sub.id)
                         return (
                           <button key={sub.id} onClick={() => toggle(cam.id, sub.id)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, background: subActive ? `${sub.color}15` : '#fff', border: `1px solid ${subActive ? sub.color : '#cbd5e1'}`, color: subActive ? sub.color : '#64748b', borderRadius: 8, cursor: 'pointer', transition: 'all 0.1s' }}>
+                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, background: subActive ? `${sub.color}15` : 'var(--surface)', border: `1px solid ${subActive ? sub.color : 'var(--border)'}`, color: subActive ? sub.color : 'var(--text-3)', borderRadius: 8, cursor: 'pointer', transition: 'all 0.1s' }}>
                             <span>{sub.emoji}</span><span>{sub.label}</span>{subActive && <Check size={12} />}
                           </button>
                         )
