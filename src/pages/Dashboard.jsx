@@ -67,7 +67,7 @@ export default function Dashboard() {
   })
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 24 }}>
+    <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 24 }}>
 
       {/* ── TOP HEADER: TITLE ON LEFT, TELEMETRY & ACTIONS ON RIGHT ── */}
       <div style={{ 
@@ -75,7 +75,7 @@ export default function Dashboard() {
         flexWrap: 'wrap', gap: 10 
       }}>
         <div style={{ textAlign: 'left' }}>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em' }}>
+          <h1 className="gradient-text" style={{ margin: 0, fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>
             Dashboard
           </h1>
           <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--text-3)', fontWeight: 500 }}>
@@ -423,27 +423,23 @@ export default function Dashboard() {
               return (
                 <div
                   key={cam.id}
+                  className={isActive ? 'camera-card-live' : ''}
                   style={{
                     background: 'var(--surface-2)',
-                    border: '1px solid var(--border)',
+                    border: `1px solid ${isActive ? 'rgba(6,182,212,0.25)' : 'var(--border)'}`,
                     borderRadius: 12,
                     overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
                     borderTop: `3px solid ${isActive ? '#06b6d4' : 'var(--border)'}`,
-                    boxShadow: 'var(--shadow-sm)',
-                    transition: 'all 0.2s ease',
+                    boxShadow: isActive ? '0 0 0 1px rgba(6,182,212,0.12), var(--shadow-sm)' : 'var(--shadow-sm)',
+                    transition: 'all 0.22s cubic-bezier(0.4,0,0.2,1)',
                   }}
                   onMouseEnter={e => {
-                    e.currentTarget.style.borderColor = '#06b6d4'
-                    e.currentTarget.style.transform = 'translateY(-2px)'
-                    e.currentTarget.style.boxShadow = 'var(--shadow-md)'
+                    e.currentTarget.style.transform = 'translateY(-3px)'
                   }}
                   onMouseLeave={e => {
-                    e.currentTarget.style.borderColor = 'var(--border)'
-                    e.currentTarget.style.borderTopColor = isActive ? '#06b6d4' : 'var(--border)'
                     e.currentTarget.style.transform = 'none'
-                    e.currentTarget.style.boxShadow = 'var(--shadow-sm)'
                   }}
                 >
                   {/* Top Header: CAM 1, CAM 2... with Cam ID & Location */}
@@ -492,9 +488,18 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <span className={isActive ? 'ai-badge ai-badge-emerald' : 'ai-badge'} style={{ fontSize: 8.5, padding: '2px 6px', flexShrink: 0 }}>
-                      {isActive ? '● LIVE' : 'OFFLINE'}
-                    </span>
+                    {isActive ? (
+                      <span className="ai-badge ai-badge-emerald live-badge-glow" style={{ fontSize: 8.5, padding: '2px 7px', flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <span className="sonar-dot" style={{ width: 6, height: 6 }}>
+                          <span style={{ position: 'relative', zIndex: 1, width: 6, height: 6, borderRadius: '50%', background: 'var(--ai-emerald)', display: 'block' }} />
+                        </span>
+                        LIVE
+                      </span>
+                    ) : (
+                      <span className="ai-badge" style={{ fontSize: 8.5, padding: '2px 7px', flexShrink: 0, color: 'var(--text-3)', borderColor: 'var(--border)', background: 'var(--surface-2)' }}>
+                        OFFLINE
+                      </span>
+                    )}
                   </div>
 
                   {/* Video Canvas Preview Window */}
@@ -589,19 +594,21 @@ export default function Dashboard() {
                       <button
                         onClick={() => nav(`/camera/${cam.id}/${cam.useCase || 'people_count'}`)}
                         style={{
-                          background: 'var(--surface)', border: '1px solid #06b6d4',
-                          color: '#06b6d4', padding: '3px 8px', borderRadius: 5,
+                          background: 'linear-gradient(135deg, #06b6d4, #2563eb)',
+                          border: 'none',
+                          color: '#fff', padding: '4px 10px', borderRadius: 20,
                           fontSize: 9, fontWeight: 800, cursor: 'pointer',
                           display: 'flex', alignItems: 'center', gap: 3,
-                          transition: 'all 0.15s ease'
+                          boxShadow: '0 2px 8px rgba(6,182,212,0.3)',
+                          transition: 'all 0.18s ease'
                         }}
                         onMouseEnter={e => {
-                          e.currentTarget.style.background = '#06b6d4'
-                          e.currentTarget.style.color = '#fff'
+                          e.currentTarget.style.transform = 'translateY(-1px)'
+                          e.currentTarget.style.boxShadow = '0 4px 14px rgba(6,182,212,0.4)'
                         }}
                         onMouseLeave={e => {
-                          e.currentTarget.style.background = 'var(--surface)'
-                          e.currentTarget.style.color = '#06b6d4'
+                          e.currentTarget.style.transform = 'none'
+                          e.currentTarget.style.boxShadow = '0 2px 8px rgba(6,182,212,0.3)'
                         }}
                       >
                         <Eye size={10} />

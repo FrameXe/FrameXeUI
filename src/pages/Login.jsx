@@ -11,11 +11,16 @@ export default function Login() {
   const error = useAuthStore(s => s.error)
   const navigate = useNavigate()
 
+  const [shake, setShake] = useState(false)
+
   const handleSubmit = (e) => {
     e.preventDefault()
     const success = login(username, password)
     if (success) {
       navigate('/')
+    } else {
+      setShake(true)
+      setTimeout(() => setShake(false), 500)
     }
   }
 
@@ -27,6 +32,8 @@ export default function Login() {
       alignItems: 'center',
       justifyContent: 'center',
       background: 'radial-gradient(circle at 10% 20%, rgb(4, 21, 45) 0%, rgb(15, 32, 59) 90.1%)',
+      backgroundImage: 'radial-gradient(circle at 10% 20%, rgb(4, 21, 45) 0%, rgb(15, 32, 59) 90.1%), radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px)',
+      backgroundSize: '100% 100%, 28px 28px',
       padding: '20px',
       position: 'relative',
       overflow: 'hidden'
@@ -44,7 +51,7 @@ export default function Login() {
       }} />
 
       {/* Glassmorphic Login Card */}
-      <div style={{
+      <div className={shake ? 'form-shake' : ''} style={{
         width: '100%',
         maxWidth: '460px',
         background: 'rgba(15, 23, 42, 0.75)',

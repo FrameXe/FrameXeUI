@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import TopBar from './TopBar.jsx'
 import Sidebar from './Sidebar.jsx'
 import { ErrorBoundary } from '../shared/ErrorBoundary.jsx'
 
 export default function Layout() {
   const [collapsed, setCollapsed] = useState(false)
+  const location = useLocation()
 
   const toggleSidebar = () => setCollapsed(prev => !prev)
 
@@ -14,7 +15,7 @@ export default function Layout() {
       <TopBar onToggleSidebar={toggleSidebar} isSidebarCollapsed={collapsed} />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
-        <main style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', background: 'var(--bg)' }}>
+        <main key={location.pathname} className="page-enter" style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', background: 'var(--bg)' }}>
           <ErrorBoundary>
             <Outlet />
           </ErrorBoundary>
@@ -23,4 +24,3 @@ export default function Layout() {
     </div>
   )
 }
-

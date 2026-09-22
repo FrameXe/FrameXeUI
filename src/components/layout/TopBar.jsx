@@ -25,11 +25,11 @@ export default function TopBar({ onToggleSidebar, isSidebarCollapsed }) {
   }
 
   return (
-    <header style={{
+    <header className="topbar-premium" style={{
       background: 'var(--surface)',
       borderBottom: '1px solid var(--border)',
       padding: '0 16px',
-      height: 48,
+      height: 52,
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       flexShrink: 0,
       boxShadow: 'var(--shadow-sm)',
@@ -52,15 +52,17 @@ export default function TopBar({ onToggleSidebar, isSidebarCollapsed }) {
         </button>
 
         {/* Live Stream Pulsing Pill */}
-        <span className="ai-badge ai-badge-emerald" style={{ padding: '2px 8px', fontSize: 10 }}>
-          <span className="live-dot" style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--ai-emerald)' }} />
+        <span className="ai-badge ai-badge-emerald live-badge-glow" style={{ padding: '3px 10px', fontSize: 10 }}>
+          <span className="sonar-dot" style={{ width: 6, height: 6 }}>
+            <span style={{ position: 'relative', zIndex: 1, width: 6, height: 6, borderRadius: '50%', background: 'var(--ai-emerald)', display: 'block' }} />
+          </span>
           LIVE MATRIX
         </span>
       </div>
 
       {/* Right side controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span style={{ fontSize: 11.5, color: 'var(--text-2)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+        <span className="time-pill">
           {t.toLocaleTimeString()}
         </span>
 
@@ -111,14 +113,15 @@ export default function TopBar({ onToggleSidebar, isSidebarCollapsed }) {
             </div>
             
             <button 
+              className="user-avatar"
               onClick={() => setShowDropdown(!showDropdown)}
               style={{
-                width: 30, height: 30, borderRadius: '50%',
+                width: 32, height: 32, borderRadius: '50%',
                 background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 12, fontWeight: 700, color: '#fff',
+                fontSize: 13, fontWeight: 800, color: '#fff',
                 border: 'none', cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(37,99,235,0.3)',
+                boxShadow: '0 2px 10px rgba(37,99,235,0.35)',
               }}
             >
               {user.username[0].toUpperCase()}

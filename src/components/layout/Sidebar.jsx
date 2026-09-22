@@ -45,9 +45,8 @@ export default function Sidebar({ collapsed: externalCollapsed, setCollapsed: ex
   const showMonitoring = user?.permissions?.includes('view_events') ?? false
 
   return (
-    <aside style={{
+    <aside className="sidebar-gradient sidebar-neon-edge" style={{
       width: collapsed ? 68 : 240,
-      background: 'var(--surface)',
       borderRight: '1px solid var(--border)',
       display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto',
       transition: 'width 0.22s ease-in-out',
@@ -92,7 +91,7 @@ export default function Sidebar({ collapsed: externalCollapsed, setCollapsed: ex
               background: isActive ? 'var(--surface-2)' : 'transparent',
             })}
           >
-            <item.icon size={15} style={{ flexShrink: 0, color: item.color }} />
+            <item.icon size={17} style={{ flexShrink: 0, color: item.color }} />
             {!collapsed && <span>{item.label}</span>}
           </NavLink>
         ))}
@@ -116,7 +115,7 @@ export default function Sidebar({ collapsed: externalCollapsed, setCollapsed: ex
               })}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                <Shield size={15} style={{ flexShrink: 0, color: '#ef4444' }} />
+                <Shield size={17} style={{ flexShrink: 0, color: '#ef4444' }} />
                 {!collapsed && <span>Safety Center</span>}
               </div>
               {unread > 0 && (
@@ -135,7 +134,7 @@ export default function Sidebar({ collapsed: externalCollapsed, setCollapsed: ex
                 background: isActive ? 'var(--surface-2)' : 'transparent',
               })}
             >
-              <Car size={15} style={{ flexShrink: 0, color: '#8b5cf6' }} />
+              <Car size={17} style={{ flexShrink: 0, color: '#8b5cf6' }} />
               {!collapsed && <span>Vehicle Log</span>}
             </NavLink>
           </div>
@@ -185,7 +184,7 @@ export default function Sidebar({ collapsed: externalCollapsed, setCollapsed: ex
           style={{ justifyContent: collapsed ? 'center' : 'space-between' }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <Microscope size={15} style={{ flexShrink: 0 }} />
+            <Microscope size={17} style={{ flexShrink: 0 }} />
             {!collapsed && <span>Diagnostics</span>}
           </div>
           {errorCount > 0 && (
