@@ -5,7 +5,7 @@ import { useCameras }    from '../hooks/useCameras.js'
 import MiniCanvas        from '../components/camera/MiniCanvas.jsx'
 import { Loading }       from '../components/shared/index.jsx'
 import { sseManager }    from '../lib/sseManager.js'
-import { useAuthStore, useCrossStore }  from '../store/index.js'
+import { useAuthStore, useCrossStore, useDetectionStore }  from '../store/index.js'
 import { UC_CANVAS, UC_COLOR } from '../constants/useCases.js'
 import { analyticsAPI, lineAPI, vehicleDetectionAPI }  from '../services/api.js'
 
@@ -55,14 +55,15 @@ export default function CameraAnalytics() {
   const [vehSummary,   setVehSummary]   = useState(null) // from /api/vehicle-detections/summary?camera_id=
   const [statsLoading, setStatsLoading] = useState(true)
 
-  // ── In-frame count (from bbox SSE latest payload) ──────────
-  const [inFrame,  setInFrame]  = useState({})   // { traffic: 5, people_count: 3 }
-  const [detLog,   setDetLog]   = useState([])   // accumulated detection log
-  const [activeFilters, setActiveFilters] = useState([])
+  // ── In-frame count and detection log — persisted across navigation via store ──
+  const detectionStore = useDetectionStore()
+  const camDetData = useDetectionStore(s => s.data[camId] || { detLog: [], inFrame: {}, seenVehicleIds: new Set(), seenPeopleIds: new Set() })
+  const detLog = camDetData.detLog
+  const inFrame = camDetData.inFrame
+  const seenVehicleIds = camDetData.seenVehicleIds
+  const seenPeopleIds  = camDetData.seenPeopleIds
 
-  // ── Session unique tracks seen (fallback when REST counts are 0) ──
-  const [seenVehicleIds, setSeenVehicleIds] = useState(new Set())
-  const [seenPeopleIds,  setSeenPeopleIds]  = useState(new Set())
+  const [activeFilters, setActiveFilters] = useState([])
   const [sseConnected, setSseConnected] = useState(false)
 
   const toggleFilter = uc =>
@@ -166,13 +167,9 @@ export default function CameraAnalytics() {
     }
   }, [camId])
 
-  // ── SSE bbox detections — in-frame + log ──────────────────
+  // ── SSE bbox detections — persisted in store, NOT reset on unmount ──
   useEffect(() => {
     if (!cam) return
-    setDetLog([])
-    setInFrame({})
-    setSeenVehicleIds(new Set())
-    setSeenPeopleIds(new Set())
 
     const seen    = new Set()
     const ucList  = (cam.enabled_usecases || [cam.useCase] || []).filter(uc => {
@@ -194,22 +191,16 @@ export default function CameraAnalytics() {
           : (payload?.objects ?? payload?.detections ?? [])
         if (objects.length === 0) return
 
-        // Update in-frame (latest payload object count)
-        setInFrame(prev => ({ ...prev, [frontendUc]: objects.length }))
+        // Update in-frame (latest payload object count) — persisted
+        useDetectionStore.getState().setInFrame(camId, frontendUc, objects.length)
 
-        // Update unique session track IDs
+        // Update unique session track IDs — persisted
         if (frontendUc === 'traffic') {
-          setSeenVehicleIds(prev => {
-            const next = new Set(prev)
-            objects.forEach(o => { if (o.id) next.add(o.id) })
-            return next
-          })
+          const ids = objects.map(o => o.id).filter(Boolean)
+          if (ids.length) useDetectionStore.getState().addSeenVehicleIds(camId, ids)
         } else if (frontendUc === 'people_count') {
-          setSeenPeopleIds(prev => {
-            const next = new Set(prev)
-            objects.forEach(o => { if (o.id) next.add(o.id) })
-            return next
-          })
+          const ids = objects.map(o => o.id).filter(Boolean)
+          if (ids.length) useDetectionStore.getState().addSeenPeopleIds(camId, ids)
           // Live count update from bbox SSE payload fields
           const liveTotal = payload?.total ?? payload?.count ?? payload?.people_count ?? payload?.total_count
           const liveIn    = payload?.count_in  ?? payload?.in  ?? payload?.in_count
@@ -247,7 +238,8 @@ export default function CameraAnalytics() {
             ts:         tsString,
           }
         })
-        setDetLog(prev => [...newDets, ...prev].slice(0, 100))
+        // Append to persisted store — NOT local state
+        useDetectionStore.getState().appendDetLog(camId, newDets)
       }
 
       const onStatus = (status) => {
@@ -261,12 +253,9 @@ export default function CameraAnalytics() {
       return () => { u1(); u2(); u3() }
     })
 
+    // ✅ NO reset on unmount — data persists in store across navigation
     return () => {
       unsubs.forEach(fn => fn())
-      setDetLog([])
-      setInFrame({})
-      setSeenVehicleIds(new Set())
-      setSeenPeopleIds(new Set())
     }
   }, [cam?.id])
 

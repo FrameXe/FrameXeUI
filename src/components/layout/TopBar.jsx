@@ -89,17 +89,8 @@ export default function TopBar({ onToggleSidebar, isSidebarCollapsed }) {
           <span>{theme === 'light' ? 'Dark' : 'Light'}</span>
         </button>
 
-        {/* System Online Badge */}
-        <div className="ai-badge ai-badge-emerald" style={{ padding: '3px 8px' }}>
-          <div className="live-dot" style={{
-            width: 6, height: 6, borderRadius: '50%',
-            background: 'var(--ai-emerald)',
-          }} />
-          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.04em' }}>
-            SYSTEM SYNCHRONIZED
-          </span>
-        </div>
-        
+
+
         {/* User avatar & dropdown */}
         {user && (
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8 }}>

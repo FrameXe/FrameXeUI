@@ -144,39 +144,6 @@ export default function AiBrandHeader({ isCollapsed = false, subtitle = "NEURAL 
             }}>
               Xe
             </span>
-            <span style={{
-              marginLeft: 4,
-              fontSize: 9,
-              fontWeight: 800,
-              padding: '1px 5px',
-              borderRadius: 4,
-              background: 'linear-gradient(135deg, rgba(6,182,212,0.15), rgba(139,92,246,0.15))',
-              border: '1px solid rgba(6,182,212,0.4)',
-              color: '#06b6d4',
-              letterSpacing: '0.05em'
-            }}>
-              AI
-            </span>
-          </div>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 4, 
-            fontSize: 9, 
-            fontWeight: 800, 
-            letterSpacing: '0.08em', 
-            color: 'var(--text-3)', 
-            marginTop: 3,
-            textTransform: 'uppercase'
-          }}>
-            <span style={{ 
-              width: 5, 
-              height: 5, 
-              borderRadius: '50%', 
-              background: '#06b6d4',
-              boxShadow: '0 0 6px #06b6d4'
-            }} />
-            {subtitle}
           </div>
         </div>
       )}

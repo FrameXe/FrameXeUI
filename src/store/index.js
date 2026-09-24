@@ -35,6 +35,62 @@ export const useCrossStore = create((set, get) => ({
   get: (cameraId) => get().counts[cameraId] || { in: 0, out: 0 },
 }))
 
+// Persisted detection log store — survives page navigation
+// detLog, inFrame, seenVehicleIds, seenPeopleIds are kept per cameraId in memory
+export const useDetectionStore = create((set, get) => ({
+  // { [cameraId]: { detLog: [], inFrame: {}, seenVehicleIds: Set, seenPeopleIds: Set } }
+  data: {},
+
+  getForCamera: (cameraId) => {
+    return get().data[cameraId] || {
+      detLog: [],
+      inFrame: {},
+      seenVehicleIds: new Set(),
+      seenPeopleIds: new Set(),
+    }
+  },
+
+  appendDetLog: (cameraId, newEntries) => set(s => {
+    const prev = s.data[cameraId] || { detLog: [], inFrame: {}, seenVehicleIds: new Set(), seenPeopleIds: new Set() }
+    return {
+      data: {
+        ...s.data,
+        [cameraId]: {
+          ...prev,
+          detLog: [...newEntries, ...prev.detLog].slice(0, 200),
+        }
+      }
+    }
+  }),
+
+  setInFrame: (cameraId, uc, count) => set(s => {
+    const prev = s.data[cameraId] || { detLog: [], inFrame: {}, seenVehicleIds: new Set(), seenPeopleIds: new Set() }
+    return {
+      data: {
+        ...s.data,
+        [cameraId]: {
+          ...prev,
+          inFrame: { ...prev.inFrame, [uc]: count }
+        }
+      }
+    }
+  }),
+
+  addSeenVehicleIds: (cameraId, ids) => set(s => {
+    const prev = s.data[cameraId] || { detLog: [], inFrame: {}, seenVehicleIds: new Set(), seenPeopleIds: new Set() }
+    const next = new Set(prev.seenVehicleIds)
+    ids.forEach(id => next.add(id))
+    return { data: { ...s.data, [cameraId]: { ...prev, seenVehicleIds: next } } }
+  }),
+
+  addSeenPeopleIds: (cameraId, ids) => set(s => {
+    const prev = s.data[cameraId] || { detLog: [], inFrame: {}, seenVehicleIds: new Set(), seenPeopleIds: new Set() }
+    const next = new Set(prev.seenPeopleIds)
+    ids.forEach(id => next.add(id))
+    return { data: { ...s.data, [cameraId]: { ...prev, seenPeopleIds: next } } }
+  }),
+}))
+
 // Dynamic user directory list helper
 const loadDynamicUsers = () => {
   try {
