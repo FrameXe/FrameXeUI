@@ -221,6 +221,11 @@ function createWindow() {
 
   // ── Open external links in default browser ────────────────
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    // Allow blank popups — used by PDF export (window.open('', '_blank') + document.write)
+    if (!url || url === 'about:blank') {
+      return { action: 'allow' }
+    }
+    // Send real http(s) links to the system browser
     if (url.startsWith('http') && !url.includes(`127.0.0.1:${RTSP_SERVER_PORT}`)) {
       shell.openExternal(url)
     }

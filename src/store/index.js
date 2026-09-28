@@ -104,7 +104,7 @@ const loadDynamicUsers = () => {
           return {
             ...u,
             allowedUsecases: u.username === 'admin'
-              ? ['people_count', 'traffic', 'intrusion', 'crowd_alert', 'vehicle_speed']
+              ? ['people_count', 'traffic', 'intrusion', 'crowd_alert', 'vehicle_speed', 'vehicle_detection']
               : ['people_count', 'intrusion', 'crowd_alert']
           }
         }
@@ -124,7 +124,7 @@ const loadDynamicUsers = () => {
       label: 'Super Admin',
       permissions: ['view_dashboard', 'view_cameras', 'view_reports', 'view_events', 'manage_cameras', 'manage_users'],
       allowedCameras: ['CAM-001', 'CAM-002', 'CAM-003', 'CAM-004', 'CAM-005'],
-      allowedUsecases: ['people_count', 'traffic', 'intrusion', 'crowd_alert', 'vehicle_speed'],
+      allowedUsecases: ['people_count', 'traffic', 'intrusion', 'crowd_alert', 'vehicle_speed', 'vehicle_detection'],
     },
     {
       username: 'operator',

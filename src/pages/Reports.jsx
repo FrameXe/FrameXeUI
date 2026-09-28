@@ -28,9 +28,11 @@ export default function Reports() {
   const [anprPageSize, setAnprPageSize]     = useState(25)
   const [lightboxItem, setLightboxItem]     = useState(null)
   const [toast, setToast]                   = useState(null) // { msg, type: 'info'|'success'|'error' }
+  const [exportBusy, setExportBusy]         = useState(false)
   const uc = UC_MAP[ucSel]
   const user = useAuthStore(s => s.user)
   const allowedUsecases = user?.allowedUsecases || []
+  const isVehicleDetection = ucSel === 'vehicle_detection' || ucSel === 'traffic'
 
   const CATEGORIES = [
     { id: 'all', label: '🌐 All Intelligence Suites' },
@@ -97,7 +99,7 @@ export default function Reports() {
     setToast({ msg: '⏳ Report generation in progress…', type: 'info' })
 
     try {
-      if (ucSel === 'vehicle_detection') {
+      if (isVehicleDetection) {
         // Call the existing vehicleDetectionAPI.list() — same function VehicleLog uses
         // No new endpoint needed, GET /api/vehicle-detections handles everything
         const res = await vehicleDetectionAPI.list({
@@ -307,91 +309,143 @@ export default function Reports() {
     URL.revokeObjectURL(url)
   }
 
-  // ── ANPR CSV export — same Blob pattern as exportCsv above ───────────
-  const exportAnprCsv = () => {
-    if (!anprDetections.length) return
-    const camName = cameras.find(c => c.id === camSel)?.name || camSel || 'All Cameras'
-    const header = [
-      'ANPR / Vehicle Detection Report',
-      `Camera,"${camName}"`,
-      `Period,"${startDtm} → ${endDtm}"`,
-      `Total Records,${anprTotal}`,
-      '',
-      'S.No.,Capture Time,Vehicle Type,Plate Status,Camera ID,Track ID,Direction,Object ID',
-    ]
-    const rows = anprDetections.map((d, i) => [
-      i + 1,
-      `"${new Date(d.timestamp).toLocaleString()}"`,
-      d.vehicleType || 'unknown',
-      `"${d.plateNumber || 'No Plate Detected'}"`,
-      `"${d.cameraId}"`,
-      d.trackId ?? '',
-      d.direction || '',
-      `"${d.id}"`,
-    ].join(','))
-    const blob = new Blob([[...header, ...rows].join('\n')], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `anpr_report_${camSel || 'all'}_${Date.now()}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+  // ── Helper: fetch ALL records across all pages for export ────
+  const fetchAllForExport = async () => {
+    if (anprTotal === 0) return anprDetections
+    // If we already have all records on screen, no need to re-fetch
+    if (anprDetections.length >= anprTotal) return anprDetections
+    const res = await vehicleDetectionAPI.list({
+      ...(camSel ? { camera_id: camSel } : {}),
+      start_time: new Date(startDtm).toISOString(),
+      end_time: new Date(endDtm).toISOString(),
+      page: 1,
+      page_size: anprTotal, // fetch everything in one shot
+    })
+    return res.detections || []
   }
 
-  // ── ANPR PDF export — same window.open + print pattern as exportPdf above ──
-  const exportAnprPdf = () => {
+  // ── ANPR CSV export — fetches ALL records ────────────────────
+  const exportAnprCsv = async () => {
     if (!anprDetections.length) return
-    const camName = cameras.find(c => c.id === camSel)?.name || camSel || 'All Cameras'
-    const rowsHtml = anprDetections.map((d, i) => `
-      <tr>
-        <td>${i + 1}</td>
-        <td>${new Date(d.timestamp).toLocaleString()}</td>
-        <td style="text-transform:capitalize">${d.vehicleType || 'unknown'}</td>
-        <td>${d.plateNumber || 'No Plate Detected'}</td>
-        <td style="font-size:10px">${d.cameraId}</td>
-        <td>#${d.trackId ?? 'N/A'}</td>
-        <td style="text-transform:capitalize">${d.direction || 'N/A'}</td>
-        <td style="font-size:10px;color:#64748b">…${d.id.slice(-8)}</td>
-      </tr>
-    `).join('')
-    const printWin = window.open('', '_blank')
-    if (!printWin) return
-    printWin.document.write(`<!DOCTYPE html><html><head>
-      <title>ANPR Report — ${camName}</title>
-      <style>
-        body{font-family:'Segoe UI',Arial,sans-serif;margin:35px;color:#0f172a;background:#fff}
-        .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #4f6df5;padding-bottom:14px;margin-bottom:24px}
-        .logo{font-size:18px;font-weight:800;color:#4f6df5}
-        .badge{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:4px 12px;border-radius:4px;font-size:11px;font-weight:700;text-transform:uppercase}
-        .meta{background:#f8fafc;border:1px solid #e2e8f0;padding:14px 18px;border-radius:8px;margin-bottom:24px;font-size:12px;display:flex;gap:32px}
-        .meta-item{display:flex;flex-direction:column}
-        .meta-label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px}
-        .meta-val{font-size:13px;font-weight:700;color:#0f172a;margin-top:2px}
-        table{width:100%;border-collapse:collapse;font-size:11px}
-        th{background:#f1f5f9;padding:10px 12px;text-align:left;font-size:10px;font-weight:700;color:#475569;border-bottom:2px solid #cbd5e1;text-transform:uppercase}
-        td{padding:9px 12px;border-bottom:1px solid #e2e8f0}
-        tr:nth-child(even){background:#f8fafc}
-        .footer{margin-top:40px;border-top:1px solid #e2e8f0;padding-top:14px;font-size:10px;color:#94a3b8;text-align:center}
-        @media print{body{margin:0}@page{margin:1.5cm}}
-      </style>
-    </head><body>
-      <div class="header">
-        <div class="logo">🎥 FRAME-X · ANPR VEHICLE DETECTION REPORT</div>
-        <div class="badge">OFFICIAL REPORT</div>
-      </div>
-      <div class="meta">
-        <div class="meta-item"><span class="meta-label">Camera</span><span class="meta-val">${camName}</span></div>
-        <div class="meta-item"><span class="meta-label">Period</span><span class="meta-val">${startDtm} → ${endDtm}</span></div>
-        <div class="meta-item"><span class="meta-label">Total Records</span><span class="meta-val">${anprTotal}</span></div>
-      </div>
-      <table>
-        <thead><tr><th>S.No.</th><th>Capture Time</th><th>Vehicle Type</th><th>Plate Status</th><th>Camera ID</th><th>Track ID</th><th>Direction</th><th>Object ID</th></tr></thead>
-        <tbody>${rowsHtml}</tbody>
-      </table>
-      <div class="footer">Confidential &amp; Proprietary • Generated by FrameX AI Video Analytics Engine • ${new Date().toLocaleString()}</div>
-      <script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script>
-    </body></html>`)
-    printWin.document.close()
+    setExportBusy(true)
+    setToast({ msg: '⏳ Preparing CSV export — fetching all records…', type: 'info' })
+    try {
+      const allRecords = await fetchAllForExport()
+      const camName = cameras.find(c => c.id === camSel)?.name || camSel || 'All Cameras'
+      const ucLabel = uc?.label
+      const header = [
+        `${ucLabel} Report`,
+        `Camera,"${camName}"`,
+        `Period,"${startDtm} → ${endDtm}"`,
+        `Total Records,${allRecords.length}`,
+        '',
+        'S.No.,Capture Time,Vehicle Type,Plate Status,Camera ID,Track ID,Direction,Object ID',
+      ]
+      const rows = allRecords.map((d, i) => [
+        i + 1,
+        `"${new Date(d.timestamp).toLocaleString()}"`,
+        d.vehicleType || 'unknown',
+        `"${d.plateNumber || 'No Plate Detected'}"`,
+        `"${d.cameraId}"`,
+        d.trackId ?? '',
+        d.direction || '',
+        `"${d.id}"`,
+      ].join(','))
+      const blob = new Blob([[...header, ...rows].join('\n')], { type: 'text/csv' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${ucSel}_report_${camSel || 'all'}_${Date.now()}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      setToast({ msg: `✅ CSV exported — ${allRecords.length} records`, type: 'success' })
+    } catch {
+      setToast({ msg: '❌ Export failed. Please try again.', type: 'error' })
+    } finally {
+      setExportBusy(false)
+    }
+  }
+
+  // ── ANPR PDF export — fetches ALL records, includes Full Frame image ──
+  const exportAnprPdf = async () => {
+    if (!anprDetections.length) return
+    setExportBusy(true)
+    setToast({ msg: '⏳ Preparing PDF export — fetching all records…', type: 'info' })
+    try {
+      const allRecords = await fetchAllForExport()
+      const camName = cameras.find(c => c.id === camSel)?.name || camSel || 'All Cameras'
+      const ucLabel = uc?.label || ucSel || 'Vehicle Detection Report'
+      const rowsHtml = allRecords.map((d, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${new Date(d.timestamp).toLocaleString()}</td>
+          <td style="padding:6px">
+            ${d.imageUrl
+              ? `<img src="${d.imageUrl}" style="width:90px;height:56px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0" />`
+              : '<span style="color:#94a3b8;font-size:10px">No frame</span>'}
+          </td>
+          <td style="padding:6px">
+            ${d.plateCropUrl
+              ? `<img src="${d.plateCropUrl}" style="width:80px;height:40px;object-fit:contain;border-radius:4px;border:1px solid #e2e8f0;background:#000" />`
+              : '<span style="color:#94a3b8;font-size:10px">No crop</span>'}
+          </td>
+          <td style="text-transform:capitalize">${d.vehicleType || 'unknown'}</td>
+          <td>${d.plateNumber || 'No Plate Detected'}</td>
+          <td style="font-size:10px">${d.cameraId}</td>
+          <td>#${d.trackId ?? 'N/A'}</td>
+          <td style="text-transform:capitalize">${d.direction || 'N/A'}</td>
+          <td style="font-size:10px;color:#64748b">…${d.id.slice(-8)}</td>
+        </tr>
+      `).join('')
+      const printWin = window.open('', '_blank')
+      if (!printWin) return
+      const html = `<!DOCTYPE html><html><head>
+        <title>${ucLabel} Report — ${camName}</title>
+        <style>
+          body{font-family:'Segoe UI',Arial,sans-serif;margin:35px;color:#0f172a;background:#fff}
+          .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #4f6df5;padding-bottom:14px;margin-bottom:24px}
+          .logo{font-size:18px;font-weight:800;color:#4f6df5}
+          .badge{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:4px 12px;border-radius:4px;font-size:11px;font-weight:700;text-transform:uppercase}
+          .meta{background:#f8fafc;border:1px solid #e2e8f0;padding:14px 18px;border-radius:8px;margin-bottom:24px;font-size:12px;display:flex;gap:32px}
+          .meta-item{display:flex;flex-direction:column}
+          .meta-label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px}
+          .meta-val{font-size:13px;font-weight:700;color:#0f172a;margin-top:2px}
+          table{width:100%;border-collapse:collapse;font-size:11px}
+          th{background:#f1f5f9;padding:10px 12px;text-align:left;font-size:10px;font-weight:700;color:#475569;border-bottom:2px solid #cbd5e1;text-transform:uppercase;white-space:nowrap}
+          td{padding:9px 12px;border-bottom:1px solid #e2e8f0;vertical-align:middle}
+          tr:nth-child(even){background:#f8fafc}
+          .footer{margin-top:40px;border-top:1px solid #e2e8f0;padding-top:14px;font-size:10px;color:#94a3b8;text-align:center}
+          @media print{body{margin:0}@page{margin:1.5cm;size:A4 landscape}}
+        </style>
+      </head><body>
+        <div class="header">
+          <div class="logo">🎥 FRAME-X · ${ucLabel.toUpperCase()} REPORT</div>
+          <div class="badge">OFFICIAL REPORT</div>
+        </div>
+        <div class="meta">
+          <div class="meta-item"><span class="meta-label">Camera</span><span class="meta-val">${camName}</span></div>
+          <div class="meta-item"><span class="meta-label">Period</span><span class="meta-val">${startDtm} → ${endDtm}</span></div>
+          <div class="meta-item"><span class="meta-label">Total Records</span><span class="meta-val">${allRecords.length}</span></div>
+        </div>
+        <table>
+          <thead><tr>
+            <th>S.No.</th><th>Capture Time</th><th>Full Frame</th><th>Plate Crop</th>
+            <th>Vehicle Type</th><th>Plate Status</th><th>Camera ID</th>
+            <th>Track ID</th><th>Direction</th><th>Object ID</th>
+          </tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+        <div class="footer">Confidential &amp; Proprietary • Generated by FrameX AI Video Analytics Engine • ${new Date().toLocaleString()}</div>
+        <script>window.onload = function() { setTimeout(function() { window.print(); }, 800); }<\/script>
+      </body></html>`
+      printWin.document.write(html)
+      printWin.document.close()
+      setToast({ msg: `✅ PDF ready — ${allRecords.length} records`, type: 'success' })
+    } catch {
+      setToast({ msg: '❌ PDF export failed. Please try again.', type: 'error' })
+    } finally {
+      setExportBusy(false)
+    }
   }
 
   // Build 24-hour timeline grid (00:00 to 23:00) so bars render at exact hourly slots
@@ -501,26 +555,30 @@ export default function Reports() {
         {ran && (data || anprDetections.length > 0) && (
           <div style={{ display: 'flex', gap: 10 }}>
             <button
-              onClick={ucSel === 'vehicle_detection' ? exportAnprPdf : exportPdf}
+              onClick={isVehicleDetection ? exportAnprPdf : exportPdf}
+              disabled={exportBusy}
               style={{
-                background: 'var(--accent-bg)', border: '1px solid var(--border)', color: 'var(--accent)',
+                background: exportBusy ? 'var(--surface-2)' : 'var(--accent-bg)',
+                border: '1px solid var(--border)', color: exportBusy ? 'var(--text-3)' : 'var(--accent)',
                 padding: '9px 18px', fontSize: 12, fontWeight: 600,
                 borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 6,
-                cursor: 'pointer', boxShadow: 'var(--shadow-sm)',
+                cursor: exportBusy ? 'not-allowed' : 'pointer', boxShadow: 'var(--shadow-sm)',
               }}
             >
-              <FileText size={13} /> Export PDF
+              <FileText size={13} /> {exportBusy ? 'Preparing…' : 'Export PDF'}
             </button>
             <button
-              onClick={ucSel === 'vehicle_detection' ? exportAnprCsv : exportCsv}
+              onClick={isVehicleDetection ? exportAnprCsv : exportCsv}
+              disabled={exportBusy}
               style={{
-                background: 'var(--green-bg)', border: '1px solid var(--border)', color: 'var(--green)',
+                background: exportBusy ? 'var(--surface-2)' : 'var(--green-bg)',
+                border: '1px solid var(--border)', color: exportBusy ? 'var(--text-3)' : 'var(--green)',
                 padding: '9px 18px', fontSize: 12, fontWeight: 600,
                 borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 6,
-                cursor: 'pointer',
+                cursor: exportBusy ? 'not-allowed' : 'pointer',
               }}
             >
-              <Download size={13} /> Export CSV
+              <Download size={13} /> {exportBusy ? 'Preparing…' : 'Export CSV'}
             </button>
           </div>
         )}
@@ -529,7 +587,7 @@ export default function Reports() {
       {busy && <Loading msg="Generating report…" />}
 
       {/* Results */}
-      {ran && !busy && data && (
+      {ran && !busy && !isVehicleDetection && data && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
           {/* Summary cards */}
@@ -647,7 +705,7 @@ export default function Reports() {
       )}
 
       {/* ── ANPR / Vehicle Detection table ──────────────────────────────── */}
-      {ucSel === 'vehicle_detection' && ran && !busy && anprDetections.length > 0 && (
+      {isVehicleDetection && ran && !busy && anprDetections.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
           {/* Summary strip + page-size selector */}
@@ -863,6 +921,16 @@ export default function Reports() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {isVehicleDetection && ran && !busy && anprDetections.length === 0 && (
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 'var(--radius)', padding: '48px 24px', textAlign: 'center',
+          color: 'var(--text-3)', fontSize: 13, fontWeight: 600, boxShadow: 'var(--shadow)',
+        }}>
+          🚗 No vehicle detection records found for the selected camera and period.
         </div>
       )}
 
