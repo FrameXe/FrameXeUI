@@ -375,109 +375,112 @@ export default function Reports() {
     })
   }
 
-  // ── Helper: fetch ALL records in safe chunks — NEVER fails entirely ──────
-  //   • Fetches CHUNK_SIZE records per request (safe for any backend TTL)
-  //   • Retries each chunk MAX_RETRIES times with exponential backoff
-  //   • If a chunk still fails after all retries → skip it, keep going
-  //   • Returns { records, isPartial, fetched, total }
-  //     isPartial = true means some chunks couldn't be fetched (TTL/network)
-  //     but the user still gets ALL data that was successfully fetched
-  const CHUNK_SIZE = 200    // records per request
-  const MAX_RETRIES = 3     // retries per chunk
-  const RETRY_BASE_MS = 800 // base backoff: 800ms → 1.6s → 3.2s
+  // ── Helper: fetch ALL records in safe chunks — keeps retrying until done ──
+  //   • 200 records per request → each request stays well under backend TTL
+  //   • Unlimited retries per chunk with capped exponential backoff (max 10s)
+  //   • Global TTL: 10 minutes — if not done in time, throws with clear message
+  //   • Only aborts early on 4xx client errors (bad request / auth)
+  const CHUNK_SIZE     = 200        // records per request
+  const RETRY_BASE_MS  = 1000      // base backoff: 1s → 2s → 4s → max 10s
+  const MAX_BACKOFF_MS = 10000     // cap: never wait more than 10s between retries
+  const GLOBAL_TTL_MS  = 10 * 60 * 1000  // 10 minutes total export timeout
 
   const fetchAllForExport = async (onProgress) => {
-    if (anprTotal === 0) return { records: anprDetections, isPartial: false, fetched: anprDetections.length, total: anprDetections.length }
+    if (!anprTotal) return anprDetections
 
-    const totalPages = Math.ceil(anprTotal / CHUNK_SIZE)
-    const allRecords = []
-    let skippedChunks = 0
+    const totalPages  = Math.ceil(anprTotal / CHUNK_SIZE)
+    const allRecords  = []
+    const exportStart = Date.now()
+
+    const elapsed = () => {
+      const s = Math.floor((Date.now() - exportStart) / 1000)
+      return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`
+    }
+
+    const remaining = () => {
+      const s = Math.max(0, Math.floor((GLOBAL_TTL_MS - (Date.now() - exportStart)) / 1000))
+      return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`
+    }
 
     for (let page = 1; page <= totalPages; page++) {
       let attempt = 0
-      let chunkFetched = false
+      let chunkDone = false
 
-      while (attempt < MAX_RETRIES && !chunkFetched) {
+      while (!chunkDone) {
+        // ── Global 10-min TTL check ──────────────────────────────────────
+        if (Date.now() - exportStart > GLOBAL_TTL_MS) {
+          throw new Error(
+            `Export timed out after 10 minutes. Fetched ${allRecords.length} of ${anprTotal} records. ` +
+            `Try a shorter date range or fewer records.`
+          )
+        }
+
         try {
           if (attempt > 0) {
-            // Exponential backoff before retry
-            await new Promise(r => setTimeout(r, RETRY_BASE_MS * Math.pow(2, attempt - 1)))
+            const waitMs = Math.min(RETRY_BASE_MS * Math.pow(2, attempt - 1), MAX_BACKOFF_MS)
             onProgress && onProgress(
               allRecords.length, anprTotal, page, totalPages,
-              `Retrying chunk ${page} (attempt ${attempt + 1}/${MAX_RETRIES})…`
+              `Server busy — retrying chunk ${page} (attempt ${attempt + 1}, elapsed ${elapsed()}, ${remaining()} left)`
             )
+            await new Promise(r => setTimeout(r, waitMs))
           }
 
           const res = await vehicleDetectionAPI.list({
             ...(camSel ? { camera_id: camSel } : {}),
             start_time: new Date(startDtm).toISOString(),
-            end_time: new Date(endDtm).toISOString(),
+            end_time:   new Date(endDtm).toISOString(),
             page,
             page_size: CHUNK_SIZE,
           })
 
           allRecords.push(...(res.detections || []))
-          chunkFetched = true
+          chunkDone = true
+          attempt   = 0
 
           onProgress && onProgress(allRecords.length, anprTotal, page, totalPages, null)
-        } catch {
+        } catch (err) {
+          // Re-throw timeout errors immediately
+          if (err.message?.includes('Export timed out')) throw err
+          // Re-throw definitive 4xx errors — retrying won't help
+          const status = err?.response?.status || err?.status
+          if (status >= 400 && status < 500) throw err
           attempt++
         }
-      }
-
-      if (!chunkFetched) {
-        // All retries exhausted for this chunk — skip it, keep going
-        skippedChunks++
-        onProgress && onProgress(
-          allRecords.length, anprTotal, page, totalPages,
-          `⚠️ Chunk ${page} skipped (timeout) — continuing…`
-        )
       }
 
       if (allRecords.length >= anprTotal) break
     }
 
-    return {
-      records: allRecords,
-      isPartial: skippedChunks > 0,
-      fetched: allRecords.length,
-      total: anprTotal,
-    }
+    return allRecords
   }
 
 
-  // ── ANPR CSV export — always downloads, even if partial ──────────────────
+  // ── ANPR CSV export ── only downloads when ALL records are fetched ────────
   const exportAnprCsv = async () => {
     if (!anprDetections.length) return
     const ucLabel = uc?.label || ucSel
-    const camName = cameras.find(c => c.id === camSel)?.name || camSel || 'All Cameras'
+    const camName  = cameras.find(c => c.id === camSel)?.name || camSel || 'All Cameras'
     setExportBusy(true)
     setToast({
-      msg: `⏳ Generating CSV — Fetching All ${anprTotal} Records`,
+      msg: `⏳ Preparing CSV — Fetching All ${anprTotal} Records`,
       sub: `${ucLabel} · ${camName} · ${new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`,
       type: 'info'
     })
     try {
-      const { records: allRecords, isPartial, fetched, total } = await fetchAllForExport(
-        (fetchedSoFar, tot, chunk, totalChunks, statusMsg) => {
-          setToast({
-            msg: statusMsg
-              ? `⚠️ ${statusMsg}`
-              : `⏳ Fetching Records… ${fetchedSoFar} / ${tot}`,
-            sub: `Chunk ${chunk} of ${totalChunks} · ${ucLabel} · ${camName}`,
-            type: 'info'
-          })
-        }
-      )
+      const allRecords = await fetchAllForExport((fetched, total, chunk, totalChunks, retryMsg) => {
+        setToast({
+          msg: retryMsg ? `🔄 ${retryMsg}` : `⏳ Fetching Records… ${fetched} / ${total}`,
+          sub: `Chunk ${chunk} of ${totalChunks} · ${ucLabel} · ${camName}`,
+          type: 'info'
+        })
+      })
 
-      const partialNote = isPartial ? `PARTIAL EXPORT — ${fetched} of ${total} records (some chunks timed out),` : ''
+      // ── Build CSV ──
       const header = [
-        isPartial ? `⚠️ PARTIAL EXPORT: ${fetched} of ${total} records fetched (some chunks timed out)` : `${ucLabel} Report`,
+        `${ucLabel} Report`,
         `Camera,"${camName}"`,
         `Period,"${startDtm} → ${endDtm}"`,
-        `Records Fetched,${fetched}`,
-        `Total Expected,${total}`,
-        isPartial ? `Status,"PARTIAL — some records missing due to server timeout"` : `Status,"COMPLETE"`,
+        `Total Records,${allRecords.length}`,
         `Generated At,"${new Date().toLocaleString()}"`,
         '',
         'S.No.,Capture Time,Vehicle Type,Plate Number,Camera ID,Track ID,Direction,Object ID',
@@ -492,56 +495,53 @@ export default function Reports() {
         d.direction || '',
         `"${d.id}"`,
       ].join(','))
+
       const blob = new Blob([[...header, ...rows].join('\n')], { type: 'text/csv' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = isPartial ? buildFilename('csv').replace('.csv', '_PARTIAL.csv') : buildFilename('csv')
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = buildFilename('csv')
       a.click()
       URL.revokeObjectURL(url)
-      setToast(
-        isPartial
-          ? {
-              msg: `⚠️ Partial CSV Downloaded — ${fetched} of ${total} Records`,
-              sub: `Some chunks timed out. Re-run with a shorter date range for complete data.`,
-              type: 'error',
-            }
-          : {
-              msg: `✅ CSV Downloaded — ${fetched} Records (Complete)`,
-              sub: `${ucLabel} · ${camName}`,
-              type: 'success',
-            }
-      )
+
+      setToast({
+        msg: `✅ CSV Downloaded — ${allRecords.length} Records`,
+        sub: `${ucLabel} · ${camName}`,
+        type: 'success'
+      })
     } catch (err) {
-      setToast({ msg: '❌ CSV export failed entirely. Please try again.', sub: null, type: 'error' })
+      const isTimeout = err?.message?.includes('Export timed out')
+      setToast({
+        msg: isTimeout ? '⏱️ Export Timed Out — 10 min limit reached' : '❌ Export Failed — Please try again.',
+        sub: isTimeout ? 'Try a shorter date range or split into multiple exports.' : null,
+        type: 'error'
+      })
     } finally {
       setExportBusy(false)
     }
   }
 
-  // ── ANPR PDF export — always downloads, even if partial ──────────────────
+  // ── ANPR PDF export ── only opens when ALL records are fetched ────────────
   const exportAnprPdf = async () => {
     if (!anprDetections.length) return
     const ucLabel = uc?.label || ucSel || 'Vehicle Detection Report'
-    const camName = cameras.find(c => c.id === camSel)?.name || camSel || 'All Cameras'
+    const camName  = cameras.find(c => c.id === camSel)?.name || camSel || 'All Cameras'
     setExportBusy(true)
     setToast({
-      msg: `⏳ Generating PDF — Fetching All ${anprTotal} Records`,
+      msg: `⏳ Preparing PDF — Fetching All ${anprTotal} Records`,
       sub: `${ucLabel} · ${camName} · ${new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`,
       type: 'info'
     })
     try {
-      const { records: allRecords, isPartial, fetched, total } = await fetchAllForExport(
-        (fetchedSoFar, tot, chunk, totalChunks, statusMsg) => {
-          setToast({
-            msg: statusMsg
-              ? `⚠️ ${statusMsg}`
-              : `⏳ Fetching Records… ${fetchedSoFar} / ${tot}`,
-            sub: `Chunk ${chunk} of ${totalChunks} · ${ucLabel} · ${camName}`,
-            type: 'info'
-          })
-        }
-      )
+      const allRecords = await fetchAllForExport((fetched, total, chunk, totalChunks, retryMsg) => {
+        setToast({
+          msg: retryMsg ? `🔄 ${retryMsg}` : `⏳ Fetching Records… ${fetched} / ${total}`,
+          sub: `Chunk ${chunk} of ${totalChunks} · ${ucLabel} · ${camName}`,
+          type: 'info'
+        })
+      })
+
+      // ── Build HTML table rows ──
       const rowsHtml = allRecords.map((d, i) => `
         <tr>
           <td style="color:#64748b;font-size:10px">${i + 1}</td>
@@ -564,29 +564,26 @@ export default function Reports() {
           <td style="font-size:10px;color:#94a3b8;font-family:monospace">…${d.id.slice(-8)}</td>
         </tr>
       `).join('')
+
       const printWin = window.open('', '_blank')
       if (!printWin) {
         setToast({ msg: '❌ Popup blocked. Please allow popups and retry.', sub: null, type: 'error' })
         setExportBusy(false)
         return
       }
-      const partialBanner = isPartial ? `
-        <div style="background:#fefce8;border:1px solid #fbbf24;border-left:4px solid #f59e0b;padding:12px 18px;border-radius:8px;margin-bottom:20px;font-size:12px;color:#92400e">
-          <strong>⚠️ PARTIAL EXPORT</strong> — ${fetched} of ${total} records fetched.
-          Some chunks could not be retrieved due to server timeout. Re-run with a shorter date range for complete data.
-        </div>` : ''
+
       const html = `<!DOCTYPE html><html><head>
-        <title>${isPartial ? '[PARTIAL] ' : ''}${ucLabel} Report — ${camName}</title>
+        <title>${ucLabel} Report — ${camName}</title>
         <style>
           body{font-family:'Segoe UI',Arial,sans-serif;margin:35px;color:#0f172a;background:#fff}
-          .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid ${isPartial ? '#f59e0b' : '#4f6df5'};padding-bottom:14px;margin-bottom:24px}
-          .logo{font-size:18px;font-weight:800;color:${isPartial ? '#f59e0b' : '#4f6df5'}}
-          .badge{background:${isPartial ? '#fef3c7' : '#eff6ff'};color:${isPartial ? '#92400e' : '#1d4ed8'};border:1px solid ${isPartial ? '#fbbf24' : '#bfdbfe'};padding:4px 12px;border-radius:4px;font-size:11px;font-weight:700;text-transform:uppercase}
+          .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #4f6df5;padding-bottom:14px;margin-bottom:24px}
+          .logo{font-size:18px;font-weight:800;color:#4f6df5}
+          .badge{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:4px 12px;border-radius:4px;font-size:11px;font-weight:700;text-transform:uppercase}
           .meta{background:#f8fafc;border:1px solid #e2e8f0;padding:14px 18px;border-radius:8px;margin-bottom:24px;font-size:12px;display:flex;flex-wrap:wrap;gap:24px}
           .meta-item{display:flex;flex-direction:column}
           .meta-label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px}
           .meta-val{font-size:13px;font-weight:700;color:#0f172a;margin-top:2px}
-          .section-title{font-size:14px;font-weight:800;margin:0 0 14px;color:#0f172a;border-left:4px solid ${isPartial ? '#f59e0b' : '#4f6df5'};padding-left:10px}
+          .section-title{font-size:14px;font-weight:800;margin:0 0 14px;color:#0f172a;border-left:4px solid #4f6df5;padding-left:10px}
           table{width:100%;border-collapse:collapse;font-size:11px}
           th{background:#f1f5f9;padding:10px 12px;text-align:left;font-size:10px;font-weight:700;color:#475569;border-bottom:2px solid #cbd5e1;text-transform:uppercase;white-space:nowrap}
           td{padding:9px 12px;border-bottom:1px solid #e2e8f0;vertical-align:middle}
@@ -602,17 +599,15 @@ export default function Reports() {
       </head><body>
         <div class="header">
           <div class="logo">🎥 FRAME-X · ${ucLabel.toUpperCase()} REPORT</div>
-          <div class="badge">${isPartial ? '⚠️ PARTIAL EXPORT' : 'OFFICIAL REPORT'}</div>
+          <div class="badge">OFFICIAL REPORT</div>
         </div>
-        ${partialBanner}
         <div class="meta">
           <div class="meta-item"><span class="meta-label">Camera</span><span class="meta-val">${camName}</span></div>
           <div class="meta-item"><span class="meta-label">Period</span><span class="meta-val">${startDtm} → ${endDtm}</span></div>
-          <div class="meta-item"><span class="meta-label">Records Fetched</span><span class="meta-val">${fetched} ${isPartial ? `of ${total}` : ''}</span></div>
-          <div class="meta-item"><span class="meta-label">Status</span><span class="meta-val" style="color:${isPartial ? '#f59e0b' : '#16a34a'}">${isPartial ? 'PARTIAL' : 'COMPLETE'}</span></div>
+          <div class="meta-item"><span class="meta-label">Total Records</span><span class="meta-val">${allRecords.length}</span></div>
           <div class="meta-item"><span class="meta-label">Generated At</span><span class="meta-val">${new Date().toLocaleString()}</span></div>
         </div>
-        <div class="section-title">${isPartial ? 'Partial' : 'Complete'} Detection Log — ${fetched} Records</div>
+        <div class="section-title">Complete Detection Log — ${allRecords.length} Records</div>
         <table>
           <thead><tr>
             <th>#</th><th>Capture Time</th><th>Full Frame</th><th>Plate Crop</th>
@@ -621,26 +616,25 @@ export default function Reports() {
           </tr></thead>
           <tbody>${rowsHtml}</tbody>
         </table>
-        <div class="footer">Confidential &amp; Proprietary • Generated by FrameX AI Video Analytics Engine • ${new Date().toLocaleString()}${isPartial ? ' • ⚠️ PARTIAL — ' + fetched + ' of ' + total + ' records' : ''}</div>
+        <div class="footer">Confidential &amp; Proprietary • Generated by FrameX AI Video Analytics Engine • ${new Date().toLocaleString()}</div>
         <script>window.onload = function() { setTimeout(function() { window.print(); }, 1200); }<\/script>
       </body></html>`
+
       printWin.document.write(html)
       printWin.document.close()
-      setToast(
-        isPartial
-          ? {
-              msg: `⚠️ Partial PDF Ready — ${fetched} of ${total} Records`,
-              sub: `Some chunks timed out. Re-run with shorter date range for complete data.`,
-              type: 'error',
-            }
-          : {
-              msg: `✅ PDF Ready — ${fetched} Records with Images (Complete)`,
-              sub: `${ucLabel} · ${camName}`,
-              type: 'success',
-            }
-      )
+
+      setToast({
+        msg: `✅ PDF Ready — ${allRecords.length} Records with Images`,
+        sub: `${ucLabel} · ${camName}`,
+        type: 'success'
+      })
     } catch (err) {
-      setToast({ msg: '❌ PDF export failed entirely. Please try again.', sub: null, type: 'error' })
+      const isTimeout = err?.message?.includes('Export timed out')
+      setToast({
+        msg: isTimeout ? '⏱️ Export Timed Out — 10 min limit reached' : '❌ Export Failed — Please try again.',
+        sub: isTimeout ? 'Try a shorter date range or split into multiple exports.' : null,
+        type: 'error'
+      })
     } finally {
       setExportBusy(false)
     }
