@@ -27,7 +27,7 @@ export default function Reports() {
   const [anprPage, setAnprPage]             = useState(1)
   const [anprPageSize, setAnprPageSize]     = useState(25)
   const [lightboxItem, setLightboxItem]     = useState(null)
-  const [toast, setToast]                   = useState(null) // { msg, type: 'info'|'success'|'error' }
+  const [toast, setToast]                   = useState(null) // { msg, sub, type: 'info'|'success'|'error' }
   const [exportBusy, setExportBusy]         = useState(false)
   const uc = UC_MAP[ucSel]
   const user = useAuthStore(s => s.user)
@@ -83,20 +83,42 @@ export default function Reports() {
     }
   }, [categorySel, allowedUsecases])
 
-  // Auto-dismiss success/error toasts after 4s
+  // Auto-dismiss success/error toasts after 5s; info stays until cleared
   useEffect(() => {
-    if (toast?.type !== 'info') {
-      const t = setTimeout(() => setToast(null), 4000)
+    if (toast && toast.type !== 'info') {
+      const t = setTimeout(() => setToast(null), 5000)
       return () => clearTimeout(t)
     }
   }, [toast])
 
+  // Helper: build a smart filename like "Vehicle_Detection_2026-09-29_01-00"
+  const buildFilename = (ext) => {
+    const ucLabel = (uc?.label || ucSel || 'report').replace(/[^a-zA-Z0-9]/g, '_')
+    const now = new Date()
+    const datePart = now.toISOString().slice(0, 10)
+    const timePart = now.toTimeString().slice(0, 5).replace(':', '-')
+    return `${ucLabel}_${datePart}_${timePart}.${ext}`
+  }
+
+  // Helper: format start/end nicely for toast subtitle
+  const fmtRange = () => {
+    const s = new Date(startDtm).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+    const e = new Date(endDtm).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+    return `${s} → ${e}`
+  }
+
   const generate = async () => {
+    const ucLabel = uc?.label || ucSel || 'Report'
+    const camName = cameras.find(c => c.id === camSel)?.name || (camSel ? camSel : 'All Cameras')
     setBusy(true)
     setRan(false)
     setData(null)
     setAnprDetections([])
-    setToast({ msg: '⏳ Report generation in progress…', type: 'info' })
+    setToast({
+      msg: '⏳ Generating Report — Please Wait',
+      sub: `${ucLabel} · ${camName} · ${fmtRange()}`,
+      type: 'info'
+    })
 
     try {
       if (isVehicleDetection) {
@@ -112,7 +134,11 @@ export default function Reports() {
         setAnprDetections(res.detections || [])
         setAnprTotal(res.total || 0)
         setRan(true)
-        setToast({ msg: `✅ Report ready — ${res.total} records found`, type: 'success' })
+        setToast({
+          msg: `✅ Report Ready — ${res.total} Records Found`,
+          sub: `${ucLabel} · ${camName} · ${fmtRange()}`,
+          type: 'success'
+        })
       } else {
         const d = await reportAPI.get({
           ...(camSel ? { camera_id: camSel } : {}),
@@ -122,10 +148,14 @@ export default function Reports() {
         })
         setData(d)
         setRan(true)
-        setToast({ msg: '✅ Report ready', type: 'success' })
+        setToast({
+          msg: `✅ Report Ready — ${d.summary?.total_count ?? 0} Records`,
+          sub: `${ucLabel} · ${camName} · ${fmtRange()}`,
+          type: 'success'
+        })
       }
     } catch (err) {
-      setToast({ msg: '❌ Report generation failed. Please try again.', type: 'error' })
+      setToast({ msg: '❌ Report generation failed. Please try again.', sub: null, type: 'error' })
     } finally {
       setBusy(false)
     }
@@ -162,12 +192,24 @@ export default function Reports() {
     const peakHour = data.summary?.peak_hour || 'N/A'
     const avgHour = data.summary?.avg_per_hour ?? data.summary?.average_per_hour ?? (totalCount ? (totalCount / 24).toFixed(2) : 0)
 
+    setToast({
+      msg: '⏳ Generating PDF — Please Wait',
+      sub: `${ucLabel} · ${camName} · ${new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`,
+      type: 'info'
+    })
+
     const printWin = window.open('', '_blank')
-    if (!printWin) return
+    if (!printWin) {
+      setToast({ msg: '❌ Popup blocked. Please allow popups and retry.', sub: null, type: 'error' })
+      return
+    }
 
     const hasInOut = data.summary?.total_in !== null && data.summary?.total_in !== undefined
     const totalIn = data.summary?.total_in ?? 0
     const totalOut = data.summary?.total_out ?? 0
+
+    // Use ALL timeline rows from API (not just fullTimeline 24-hour grid)
+    const allRows = data.timeline || []
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -210,6 +252,8 @@ export default function Reports() {
           <div class="meta-item"><span class="meta-label">Intelligence Suite</span><span class="meta-val">${ucLabel}</span></div>
           <div class="meta-item"><span class="meta-label">Start Time</span><span class="meta-val">${startDtm}</span></div>
           <div class="meta-item"><span class="meta-label">End Time</span><span class="meta-val">${endDtm}</span></div>
+          <div class="meta-item"><span class="meta-label">Total Records</span><span class="meta-val">${allRows.length}</span></div>
+          <div class="meta-item"><span class="meta-label">Generated At</span><span class="meta-val">${new Date().toLocaleString()}</span></div>
         </div>
 
         <div class="cards">
@@ -237,20 +281,22 @@ export default function Reports() {
           </div>
         </div>
 
-        <div class="section-title">Hourly Timeline Breakdown</div>
+        <div class="section-title">Complete Timeline Breakdown (${allRows.length} records)</div>
         <table>
           <thead>
             <tr>
-              <th>Hour (Time)</th>
+              <th>#</th>
+              <th>Time / Period</th>
               ${hasInOut ? '<th>IN Count</th><th>OUT Count</th>' : ''}
               <th>Total Detections</th>
             </tr>
           </thead>
           <tbody>
-            ${fullTimeline.map(t => `
+            ${allRows.map((t, idx) => `
               <tr>
-                <td><strong>${t.time}</strong></td>
-                ${hasInOut ? `<td>${t.count_in ?? '-'}</td><td>${t.count_out ?? '-'}</td>` : ''}
+                <td style="color:#94a3b8;font-size:10px">${idx + 1}</td>
+                <td><strong>${t.time || t.hour || ''}</strong></td>
+                ${hasInOut ? `<td style="color:#16a34a;font-weight:700">${t.count_in ?? '-'}</td><td style="color:#9333ea;font-weight:700">${t.count_out ?? '-'}</td>` : ''}
                 <td><strong>${t.count}</strong></td>
               </tr>
             `).join('')}
@@ -258,20 +304,25 @@ export default function Reports() {
         </table>
 
         <div class="footer">
-          Confidential & Proprietary Document • Generated by FrameX AI Video Analytics Engine • ${new Date().toLocaleString()}
+          Confidential &amp; Proprietary Document • Generated by FrameX AI Video Analytics Engine • ${new Date().toLocaleString()}
         </div>
 
         <script>
           window.onload = function() {
             setTimeout(function() { window.print(); }, 300);
           };
-        </script>
+        <\/script>
       </body>
       </html>
     `
 
     printWin.document.write(htmlContent)
     printWin.document.close()
+    setToast({
+      msg: `✅ PDF Ready — ${allRows.length} Records`,
+      sub: `${ucLabel} · ${camName}`,
+      type: 'success'
+    })
   }
 
   const exportCsv = () => {
@@ -279,6 +330,14 @@ export default function Reports() {
     const camName = cameras.find(c => c.id === camSel)?.name || camSel || 'All Cameras'
     const ucLabel = uc?.label || ucSel
     const hasInOut = data.summary?.total_in !== null && data.summary?.total_in !== undefined
+
+    setToast({
+      msg: '⏳ Generating CSV — Please Wait',
+      sub: `${ucLabel} · ${camName} · ${new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`,
+      type: 'info'
+    })
+
+    const allRows = data.timeline // all rows from API, no pagination limit
     const headerLines = [
       'Report Summary',
       `Camera,"${camName}"`,
@@ -292,54 +351,136 @@ export default function Reports() {
       ] : []),
       `Peak Hour,"${data.summary?.peak_hour ?? 'N/A'}"`,
       `Avg / Hour,${data.summary?.average_per_hour ?? 0}`,
+      `Total Records,${allRows.length}`,
+      `Generated At,"${new Date().toLocaleString()}"`,
       '',
-      hasInOut ? 'Time,IN,OUT,Total' : 'Time,Count'
+      hasInOut ? '#,Time,IN,OUT,Total' : '#,Time,Count'
     ]
-    const rows = data.timeline.map(t => 
-      hasInOut 
-        ? `${t.time},${t.count_in ?? 0},${t.count_out ?? 0},${t.count}`
-        : `${t.time},${t.count}`
+    const rows = allRows.map((t, i) =>
+      hasInOut
+        ? `${i + 1},${t.time || t.hour || ''},${t.count_in ?? 0},${t.count_out ?? 0},${t.count}`
+        : `${i + 1},${t.time || t.hour || ''},${t.count}`
     )
     const blob = new Blob([[...headerLines, ...rows].join('\n')], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `report_${ucSel}_${camSel || 'all'}_${Date.now()}.csv`
+    a.download = buildFilename('csv')
     a.click()
     URL.revokeObjectURL(url)
-  }
-
-  // ── Helper: fetch ALL records across all pages for export ────
-  const fetchAllForExport = async () => {
-    if (anprTotal === 0) return anprDetections
-    // If we already have all records on screen, no need to re-fetch
-    if (anprDetections.length >= anprTotal) return anprDetections
-    const res = await vehicleDetectionAPI.list({
-      ...(camSel ? { camera_id: camSel } : {}),
-      start_time: new Date(startDtm).toISOString(),
-      end_time: new Date(endDtm).toISOString(),
-      page: 1,
-      page_size: anprTotal, // fetch everything in one shot
+    setToast({
+      msg: `✅ CSV Downloaded — ${allRows.length} Records`,
+      sub: `${ucLabel} · ${camName}`,
+      type: 'success'
     })
-    return res.detections || []
   }
 
-  // ── ANPR CSV export — fetches ALL records ────────────────────
+  // ── Helper: fetch ALL records in safe chunks — NEVER fails entirely ──────
+  //   • Fetches CHUNK_SIZE records per request (safe for any backend TTL)
+  //   • Retries each chunk MAX_RETRIES times with exponential backoff
+  //   • If a chunk still fails after all retries → skip it, keep going
+  //   • Returns { records, isPartial, fetched, total }
+  //     isPartial = true means some chunks couldn't be fetched (TTL/network)
+  //     but the user still gets ALL data that was successfully fetched
+  const CHUNK_SIZE = 200    // records per request
+  const MAX_RETRIES = 3     // retries per chunk
+  const RETRY_BASE_MS = 800 // base backoff: 800ms → 1.6s → 3.2s
+
+  const fetchAllForExport = async (onProgress) => {
+    if (anprTotal === 0) return { records: anprDetections, isPartial: false, fetched: anprDetections.length, total: anprDetections.length }
+
+    const totalPages = Math.ceil(anprTotal / CHUNK_SIZE)
+    const allRecords = []
+    let skippedChunks = 0
+
+    for (let page = 1; page <= totalPages; page++) {
+      let attempt = 0
+      let chunkFetched = false
+
+      while (attempt < MAX_RETRIES && !chunkFetched) {
+        try {
+          if (attempt > 0) {
+            // Exponential backoff before retry
+            await new Promise(r => setTimeout(r, RETRY_BASE_MS * Math.pow(2, attempt - 1)))
+            onProgress && onProgress(
+              allRecords.length, anprTotal, page, totalPages,
+              `Retrying chunk ${page} (attempt ${attempt + 1}/${MAX_RETRIES})…`
+            )
+          }
+
+          const res = await vehicleDetectionAPI.list({
+            ...(camSel ? { camera_id: camSel } : {}),
+            start_time: new Date(startDtm).toISOString(),
+            end_time: new Date(endDtm).toISOString(),
+            page,
+            page_size: CHUNK_SIZE,
+          })
+
+          allRecords.push(...(res.detections || []))
+          chunkFetched = true
+
+          onProgress && onProgress(allRecords.length, anprTotal, page, totalPages, null)
+        } catch {
+          attempt++
+        }
+      }
+
+      if (!chunkFetched) {
+        // All retries exhausted for this chunk — skip it, keep going
+        skippedChunks++
+        onProgress && onProgress(
+          allRecords.length, anprTotal, page, totalPages,
+          `⚠️ Chunk ${page} skipped (timeout) — continuing…`
+        )
+      }
+
+      if (allRecords.length >= anprTotal) break
+    }
+
+    return {
+      records: allRecords,
+      isPartial: skippedChunks > 0,
+      fetched: allRecords.length,
+      total: anprTotal,
+    }
+  }
+
+
+  // ── ANPR CSV export — always downloads, even if partial ──────────────────
   const exportAnprCsv = async () => {
     if (!anprDetections.length) return
+    const ucLabel = uc?.label || ucSel
+    const camName = cameras.find(c => c.id === camSel)?.name || camSel || 'All Cameras'
     setExportBusy(true)
-    setToast({ msg: '⏳ Preparing CSV export — fetching all records…', type: 'info' })
+    setToast({
+      msg: `⏳ Generating CSV — Fetching All ${anprTotal} Records`,
+      sub: `${ucLabel} · ${camName} · ${new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`,
+      type: 'info'
+    })
     try {
-      const allRecords = await fetchAllForExport()
-      const camName = cameras.find(c => c.id === camSel)?.name || camSel || 'All Cameras'
-      const ucLabel = uc?.label
+      const { records: allRecords, isPartial, fetched, total } = await fetchAllForExport(
+        (fetchedSoFar, tot, chunk, totalChunks, statusMsg) => {
+          setToast({
+            msg: statusMsg
+              ? `⚠️ ${statusMsg}`
+              : `⏳ Fetching Records… ${fetchedSoFar} / ${tot}`,
+            sub: `Chunk ${chunk} of ${totalChunks} · ${ucLabel} · ${camName}`,
+            type: 'info'
+          })
+        }
+      )
+
+      const partialNote = isPartial ? `PARTIAL EXPORT — ${fetched} of ${total} records (some chunks timed out),` : ''
       const header = [
-        `${ucLabel} Report`,
+        isPartial ? `⚠️ PARTIAL EXPORT: ${fetched} of ${total} records fetched (some chunks timed out)` : `${ucLabel} Report`,
         `Camera,"${camName}"`,
         `Period,"${startDtm} → ${endDtm}"`,
-        `Total Records,${allRecords.length}`,
+        `Records Fetched,${fetched}`,
+        `Total Expected,${total}`,
+        isPartial ? `Status,"PARTIAL — some records missing due to server timeout"` : `Status,"COMPLETE"`,
+        `Generated At,"${new Date().toLocaleString()}"`,
         '',
-        'S.No.,Capture Time,Vehicle Type,Plate Status,Camera ID,Track ID,Direction,Object ID',
+        'S.No.,Capture Time,Vehicle Type,Plate Number,Camera ID,Track ID,Direction,Object ID',
       ]
       const rows = allRecords.map((d, i) => [
         i + 1,
@@ -355,94 +496,151 @@ export default function Reports() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${ucSel}_report_${camSel || 'all'}_${Date.now()}.csv`
+      a.download = isPartial ? buildFilename('csv').replace('.csv', '_PARTIAL.csv') : buildFilename('csv')
       a.click()
       URL.revokeObjectURL(url)
-      setToast({ msg: `✅ CSV exported — ${allRecords.length} records`, type: 'success' })
-    } catch {
-      setToast({ msg: '❌ Export failed. Please try again.', type: 'error' })
+      setToast(
+        isPartial
+          ? {
+              msg: `⚠️ Partial CSV Downloaded — ${fetched} of ${total} Records`,
+              sub: `Some chunks timed out. Re-run with a shorter date range for complete data.`,
+              type: 'error',
+            }
+          : {
+              msg: `✅ CSV Downloaded — ${fetched} Records (Complete)`,
+              sub: `${ucLabel} · ${camName}`,
+              type: 'success',
+            }
+      )
+    } catch (err) {
+      setToast({ msg: '❌ CSV export failed entirely. Please try again.', sub: null, type: 'error' })
     } finally {
       setExportBusy(false)
     }
   }
 
-  // ── ANPR PDF export — fetches ALL records, includes Full Frame image ──
+  // ── ANPR PDF export — always downloads, even if partial ──────────────────
   const exportAnprPdf = async () => {
     if (!anprDetections.length) return
+    const ucLabel = uc?.label || ucSel || 'Vehicle Detection Report'
+    const camName = cameras.find(c => c.id === camSel)?.name || camSel || 'All Cameras'
     setExportBusy(true)
-    setToast({ msg: '⏳ Preparing PDF export — fetching all records…', type: 'info' })
+    setToast({
+      msg: `⏳ Generating PDF — Fetching All ${anprTotal} Records`,
+      sub: `${ucLabel} · ${camName} · ${new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`,
+      type: 'info'
+    })
     try {
-      const allRecords = await fetchAllForExport()
-      const camName = cameras.find(c => c.id === camSel)?.name || camSel || 'All Cameras'
-      const ucLabel = uc?.label || ucSel || 'Vehicle Detection Report'
+      const { records: allRecords, isPartial, fetched, total } = await fetchAllForExport(
+        (fetchedSoFar, tot, chunk, totalChunks, statusMsg) => {
+          setToast({
+            msg: statusMsg
+              ? `⚠️ ${statusMsg}`
+              : `⏳ Fetching Records… ${fetchedSoFar} / ${tot}`,
+            sub: `Chunk ${chunk} of ${totalChunks} · ${ucLabel} · ${camName}`,
+            type: 'info'
+          })
+        }
+      )
       const rowsHtml = allRecords.map((d, i) => `
         <tr>
-          <td>${i + 1}</td>
-          <td>${new Date(d.timestamp).toLocaleString()}</td>
-          <td style="padding:6px">
+          <td style="color:#64748b;font-size:10px">${i + 1}</td>
+          <td style="white-space:nowrap">${new Date(d.timestamp).toLocaleString()}</td>
+          <td style="padding:6px;text-align:center">
             ${d.imageUrl
-              ? `<img src="${d.imageUrl}" style="width:90px;height:56px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0" />`
+              ? `<img src="${d.imageUrl}" style="width:100px;height:62px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;display:block" />`
               : '<span style="color:#94a3b8;font-size:10px">No frame</span>'}
           </td>
-          <td style="padding:6px">
+          <td style="padding:6px;text-align:center">
             ${d.plateCropUrl
-              ? `<img src="${d.plateCropUrl}" style="width:80px;height:40px;object-fit:contain;border-radius:4px;border:1px solid #e2e8f0;background:#000" />`
+              ? `<img src="${d.plateCropUrl}" style="width:90px;height:45px;object-fit:contain;border-radius:4px;border:1px solid #e2e8f0;background:#000;display:block" />`
               : '<span style="color:#94a3b8;font-size:10px">No crop</span>'}
           </td>
-          <td style="text-transform:capitalize">${d.vehicleType || 'unknown'}</td>
-          <td>${d.plateNumber || 'No Plate Detected'}</td>
-          <td style="font-size:10px">${d.cameraId}</td>
-          <td>#${d.trackId ?? 'N/A'}</td>
-          <td style="text-transform:capitalize">${d.direction || 'N/A'}</td>
-          <td style="font-size:10px;color:#64748b">…${d.id.slice(-8)}</td>
+          <td style="text-transform:capitalize;font-weight:600">${d.vehicleType || 'unknown'}</td>
+          <td style="font-weight:700;letter-spacing:0.05em">${d.plateNumber || '<span style="color:#94a3b8;font-style:italic">No Plate</span>'}</td>
+          <td style="font-size:10px;color:#64748b">${d.cameraId}</td>
+          <td style="font-weight:700">#${d.trackId ?? 'N/A'}</td>
+          <td style="text-transform:capitalize;font-weight:600">${d.direction || 'N/A'}</td>
+          <td style="font-size:10px;color:#94a3b8;font-family:monospace">…${d.id.slice(-8)}</td>
         </tr>
       `).join('')
       const printWin = window.open('', '_blank')
-      if (!printWin) return
+      if (!printWin) {
+        setToast({ msg: '❌ Popup blocked. Please allow popups and retry.', sub: null, type: 'error' })
+        setExportBusy(false)
+        return
+      }
+      const partialBanner = isPartial ? `
+        <div style="background:#fefce8;border:1px solid #fbbf24;border-left:4px solid #f59e0b;padding:12px 18px;border-radius:8px;margin-bottom:20px;font-size:12px;color:#92400e">
+          <strong>⚠️ PARTIAL EXPORT</strong> — ${fetched} of ${total} records fetched.
+          Some chunks could not be retrieved due to server timeout. Re-run with a shorter date range for complete data.
+        </div>` : ''
       const html = `<!DOCTYPE html><html><head>
-        <title>${ucLabel} Report — ${camName}</title>
+        <title>${isPartial ? '[PARTIAL] ' : ''}${ucLabel} Report — ${camName}</title>
         <style>
           body{font-family:'Segoe UI',Arial,sans-serif;margin:35px;color:#0f172a;background:#fff}
-          .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #4f6df5;padding-bottom:14px;margin-bottom:24px}
-          .logo{font-size:18px;font-weight:800;color:#4f6df5}
-          .badge{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:4px 12px;border-radius:4px;font-size:11px;font-weight:700;text-transform:uppercase}
-          .meta{background:#f8fafc;border:1px solid #e2e8f0;padding:14px 18px;border-radius:8px;margin-bottom:24px;font-size:12px;display:flex;gap:32px}
+          .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid ${isPartial ? '#f59e0b' : '#4f6df5'};padding-bottom:14px;margin-bottom:24px}
+          .logo{font-size:18px;font-weight:800;color:${isPartial ? '#f59e0b' : '#4f6df5'}}
+          .badge{background:${isPartial ? '#fef3c7' : '#eff6ff'};color:${isPartial ? '#92400e' : '#1d4ed8'};border:1px solid ${isPartial ? '#fbbf24' : '#bfdbfe'};padding:4px 12px;border-radius:4px;font-size:11px;font-weight:700;text-transform:uppercase}
+          .meta{background:#f8fafc;border:1px solid #e2e8f0;padding:14px 18px;border-radius:8px;margin-bottom:24px;font-size:12px;display:flex;flex-wrap:wrap;gap:24px}
           .meta-item{display:flex;flex-direction:column}
           .meta-label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px}
           .meta-val{font-size:13px;font-weight:700;color:#0f172a;margin-top:2px}
+          .section-title{font-size:14px;font-weight:800;margin:0 0 14px;color:#0f172a;border-left:4px solid ${isPartial ? '#f59e0b' : '#4f6df5'};padding-left:10px}
           table{width:100%;border-collapse:collapse;font-size:11px}
           th{background:#f1f5f9;padding:10px 12px;text-align:left;font-size:10px;font-weight:700;color:#475569;border-bottom:2px solid #cbd5e1;text-transform:uppercase;white-space:nowrap}
           td{padding:9px 12px;border-bottom:1px solid #e2e8f0;vertical-align:middle}
           tr:nth-child(even){background:#f8fafc}
+          img{max-width:100%;display:block}
           .footer{margin-top:40px;border-top:1px solid #e2e8f0;padding-top:14px;font-size:10px;color:#94a3b8;text-align:center}
-          @media print{body{margin:0}@page{margin:1.5cm;size:A4 landscape}}
+          @media print{
+            body{margin:0}
+            @page{margin:1.5cm;size:A4 landscape}
+            tr{page-break-inside:avoid}
+          }
         </style>
       </head><body>
         <div class="header">
           <div class="logo">🎥 FRAME-X · ${ucLabel.toUpperCase()} REPORT</div>
-          <div class="badge">OFFICIAL REPORT</div>
+          <div class="badge">${isPartial ? '⚠️ PARTIAL EXPORT' : 'OFFICIAL REPORT'}</div>
         </div>
+        ${partialBanner}
         <div class="meta">
           <div class="meta-item"><span class="meta-label">Camera</span><span class="meta-val">${camName}</span></div>
           <div class="meta-item"><span class="meta-label">Period</span><span class="meta-val">${startDtm} → ${endDtm}</span></div>
-          <div class="meta-item"><span class="meta-label">Total Records</span><span class="meta-val">${allRecords.length}</span></div>
+          <div class="meta-item"><span class="meta-label">Records Fetched</span><span class="meta-val">${fetched} ${isPartial ? `of ${total}` : ''}</span></div>
+          <div class="meta-item"><span class="meta-label">Status</span><span class="meta-val" style="color:${isPartial ? '#f59e0b' : '#16a34a'}">${isPartial ? 'PARTIAL' : 'COMPLETE'}</span></div>
+          <div class="meta-item"><span class="meta-label">Generated At</span><span class="meta-val">${new Date().toLocaleString()}</span></div>
         </div>
+        <div class="section-title">${isPartial ? 'Partial' : 'Complete'} Detection Log — ${fetched} Records</div>
         <table>
           <thead><tr>
-            <th>S.No.</th><th>Capture Time</th><th>Full Frame</th><th>Plate Crop</th>
-            <th>Vehicle Type</th><th>Plate Status</th><th>Camera ID</th>
+            <th>#</th><th>Capture Time</th><th>Full Frame</th><th>Plate Crop</th>
+            <th>Vehicle Type</th><th>Plate Number</th><th>Camera ID</th>
             <th>Track ID</th><th>Direction</th><th>Object ID</th>
           </tr></thead>
           <tbody>${rowsHtml}</tbody>
         </table>
-        <div class="footer">Confidential &amp; Proprietary • Generated by FrameX AI Video Analytics Engine • ${new Date().toLocaleString()}</div>
-        <script>window.onload = function() { setTimeout(function() { window.print(); }, 800); }<\/script>
+        <div class="footer">Confidential &amp; Proprietary • Generated by FrameX AI Video Analytics Engine • ${new Date().toLocaleString()}${isPartial ? ' • ⚠️ PARTIAL — ' + fetched + ' of ' + total + ' records' : ''}</div>
+        <script>window.onload = function() { setTimeout(function() { window.print(); }, 1200); }<\/script>
       </body></html>`
       printWin.document.write(html)
       printWin.document.close()
-      setToast({ msg: `✅ PDF ready — ${allRecords.length} records`, type: 'success' })
-    } catch {
-      setToast({ msg: '❌ PDF export failed. Please try again.', type: 'error' })
+      setToast(
+        isPartial
+          ? {
+              msg: `⚠️ Partial PDF Ready — ${fetched} of ${total} Records`,
+              sub: `Some chunks timed out. Re-run with shorter date range for complete data.`,
+              type: 'error',
+            }
+          : {
+              msg: `✅ PDF Ready — ${fetched} Records with Images (Complete)`,
+              sub: `${ucLabel} · ${camName}`,
+              type: 'success',
+            }
+      )
+    } catch (err) {
+      setToast({ msg: '❌ PDF export failed entirely. Please try again.', sub: null, type: 'error' })
     } finally {
       setExportBusy(false)
     }
@@ -1021,31 +1219,101 @@ export default function Reports() {
       )}
 
       {/* ── Right-side toast notification ──────────────────────────────── */}
+      <style>{`
+        @keyframes slideInRight {
+          from { transform: translateX(120%); opacity: 0; }
+          to   { transform: translateX(0);   opacity: 1; }
+        }
+        @keyframes slideOutRight {
+          from { transform: translateX(0);   opacity: 1; }
+          to   { transform: translateX(120%); opacity: 0; }
+        }
+        @keyframes toastSpin {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+        @keyframes shimmer {
+          0%   { background-position: -400px 0; }
+          100% { background-position: 400px 0; }
+        }
+      `}</style>
+
       {toast && (
         <div
           style={{
             position: 'fixed', top: 24, right: 24, zIndex: 9999,
-            minWidth: 300, maxWidth: 420,
-            background: toast.type === 'success' ? '#0f2d1f' : toast.type === 'error' ? '#2d0f0f' : '#0f1a2d',
-            border: `1px solid ${toast.type === 'success' ? '#22c55e' : toast.type === 'error' ? '#ef4444' : '#4f6df5'}`,
-            borderRadius: 14, padding: '16px 20px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+            minWidth: 320, maxWidth: 460,
+            background: toast.type === 'success'
+              ? 'linear-gradient(135deg,#0a2218,#0f2d1f)'
+              : toast.type === 'error'
+              ? 'linear-gradient(135deg,#200a0a,#2d0f0f)'
+              : 'linear-gradient(135deg,#070e1f,#0f1a2d)',
+            border: `1px solid ${toast.type === 'success' ? '#22c55e55' : toast.type === 'error' ? '#ef444455' : '#4f6df555'}`,
+            borderLeft: `4px solid ${toast.type === 'success' ? '#22c55e' : toast.type === 'error' ? '#ef4444' : '#4f6df5'}`,
+            borderRadius: 14, padding: '16px 18px',
+            boxShadow: `0 24px 48px rgba(0,0,0,0.6), 0 0 0 1px ${toast.type === 'success' ? '#22c55e22' : toast.type === 'error' ? '#ef444422' : '#4f6df522'}`,
             display: 'flex', alignItems: 'flex-start', gap: 12,
-            animation: 'slideInRight 0.3s ease',
+            animation: 'slideInRight 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+            backdropFilter: 'blur(12px)',
           }}
         >
-          <div style={{ flex: 1 }}>
+          {/* Icon / Spinner */}
+          <div style={{ marginTop: 2, flexShrink: 0 }}>
+            {toast.type === 'info' ? (
+              <div style={{
+                width: 20, height: 20, borderRadius: '50%',
+                border: '2.5px solid #4f6df533',
+                borderTopColor: '#4f6df5',
+                animation: 'toastSpin 0.8s linear infinite',
+              }} />
+            ) : (
+              <div style={{
+                fontSize: 18, lineHeight: 1,
+              }}>
+                {toast.type === 'success' ? '✅' : '❌'}
+              </div>
+            )}
+          </div>
+
+          {/* Text */}
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
-              fontSize: 12, fontWeight: 700,
-              color: toast.type === 'success' ? '#22c55e' : toast.type === 'error' ? '#ef4444' : '#60a5fa',
-              lineHeight: 1.5,
+              fontSize: 13, fontWeight: 700,
+              color: toast.type === 'success' ? '#4ade80' : toast.type === 'error' ? '#f87171' : '#93c5fd',
+              lineHeight: 1.4,
             }}>
               {toast.msg}
             </div>
+            {toast.sub && (
+              <div style={{
+                fontSize: 11, fontWeight: 500, color: '#64748b',
+                marginTop: 4, lineHeight: 1.4,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {toast.sub}
+              </div>
+            )}
+            {/* Shimmer progress bar for 'info' toasts */}
+            {toast.type === 'info' && (
+              <div style={{
+                marginTop: 10, height: 3, borderRadius: 2,
+                background: 'linear-gradient(90deg, #4f6df500 0%, #4f6df5 50%, #4f6df500 100%)',
+                backgroundSize: '400px 3px',
+                animation: 'shimmer 1.4s ease-in-out infinite',
+              }} />
+            )}
           </div>
+
           <button
             onClick={() => setToast(null)}
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: 16, padding: 0, lineHeight: 1, marginTop: 1 }}
+            style={{
+              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 8, cursor: 'pointer', color: '#64748b',
+              fontSize: 14, padding: '4px 7px', lineHeight: 1, marginTop: 0,
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
           >✕</button>
         </div>
       )}
