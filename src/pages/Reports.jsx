@@ -83,12 +83,12 @@ export default function Reports() {
     }
   }, [categorySel, allowedUsecases])
 
-  // Auto-dismiss success/error toasts after 5s; info stays until cleared
+  // Auto-dismiss ALL toasts after 4s — info included
+  // Each new setToast call resets the timer (replaces previous toast)
   useEffect(() => {
-    if (toast && toast.type !== 'info') {
-      const t = setTimeout(() => setToast(null), 5000)
-      return () => clearTimeout(t)
-    }
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 4000)
+    return () => clearTimeout(t)
   }, [toast])
 
   // Helper: build a smart filename like "Vehicle_Detection_2026-09-29_01-00"
@@ -468,11 +468,10 @@ export default function Reports() {
     })
     try {
       const allRecords = await fetchAllForExport((fetched, total, chunk, totalChunks, retryMsg) => {
-        setToast({
-          msg: retryMsg ? `🔄 ${retryMsg}` : `⏳ Fetching Records… ${fetched} / ${total}`,
-          sub: `Chunk ${chunk} of ${totalChunks} · ${ucLabel} · ${camName}`,
-          type: 'info'
-        })
+        // Only notify on retry — normal chunk progress is silent
+        if (retryMsg) {
+          setToast({ msg: `🔄 ${retryMsg}`, sub: `${fetched} of ${total} records fetched so far`, type: 'info' })
+        }
       })
 
       // ── Build CSV ──
@@ -534,11 +533,10 @@ export default function Reports() {
     })
     try {
       const allRecords = await fetchAllForExport((fetched, total, chunk, totalChunks, retryMsg) => {
-        setToast({
-          msg: retryMsg ? `🔄 ${retryMsg}` : `⏳ Fetching Records… ${fetched} / ${total}`,
-          sub: `Chunk ${chunk} of ${totalChunks} · ${ucLabel} · ${camName}`,
-          type: 'info'
-        })
+        // Only notify on retry — normal chunk progress is silent
+        if (retryMsg) {
+          setToast({ msg: `🔄 ${retryMsg}`, sub: `${fetched} of ${total} records fetched so far`, type: 'info' })
+        }
       })
 
       // ── Build HTML table rows ──
