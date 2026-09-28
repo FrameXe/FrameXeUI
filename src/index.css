@@ -647,3 +647,10 @@ button:active {
   background: linear-gradient(180deg, transparent 0%, rgba(56,189,248,0.2) 30%, rgba(56,189,248,0.4) 50%, rgba(56,189,248,0.2) 70%, transparent 100%);
   pointer-events: none;
 }
+
+/* ── Toast slide-in animation (ANPR Report notification) ── */
+@keyframes slideInRight {
+  from { transform: translateX(120%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+

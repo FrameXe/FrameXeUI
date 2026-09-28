@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { USE_CASES, UC_MAP } from '../constants/useCases.js'
-import { reportAPI } from '../services/api.js'
+import { reportAPI, vehicleDetectionAPI } from '../services/api.js'
 import { useCameras } from '../hooks/useCameras.js'
 import { Loading } from '../components/shared/index.jsx'
-import { BarChart3, Download, RefreshCw, FileText } from 'lucide-react'
+import { BarChart3, Download, RefreshCw, FileText, X } from 'lucide-react'
 import { useAuthStore } from '../store/index.js'
 
 export default function Reports() {
@@ -18,9 +18,16 @@ export default function Reports() {
   const [endDtm, setEndDtm] = useState(() => {
     const d = new Date(); d.setHours(23, 59, 59, 999); return d.toISOString().slice(0, 16)
   })
-  const [data, setData]   = useState(null)
-  const [busy, setBusy]   = useState(false)
-  const [ran, setRan]     = useState(false)
+  const [data, setData]         = useState(null)
+  const [busy, setBusy]         = useState(false)
+  const [ran, setRan]           = useState(false)
+  // ANPR / Vehicle Detection specific state
+  const [anprDetections, setAnprDetections] = useState([])
+  const [anprTotal, setAnprTotal]           = useState(0)
+  const [anprPage, setAnprPage]             = useState(1)
+  const [anprPageSize, setAnprPageSize]     = useState(25)
+  const [lightboxItem, setLightboxItem]     = useState(null)
+  const [toast, setToast]                   = useState(null) // { msg, type: 'info'|'success'|'error' }
   const uc = UC_MAP[ucSel]
   const user = useAuthStore(s => s.user)
   const allowedUsecases = user?.allowedUsecases || []
@@ -35,7 +42,7 @@ export default function Reports() {
   const matchesCategory = (ucId, cat) => {
     if (cat === 'all') return true
     if (cat === 'people') return ['people_count', 'crowd_alert'].includes(ucId)
-    if (cat === 'vehicles') return ['traffic', 'vehicle_count', 'vehicle_speed'].includes(ucId)
+    if (cat === 'vehicles') return ['traffic', 'vehicle_count', 'vehicle_speed', 'vehicle_detection'].includes(ucId)
     if (cat === 'safety') return ['intrusion', 'fire_detection'].includes(ucId)
     return true
   }
@@ -74,17 +81,75 @@ export default function Reports() {
     }
   }, [categorySel, allowedUsecases])
 
+  // Auto-dismiss success/error toasts after 4s
+  useEffect(() => {
+    if (toast?.type !== 'info') {
+      const t = setTimeout(() => setToast(null), 4000)
+      return () => clearTimeout(t)
+    }
+  }, [toast])
+
   const generate = async () => {
     setBusy(true)
+    setRan(false)
+    setData(null)
+    setAnprDetections([])
+    setToast({ msg: '⏳ Report generation in progress…', type: 'info' })
+
     try {
-      const d = await reportAPI.get({
+      if (ucSel === 'vehicle_detection') {
+        // Call the existing vehicleDetectionAPI.list() — same function VehicleLog uses
+        // No new endpoint needed, GET /api/vehicle-detections handles everything
+        const res = await vehicleDetectionAPI.list({
+          ...(camSel ? { camera_id: camSel } : {}),
+          start_time: new Date(startDtm).toISOString(),
+          end_time: new Date(endDtm).toISOString(),
+          page: anprPage,
+          page_size: anprPageSize,
+        })
+        setAnprDetections(res.detections || [])
+        setAnprTotal(res.total || 0)
+        setRan(true)
+        setToast({ msg: `✅ Report ready — ${res.total} records found`, type: 'success' })
+      } else {
+        const d = await reportAPI.get({
+          ...(camSel ? { camera_id: camSel } : {}),
+          usecase: ucSel,
+          start_time: new Date(startDtm).toISOString(),
+          end_time: new Date(endDtm).toISOString(),
+        })
+        setData(d)
+        setRan(true)
+        setToast({ msg: '✅ Report ready', type: 'success' })
+      }
+    } catch (err) {
+      setToast({ msg: '❌ Report generation failed. Please try again.', type: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // ── ANPR pagination handler ───────────────────────────────────────────
+  const handleAnprPageChange = async (newPage) => {
+    setAnprPage(newPage)
+    setBusy(true)
+    setToast({ msg: `⏳ Loading page ${newPage}…`, type: 'info' })
+    try {
+      const res = await vehicleDetectionAPI.list({
         ...(camSel ? { camera_id: camSel } : {}),
-        usecase: ucSel,
         start_time: new Date(startDtm).toISOString(),
         end_time: new Date(endDtm).toISOString(),
+        page: newPage,
+        page_size: anprPageSize,
       })
-      setData(d); setRan(true)
-    } finally { setBusy(false) }
+      setAnprDetections(res.detections || [])
+      setAnprTotal(res.total || 0)
+      setToast({ msg: `✅ Page ${newPage} loaded`, type: 'success' })
+    } catch {
+      setToast({ msg: '❌ Failed to load page.', type: 'error' })
+    } finally {
+      setBusy(false)
+    }
   }
 
   const exportPdf = () => {
@@ -242,6 +307,93 @@ export default function Reports() {
     URL.revokeObjectURL(url)
   }
 
+  // ── ANPR CSV export — same Blob pattern as exportCsv above ───────────
+  const exportAnprCsv = () => {
+    if (!anprDetections.length) return
+    const camName = cameras.find(c => c.id === camSel)?.name || camSel || 'All Cameras'
+    const header = [
+      'ANPR / Vehicle Detection Report',
+      `Camera,"${camName}"`,
+      `Period,"${startDtm} → ${endDtm}"`,
+      `Total Records,${anprTotal}`,
+      '',
+      'S.No.,Capture Time,Vehicle Type,Plate Status,Camera ID,Track ID,Direction,Object ID',
+    ]
+    const rows = anprDetections.map((d, i) => [
+      i + 1,
+      `"${new Date(d.timestamp).toLocaleString()}"`,
+      d.vehicleType || 'unknown',
+      `"${d.plateNumber || 'No Plate Detected'}"`,
+      `"${d.cameraId}"`,
+      d.trackId ?? '',
+      d.direction || '',
+      `"${d.id}"`,
+    ].join(','))
+    const blob = new Blob([[...header, ...rows].join('\n')], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `anpr_report_${camSel || 'all'}_${Date.now()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // ── ANPR PDF export — same window.open + print pattern as exportPdf above ──
+  const exportAnprPdf = () => {
+    if (!anprDetections.length) return
+    const camName = cameras.find(c => c.id === camSel)?.name || camSel || 'All Cameras'
+    const rowsHtml = anprDetections.map((d, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${new Date(d.timestamp).toLocaleString()}</td>
+        <td style="text-transform:capitalize">${d.vehicleType || 'unknown'}</td>
+        <td>${d.plateNumber || 'No Plate Detected'}</td>
+        <td style="font-size:10px">${d.cameraId}</td>
+        <td>#${d.trackId ?? 'N/A'}</td>
+        <td style="text-transform:capitalize">${d.direction || 'N/A'}</td>
+        <td style="font-size:10px;color:#64748b">…${d.id.slice(-8)}</td>
+      </tr>
+    `).join('')
+    const printWin = window.open('', '_blank')
+    if (!printWin) return
+    printWin.document.write(`<!DOCTYPE html><html><head>
+      <title>ANPR Report — ${camName}</title>
+      <style>
+        body{font-family:'Segoe UI',Arial,sans-serif;margin:35px;color:#0f172a;background:#fff}
+        .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #4f6df5;padding-bottom:14px;margin-bottom:24px}
+        .logo{font-size:18px;font-weight:800;color:#4f6df5}
+        .badge{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:4px 12px;border-radius:4px;font-size:11px;font-weight:700;text-transform:uppercase}
+        .meta{background:#f8fafc;border:1px solid #e2e8f0;padding:14px 18px;border-radius:8px;margin-bottom:24px;font-size:12px;display:flex;gap:32px}
+        .meta-item{display:flex;flex-direction:column}
+        .meta-label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px}
+        .meta-val{font-size:13px;font-weight:700;color:#0f172a;margin-top:2px}
+        table{width:100%;border-collapse:collapse;font-size:11px}
+        th{background:#f1f5f9;padding:10px 12px;text-align:left;font-size:10px;font-weight:700;color:#475569;border-bottom:2px solid #cbd5e1;text-transform:uppercase}
+        td{padding:9px 12px;border-bottom:1px solid #e2e8f0}
+        tr:nth-child(even){background:#f8fafc}
+        .footer{margin-top:40px;border-top:1px solid #e2e8f0;padding-top:14px;font-size:10px;color:#94a3b8;text-align:center}
+        @media print{body{margin:0}@page{margin:1.5cm}}
+      </style>
+    </head><body>
+      <div class="header">
+        <div class="logo">🎥 FRAME-X · ANPR VEHICLE DETECTION REPORT</div>
+        <div class="badge">OFFICIAL REPORT</div>
+      </div>
+      <div class="meta">
+        <div class="meta-item"><span class="meta-label">Camera</span><span class="meta-val">${camName}</span></div>
+        <div class="meta-item"><span class="meta-label">Period</span><span class="meta-val">${startDtm} → ${endDtm}</span></div>
+        <div class="meta-item"><span class="meta-label">Total Records</span><span class="meta-val">${anprTotal}</span></div>
+      </div>
+      <table>
+        <thead><tr><th>S.No.</th><th>Capture Time</th><th>Vehicle Type</th><th>Plate Status</th><th>Camera ID</th><th>Track ID</th><th>Direction</th><th>Object ID</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div class="footer">Confidential &amp; Proprietary • Generated by FrameX AI Video Analytics Engine • ${new Date().toLocaleString()}</div>
+      <script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script>
+    </body></html>`)
+    printWin.document.close()
+  }
+
   // Build 24-hour timeline grid (00:00 to 23:00) so bars render at exact hourly slots
   const fullTimeline = Array.from({ length: 24 }, (_, h) => {
     const hourStr = `${h.toString().padStart(2, '0')}:00`
@@ -346,22 +498,28 @@ export default function Reports() {
           {busy ? 'Generating…' : 'Generate Report'}
         </button>
 
-        {ran && data && (
+        {ran && (data || anprDetections.length > 0) && (
           <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={exportPdf} style={{
-              background: 'var(--accent-bg)', border: '1px solid var(--border)', color: 'var(--accent)',
-              padding: '9px 18px', fontSize: 12, fontWeight: 600,
-              borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 6,
-              cursor: 'pointer', boxShadow: 'var(--shadow-sm)',
-            }}>
+            <button
+              onClick={ucSel === 'vehicle_detection' ? exportAnprPdf : exportPdf}
+              style={{
+                background: 'var(--accent-bg)', border: '1px solid var(--border)', color: 'var(--accent)',
+                padding: '9px 18px', fontSize: 12, fontWeight: 600,
+                borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 6,
+                cursor: 'pointer', boxShadow: 'var(--shadow-sm)',
+              }}
+            >
               <FileText size={13} /> Export PDF
             </button>
-            <button onClick={exportCsv} style={{
-              background: 'var(--green-bg)', border: '1px solid var(--border)', color: 'var(--green)',
-              padding: '9px 18px', fontSize: 12, fontWeight: 600,
-              borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 6,
-              cursor: 'pointer',
-            }}>
+            <button
+              onClick={ucSel === 'vehicle_detection' ? exportAnprCsv : exportCsv}
+              style={{
+                background: 'var(--green-bg)', border: '1px solid var(--border)', color: 'var(--green)',
+                padding: '9px 18px', fontSize: 12, fontWeight: 600,
+                borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 6,
+                cursor: 'pointer',
+              }}
+            >
               <Download size={13} /> Export CSV
             </button>
           </div>
@@ -485,6 +643,342 @@ export default function Reports() {
               </table>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── ANPR / Vehicle Detection table ──────────────────────────────── */}
+      {ucSel === 'vehicle_detection' && ran && !busy && anprDetections.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Summary strip + page-size selector */}
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)', padding: '16px 24px',
+            display: 'flex', alignItems: 'center', gap: 32, flexWrap: 'wrap',
+            boxShadow: 'var(--shadow)',
+          }}>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Total Records</div>
+              <div style={{ fontSize: 28, fontWeight: 900, color: '#4f6df5', marginTop: 2 }}>{anprTotal}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Showing</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>{anprDetections.length} records</div>
+            </div>
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)' }}>Rows per page:</span>
+              {[10, 25, 50].map(size => (
+                <button key={size} onClick={() => setAnprPageSize(size)}
+                  style={{
+                    padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                    border: '1px solid var(--border)', cursor: 'pointer',
+                    background: anprPageSize === size ? '#4f6df5' : 'var(--surface-2)',
+                    color: anprPageSize === size ? '#fff' : 'var(--text)',
+                  }}
+                >{size}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Detection table */}
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--shadow)',
+          }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
+                  <tr>
+                    {['S.No.', 'Capture Time', 'Plate Thumb', 'Vehicle Type', 'Plate Status',
+                      'Camera ID', 'Track ID', 'Direction', 'Full Frame', 'Object ID'].map(h => (
+                      <th key={h} style={{
+                        padding: '13px 14px', textAlign: 'left', fontSize: 10,
+                        color: 'var(--text-3)', fontWeight: 800, textTransform: 'uppercase',
+                        letterSpacing: '0.05em', whiteSpace: 'nowrap',
+                      }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {anprDetections.map((det, idx) => (
+                    <tr key={det.id}
+                      style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      {/* S.No. */}
+                      <td style={{ padding: '11px 14px', fontSize: 12, fontWeight: 700, color: 'var(--text-3)' }}>
+                        {((anprPage - 1) * anprPageSize) + idx + 1}
+                      </td>
+
+                      {/* Capture Time */}
+                      <td style={{ padding: '11px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
+                        {new Date(det.timestamp).toLocaleString()}
+                      </td>
+
+                      {/* Plate Thumbnail — VehicleLog.jsx pattern reused */}
+                      <td style={{ padding: '11px 14px' }}>
+                        <div
+                          onClick={() => setLightboxItem(det)}
+                          style={{
+                            width: 48, height: 48, background: '#0f172a', borderRadius: 8,
+                            overflow: 'hidden', cursor: 'pointer', border: '1px solid #334155',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            transition: 'transform 0.15s',
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
+                          onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                        >
+                          {det.plateCropUrl ? (
+                            <img
+                              src={det.plateCropUrl} loading="lazy"
+                              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                              alt="Plate crop"
+                              onError={e => { e.target.style.display = 'none' }}
+                            />
+                          ) : (
+                            <span style={{ fontSize: 16 }}>🔍</span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Vehicle Type badge */}
+                      <td style={{ padding: '11px 14px' }}>
+                        <span style={{
+                          fontSize: 10, fontWeight: 800, padding: '4px 10px', borderRadius: 20,
+                          background: 'rgba(79,109,245,0.12)', border: '1px solid rgba(79,109,245,0.3)',
+                          color: '#4f6df5', textTransform: 'capitalize',
+                        }}>
+                          {det.vehicleType || 'unknown'}
+                        </span>
+                      </td>
+
+                      {/* Plate Status */}
+                      <td style={{ padding: '11px 14px' }}>
+                        {det.plateNumber ? (
+                          <span style={{
+                            background: 'var(--surface-2)', padding: '4px 10px',
+                            borderRadius: 6, border: '1px solid var(--border)',
+                            fontSize: 12, fontWeight: 800, color: 'var(--text)', letterSpacing: '0.05em',
+                          }}>{det.plateNumber}</span>
+                        ) : (
+                          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', fontStyle: 'italic' }}>
+                            No Plate Detected
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Camera ID */}
+                      <td style={{ padding: '11px 14px', fontSize: 11, fontWeight: 600, color: 'var(--text-2)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {det.cameraId}
+                      </td>
+
+                      {/* Track ID */}
+                      <td style={{ padding: '11px 14px', fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>
+                        #{det.trackId ?? 'N/A'}
+                      </td>
+
+                      {/* Direction badge — VehicleLog.jsx direction badge pattern */}
+                      <td style={{ padding: '11px 14px' }}>
+                        <span style={{
+                          fontSize: 10, fontWeight: 800, padding: '4px 10px', borderRadius: 20,
+                          background: det.direction === 'entering' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
+                          border: `1px solid ${det.direction === 'entering' ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                          color: det.direction === 'entering' ? '#16a34a' : '#f59e0b',
+                          textTransform: 'uppercase',
+                        }}>
+                          {det.direction || 'N/A'}
+                        </span>
+                      </td>
+
+                      {/* Full Frame icon → opens lightbox */}
+                      <td style={{ padding: '11px 14px' }}>
+                        <button
+                          onClick={() => setLightboxItem(det)}
+                          disabled={!det.imageUrl}
+                          style={{
+                            background: det.imageUrl ? 'var(--surface-2)' : 'transparent',
+                            border: '1px solid var(--border)', borderRadius: 8,
+                            padding: '6px 10px', cursor: det.imageUrl ? 'pointer' : 'not-allowed',
+                            fontSize: 16, lineHeight: 1,
+                          }}
+                          title={det.imageUrl ? 'View full frame' : 'No image available'}
+                        >🖼️</button>
+                      </td>
+
+                      {/* Object ID truncated + copy */}
+                      <td style={{ padding: '11px 14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-3)', fontFamily: 'monospace' }}>
+                            …{det.id.slice(-8)}
+                          </span>
+                          <button
+                            onClick={() => navigator.clipboard.writeText(det.id)}
+                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-3)', padding: 2 }}
+                            title="Copy full Object ID"
+                          >📋</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination footer */}
+            {anprTotal > anprPageSize && (
+              <div style={{
+                padding: '14px 24px', background: 'var(--surface)',
+                borderTop: '1px solid var(--border)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
+                <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600 }}>
+                  Showing {((anprPage - 1) * anprPageSize) + 1}–
+                  {Math.min(anprPage * anprPageSize, anprTotal)} of {anprTotal}
+                </span>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button
+                    disabled={anprPage === 1}
+                    onClick={() => handleAnprPageChange(anprPage - 1)}
+                    style={{
+                      background: anprPage === 1 ? 'transparent' : 'var(--surface-2)',
+                      border: '1px solid var(--border)', padding: '6px 14px', borderRadius: 8,
+                      cursor: anprPage === 1 ? 'not-allowed' : 'pointer',
+                      fontSize: 12, fontWeight: 700, color: 'var(--text)',
+                    }}
+                  >← Prev</button>
+                  <span style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700, color: 'var(--text-2)' }}>
+                    {anprPage} / {Math.ceil(anprTotal / anprPageSize)}
+                  </span>
+                  <button
+                    disabled={anprPage >= Math.ceil(anprTotal / anprPageSize)}
+                    onClick={() => handleAnprPageChange(anprPage + 1)}
+                    style={{
+                      background: 'var(--surface-2)', border: '1px solid var(--border)',
+                      padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
+                      fontSize: 12, fontWeight: 700, color: 'var(--text)',
+                    }}
+                  >Next →</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Lightbox modal — copied from VehicleLog.jsx ──────────────────── */}
+      {lightboxItem && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+            zIndex: 1000, display: 'flex', alignItems: 'center',
+            justifyContent: 'center', backdropFilter: 'blur(8px)',
+          }}
+          onClick={() => setLightboxItem(null)}
+        >
+          <div
+            style={{
+              background: 'var(--surface)', borderRadius: 20, width: '96%',
+              maxWidth: 1100, overflow: 'hidden', boxShadow: '0 30px 60px rgba(0,0,0,0.4)',
+              border: '1px solid var(--border)', display: 'flex', flexDirection: 'column',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  🚗 Vehicle Crossing Evidence
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, marginTop: 2 }}>
+                  Track #{lightboxItem.trackId ?? 'N/A'} | Camera: {lightboxItem.cameraId}
+                </div>
+              </div>
+              <button
+                onClick={() => setLightboxItem(null)}
+                style={{ background: 'var(--surface-2)', border: 'none', padding: 8, borderRadius: '50%', cursor: 'pointer', display: 'flex', color: 'var(--text)' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Two-column: Full Frame | Plate Crop */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 0.8fr', minHeight: 400 }}>
+              <div style={{ background: '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', borderRight: '1px solid #222' }}>
+                <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 6, letterSpacing: '0.05em' }}>FULL FRAME</div>
+                {lightboxItem.imageUrl ? (
+                  <img src={lightboxItem.imageUrl} style={{ maxWidth: '100%', maxHeight: '420px', objectFit: 'contain' }} alt="Full frame snapshot" />
+                ) : (
+                  <div style={{ color: '#94a3b8', fontSize: 14, fontWeight: 600 }}>No frame available</div>
+                )}
+              </div>
+
+              <div style={{ background: '#0a0a0a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', borderRight: '1px solid #222' }}>
+                <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(79,109,245,0.8)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 6, letterSpacing: '0.05em' }}>PLATE CROP</div>
+                {lightboxItem.plateCropUrl ? (
+                  <img src={lightboxItem.plateCropUrl} style={{ maxWidth: '100%', maxHeight: '420px', objectFit: 'contain' }} alt="Plate crop" />
+                ) : (
+                  <div style={{ color: '#64748b', fontSize: 13, fontWeight: 600, textAlign: 'center', padding: 24 }}>
+                    <div style={{ fontSize: 28, marginBottom: 8 }}>🔍</div>
+                    No plate crop available
+                  </div>
+                )}
+              </div>
+
+              {/* Metadata column */}
+              <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 14, borderLeft: '1px solid var(--border)', background: 'var(--surface)' }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Vehicle Properties</span>
+                {[
+                  { label: 'Plate Status', value: lightboxItem.plateNumber || 'No Plate Detected' },
+                  { label: 'Vehicle Type', value: lightboxItem.vehicleType ? lightboxItem.vehicleType.toUpperCase() : 'UNKNOWN' },
+                  { label: 'Direction', value: lightboxItem.direction ? lightboxItem.direction.toUpperCase() : 'UNKNOWN', isDir: true },
+                  { label: 'Camera ID', value: lightboxItem.cameraId || 'Unknown' },
+                  { label: 'Track ID', value: `#${lightboxItem.trackId ?? 'N/A'}` },
+                  { label: 'Timestamp', value: new Date(lightboxItem.timestamp).toLocaleString() },
+                ].map((item, idx) => (
+                  <div key={idx} style={{ borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600 }}>{item.label}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {item.isDir && (
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: item.value.toLowerCase() === 'ENTERING' ? '#22c55e' : '#f59e0b' }} />
+                      )}
+                      {item.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Right-side toast notification ──────────────────────────────── */}
+      {toast && (
+        <div
+          style={{
+            position: 'fixed', top: 24, right: 24, zIndex: 9999,
+            minWidth: 300, maxWidth: 420,
+            background: toast.type === 'success' ? '#0f2d1f' : toast.type === 'error' ? '#2d0f0f' : '#0f1a2d',
+            border: `1px solid ${toast.type === 'success' ? '#22c55e' : toast.type === 'error' ? '#ef4444' : '#4f6df5'}`,
+            borderRadius: 14, padding: '16px 20px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'flex-start', gap: 12,
+            animation: 'slideInRight 0.3s ease',
+          }}
+        >
+          <div style={{ flex: 1 }}>
+            <div style={{
+              fontSize: 12, fontWeight: 700,
+              color: toast.type === 'success' ? '#22c55e' : toast.type === 'error' ? '#ef4444' : '#60a5fa',
+              lineHeight: 1.5,
+            }}>
+              {toast.msg}
+            </div>
+          </div>
+          <button
+            onClick={() => setToast(null)}
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: 16, padding: 0, lineHeight: 1, marginTop: 1 }}
+          >✕</button>
         </div>
       )}
     </div>

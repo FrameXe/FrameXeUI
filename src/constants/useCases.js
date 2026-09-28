@@ -63,6 +63,16 @@ export const USE_CASES = [
     statFn: (dets) => dets.length,
     mockTypes: ['fire', 'smoke']
   },
+  {
+    id: 'vehicle_detection',
+    label: 'ANPR / Vehicle Detection',
+    emoji: '🚗',
+    color: '#4f6df5',
+    unit: 'records',
+    desc: 'Raw vehicle crossing log with plate images and detection details',
+    statFn: (dets) => dets.length,
+    mockTypes: ['car', 'motorcycle'],
+  },
 ]
 
 export const UC_MAP = Object.fromEntries(USE_CASES.map(u => [u.id, u]))
