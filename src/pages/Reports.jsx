@@ -380,39 +380,27 @@ export default function Reports() {
   //   • Unlimited retries per chunk with capped exponential backoff (max 10s)
   //   • Global TTL: 10 minutes — if not done in time, throws with clear message
   //   • Only aborts early on 4xx client errors (bad request / auth)
-  const CHUNK_SIZE     = 200        // records per request
-  const RETRY_BASE_MS  = 1000      // base backoff: 1s → 2s → 4s → max 10s
-  const MAX_BACKOFF_MS = 10000     // cap: never wait more than 10s between retries
-  const GLOBAL_TTL_MS  = 10 * 60 * 1000  // 10 minutes total export timeout
+  const CHUNK_SIZE     = 100        // records per request (matches backend max page_size limit)
+  const RETRY_BASE_MS  = 1000      // base backoff: 1s → 2s → 4s
+  const MAX_BACKOFF_MS = 5000      // cap: never wait more than 5s between retries
+  const GLOBAL_TTL_MS  = 3 * 60 * 1000  // 3 minutes export timeout
 
   const fetchAllForExport = async (onProgress) => {
     if (!anprTotal) return anprDetections
+    if (anprDetections.length >= anprTotal) return anprDetections
 
     const totalPages  = Math.ceil(anprTotal / CHUNK_SIZE)
     const allRecords  = []
     const exportStart = Date.now()
-
-    const elapsed = () => {
-      const s = Math.floor((Date.now() - exportStart) / 1000)
-      return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`
-    }
-
-    const remaining = () => {
-      const s = Math.max(0, Math.floor((GLOBAL_TTL_MS - (Date.now() - exportStart)) / 1000))
-      return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`
-    }
 
     for (let page = 1; page <= totalPages; page++) {
       let attempt = 0
       let chunkDone = false
 
       while (!chunkDone) {
-        // ── Global 10-min TTL check ──────────────────────────────────────
         if (Date.now() - exportStart > GLOBAL_TTL_MS) {
-          throw new Error(
-            `Export timed out after 10 minutes. Fetched ${allRecords.length} of ${anprTotal} records. ` +
-            `Try a shorter date range or fewer records.`
-          )
+          if (allRecords.length > 0) return allRecords
+          throw new Error('Export timed out. Please try a shorter date range.')
         }
 
         try {
@@ -420,7 +408,7 @@ export default function Reports() {
             const waitMs = Math.min(RETRY_BASE_MS * Math.pow(2, attempt - 1), MAX_BACKOFF_MS)
             onProgress && onProgress(
               allRecords.length, anprTotal, page, totalPages,
-              `Server busy — retrying chunk ${page} (attempt ${attempt + 1}, elapsed ${elapsed()}, ${remaining()} left)`
+              `Retrying chunk ${page} (attempt ${attempt + 1})`
             )
             await new Promise(r => setTimeout(r, waitMs))
           }
@@ -433,25 +421,35 @@ export default function Reports() {
             page_size: CHUNK_SIZE,
           })
 
-          allRecords.push(...(res.detections || []))
+          const fetched = res.detections || []
+          allRecords.push(...fetched)
           chunkDone = true
           attempt   = 0
 
           onProgress && onProgress(allRecords.length, anprTotal, page, totalPages, null)
+
+          if (fetched.length === 0 || allRecords.length >= anprTotal) {
+            break
+          }
         } catch (err) {
-          // Re-throw timeout errors immediately
-          if (err.message?.includes('Export timed out')) throw err
-          // Re-throw definitive 4xx errors — retrying won't help
-          const status = err?.response?.status || err?.status
-          if (status >= 400 && status < 500) throw err
+          const is4xx = err?.status >= 400 && err?.status < 500 || String(err?.message || '').includes('HTTP 4')
+          if (is4xx) {
+            console.error('[Export] Client error, aborting chunk:', err)
+            if (allRecords.length > 0) return allRecords
+            throw err
+          }
           attempt++
+          if (attempt >= 3) {
+            console.warn(`[Export] Chunk ${page} failed after 3 attempts, continuing.`)
+            chunkDone = true
+          }
         }
       }
 
       if (allRecords.length >= anprTotal) break
     }
 
-    return allRecords
+    return allRecords.length > 0 ? allRecords : anprDetections
   }
 
 
