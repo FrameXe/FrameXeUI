@@ -540,24 +540,23 @@ export default function Reports() {
       // ── Build HTML table rows ──
       const rowsHtml = allRecords.map((d, i) => `
         <tr>
-          <td style="color:#64748b;font-size:10px">${i + 1}</td>
-          <td style="white-space:nowrap">${new Date(d.timestamp).toLocaleString()}</td>
-          <td style="padding:6px;text-align:center">
+          <td style="color:#64748b;font-size:9px;text-align:center">${i + 1}</td>
+          <td style="white-space:nowrap;font-size:10px">${new Date(d.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'medium' })}</td>
+          <td style="padding:4px;text-align:center">
             ${d.imageUrl
-              ? `<img src="${d.imageUrl}" style="width:100px;height:62px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;display:block" />`
-              : '<span style="color:#94a3b8;font-size:10px">No frame</span>'}
+              ? `<img src="${d.imageUrl}" style="width:70px;height:44px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;display:block;margin:0 auto" />`
+              : '<span style="color:#94a3b8;font-size:9px">No frame</span>'}
           </td>
-          <td style="padding:6px;text-align:center">
+          <td style="padding:4px;text-align:center">
             ${d.plateCropUrl
-              ? `<img src="${d.plateCropUrl}" style="width:90px;height:45px;object-fit:contain;border-radius:4px;border:1px solid #e2e8f0;background:#000;display:block" />`
-              : '<span style="color:#94a3b8;font-size:10px">No crop</span>'}
+              ? `<img src="${d.plateCropUrl}" style="width:65px;height:32px;object-fit:contain;border-radius:4px;border:1px solid #e2e8f0;background:#000;display:block;margin:0 auto" />`
+              : '<span style="color:#94a3b8;font-size:9px">No crop</span>'}
           </td>
-          <td style="text-transform:capitalize;font-weight:600">${d.vehicleType || 'unknown'}</td>
-          <td style="font-weight:700;letter-spacing:0.05em">${d.plateNumber || '<span style="color:#94a3b8;font-style:italic">No Plate</span>'}</td>
-          <td style="font-size:10px;color:#64748b">${d.cameraId}</td>
-          <td style="font-weight:700">#${d.trackId ?? 'N/A'}</td>
-          <td style="text-transform:capitalize;font-weight:600">${d.direction || 'N/A'}</td>
-          <td style="font-size:10px;color:#94a3b8;font-family:monospace">…${d.id.slice(-8)}</td>
+          <td style="text-transform:capitalize;font-weight:600;font-size:10px">${d.vehicleType || 'unknown'}</td>
+          <td style="font-weight:700;font-size:10px;letter-spacing:0.03em">${d.plateNumber || '<span style="color:#94a3b8;font-style:italic">No Plate</span>'}</td>
+          <td style="font-size:9px;color:#64748b;word-break:break-all">${d.cameraId}</td>
+          <td style="font-weight:700;font-size:10px;text-align:center">#${d.trackId ?? 'N/A'}</td>
+          <td style="text-transform:capitalize;font-weight:600;font-size:10px">${d.direction || 'N/A'}</td>
         </tr>
       `).join('')
 
@@ -571,24 +570,24 @@ export default function Reports() {
       const html = `<!DOCTYPE html><html><head>
         <title>${ucLabel} Report — ${camName}</title>
         <style>
-          body{font-family:'Segoe UI',Arial,sans-serif;margin:35px;color:#0f172a;background:#fff}
-          .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #4f6df5;padding-bottom:14px;margin-bottom:24px}
-          .logo{font-size:18px;font-weight:800;color:#4f6df5}
-          .badge{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:4px 12px;border-radius:4px;font-size:11px;font-weight:700;text-transform:uppercase}
-          .meta{background:#f8fafc;border:1px solid #e2e8f0;padding:14px 18px;border-radius:8px;margin-bottom:24px;font-size:12px;display:flex;flex-wrap:wrap;gap:24px}
+          body{font-family:'Segoe UI',Arial,sans-serif;margin:25px;color:#0f172a;background:#fff}
+          .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #4f6df5;padding-bottom:10px;margin-bottom:16px}
+          .logo{font-size:16px;font-weight:800;color:#4f6df5}
+          .badge{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase}
+          .meta{background:#f8fafc;border:1px solid #e2e8f0;padding:10px 14px;border-radius:6px;margin-bottom:16px;font-size:11px;display:flex;flex-wrap:wrap;gap:18px}
           .meta-item{display:flex;flex-direction:column}
-          .meta-label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px}
-          .meta-val{font-size:13px;font-weight:700;color:#0f172a;margin-top:2px}
-          .section-title{font-size:14px;font-weight:800;margin:0 0 14px;color:#0f172a;border-left:4px solid #4f6df5;padding-left:10px}
-          table{width:100%;border-collapse:collapse;font-size:11px}
-          th{background:#f1f5f9;padding:10px 12px;text-align:left;font-size:10px;font-weight:700;color:#475569;border-bottom:2px solid #cbd5e1;text-transform:uppercase;white-space:nowrap}
-          td{padding:9px 12px;border-bottom:1px solid #e2e8f0;vertical-align:middle}
+          .meta-label{font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px}
+          .meta-val{font-size:12px;font-weight:700;color:#0f172a;margin-top:2px}
+          .section-title{font-size:13px;font-weight:800;margin:0 0 10px;color:#0f172a;border-left:4px solid #4f6df5;padding-left:8px}
+          table{width:100%;border-collapse:collapse;font-size:10px}
+          th{background:#f1f5f9;padding:7px 8px;text-align:left;font-size:9px;font-weight:700;color:#475569;border-bottom:2px solid #cbd5e1;text-transform:uppercase;white-space:nowrap}
+          td{padding:6px 8px;border-bottom:1px solid #e2e8f0;vertical-align:middle}
           tr:nth-child(even){background:#f8fafc}
           img{max-width:100%;display:block}
-          .footer{margin-top:40px;border-top:1px solid #e2e8f0;padding-top:14px;font-size:10px;color:#94a3b8;text-align:center}
+          .footer{margin-top:30px;border-top:1px solid #e2e8f0;padding-top:10px;font-size:9px;color:#94a3b8;text-align:center}
           @media print{
             body{margin:0}
-            @page{margin:1.5cm;size:A4 landscape}
+            @page{margin:1cm;size:A4 portrait}
             tr{page-break-inside:avoid}
           }
         </style>
@@ -608,12 +607,12 @@ export default function Reports() {
           <thead><tr>
             <th>#</th><th>Capture Time</th><th>Full Frame</th><th>Plate Crop</th>
             <th>Vehicle Type</th><th>Plate Number</th><th>Camera ID</th>
-            <th>Track ID</th><th>Direction</th><th>Object ID</th>
+            <th>Track</th><th>Direction</th>
           </tr></thead>
           <tbody>${rowsHtml}</tbody>
         </table>
         <div class="footer">Confidential &amp; Proprietary • Generated by FrameX AI Video Analytics Engine • ${new Date().toLocaleString()}</div>
-        <script>window.onload = function() { setTimeout(function() { window.print(); }, 1200); }<\/script>
+        <script>window.onload = function() { setTimeout(function() { window.print(); }, 1000); }<\/script>
       </body></html>`
 
       printWin.document.write(html)
