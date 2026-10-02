@@ -18,6 +18,7 @@ import IntrusionDetails from './pages/IntrusionDetails.jsx'
 
 import CameraAnalytics from './pages/CameraAnalytics.jsx'
 import VehicleLog from './pages/VehicleLog.jsx'
+import PeopleLog from './pages/PeopleLog.jsx'
 import DiscoveredCamerasPanel from './pages/DiscoveredCamerasPanel.jsx'
 import GpuWorkerDashboard from './pages/GpuWorkerDashboard.jsx'
 import DiagnosticPanel from './pages/DiagnosticPanel.jsx'
@@ -67,6 +68,7 @@ export default function App() {
             <Route element={<ProtectedRoute permission="view_events" />}>
               <Route path="events" element={<EventsAlerts />} />
               <Route path="vehicle-log" element={<VehicleLog />} />
+              <Route path="people-log" element={<PeopleLog />} />
             </Route>
 
             <Route element={<ProtectedRoute permission="view_reports" />}>

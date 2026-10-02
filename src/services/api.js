@@ -356,6 +356,34 @@ export const vehicleDetectionAPI = {
 }
 
 // ════════════════════════════════════════════════════════════
+//  PEOPLE DETECTION API
+// ════════════════════════════════════════════════════════════
+export function normalizePeopleDetection(d) {
+  const toAbs = (u) => {
+    if (!u) return null
+    return /^https?:\/\//i.test(u) ? u : `${API_BASE}${u.startsWith('/') ? '' : '/'}${u}`
+  }
+  return {
+    id:         d.id,
+    cameraId:   d.camera_id   || d.cameraId,
+    cameraName: d.camera_name || d.cameraName,
+    eventId:    d.event_id    || d.eventId,
+    trackId:    d.track_id    || d.trackId,
+    direction:  d.direction,
+    timestamp:  d.timestamp,
+    imageUrl:   toAbs(d.image_url || d.imageUrl),
+  }
+}
+
+export const peopleDetectionAPI = {
+  list:  (p = {}) => api(`/api/people-detections${qs(p)}`).then(d => ({
+    ...d,
+    detections: (d.detections || []).map(normalizePeopleDetection)
+  })),
+  stats: (p = {}) => api(`/api/people-detections/stats${qs(p)}`),
+}
+
+// ════════════════════════════════════════════════════════════
 //  SESSIONS API
 // ════════════════════════════════════════════════════════════
 export const sessionAPI = {

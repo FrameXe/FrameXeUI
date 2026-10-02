@@ -137,6 +137,19 @@ export default function Sidebar({ collapsed: externalCollapsed, setCollapsed: ex
               <Car size={17} style={{ flexShrink: 0, color: '#8b5cf6' }} />
               {!collapsed && <span>Vehicle Log</span>}
             </NavLink>
+            <NavLink
+              to="/people-log"
+              title={collapsed ? 'People Log' : undefined}
+              className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+              style={({ isActive }) => ({
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                borderLeft: isActive ? '3px solid #0d9488' : '3px solid transparent',
+                background: isActive ? 'var(--surface-2)' : 'transparent',
+              })}
+            >
+              <Users size={17} style={{ flexShrink: 0, color: '#0d9488' }} />
+              {!collapsed && <span>People Log</span>}
+            </NavLink>
           </div>
         )}
 
