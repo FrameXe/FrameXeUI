@@ -363,6 +363,7 @@ export function normalizePeopleDetection(d) {
     if (!u) return null
     return /^https?:\/\//i.test(u) ? u : `${API_BASE}${u.startsWith('/') ? '' : '/'}${u}`
   }
+  const snap = toAbs(d.snapshot_url || d.snapshotUrl || d.image_url || d.imageUrl)
   return {
     id:         d.id,
     cameraId:   d.camera_id   || d.cameraId,
@@ -371,17 +372,30 @@ export function normalizePeopleDetection(d) {
     trackId:    d.track_id    || d.trackId,
     direction:  d.direction,
     timestamp:  d.timestamp,
-    imageUrl:   toAbs(d.image_url || d.imageUrl),
+    imageUrl:   snap,
+    snapshotUrl: snap,
+    cumulativeIn: d.cumulative_in ?? d.cumulativeIn ?? null,
+    cumulativeOut: d.cumulative_out ?? d.cumulativeOut ?? null,
+    cumulativeTotal: d.cumulative_total ?? d.cumulativeTotal ?? null,
+    newPeopleCounted: d.new_people_counted ?? d.newPeopleCounted ?? null,
+    peopleInFrame: d.people_in_frame ?? d.peopleInFrame ?? null,
   }
 }
 
 export const peopleDetectionAPI = {
-  list:  (p = {}) => api(`/api/people-detections${qs(p)}`).then(d => ({
-    ...d,
-    detections: (d.detections || []).map(normalizePeopleDetection)
-  })),
+  list: (p = {}) => api(`/api/people-detections${qs(p)}`).then(d => {
+    const items = (d.detections || d.events || []).map(normalizePeopleDetection)
+    return {
+      ...d,
+      detections: items,
+      events: items,
+    }
+  }),
   stats: (p = {}) => api(`/api/people-detections/stats${qs(p)}`),
 }
+
+export const peopleEventAPI = peopleDetectionAPI
+
 
 // ════════════════════════════════════════════════════════════
 //  SESSIONS API

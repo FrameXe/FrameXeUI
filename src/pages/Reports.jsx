@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { USE_CASES, UC_MAP } from '../constants/useCases.js'
-import { reportAPI, vehicleDetectionAPI } from '../services/api.js'
+import { reportAPI, vehicleDetectionAPI, peopleEventAPI } from '../services/api.js'
 import { useCameras } from '../hooks/useCameras.js'
 import { Loading } from '../components/shared/index.jsx'
-import { BarChart3, Download, RefreshCw, FileText, X } from 'lucide-react'
+import { BarChart3, Download, RefreshCw, FileText, X, Users, Eye } from 'lucide-react'
+
 import { useAuthStore } from '../store/index.js'
 
 export default function Reports() {
@@ -29,10 +30,18 @@ export default function Reports() {
   const [lightboxItem, setLightboxItem]     = useState(null)
   const [toast, setToast]                   = useState(null) // { msg, sub, type: 'info'|'success'|'error' }
   const [exportBusy, setExportBusy]         = useState(false)
+  // People Counting Intelligence Log specific state
+  const [pplEvents, setPplEvents]           = useState([])
+  const [pplTotal, setPplTotal]             = useState(0)
+  const [pplPage, setPplPage]               = useState(1)
+  const [pplPageSize, setPplPageSize]       = useState(25)
+  const [pplLightbox, setPplLightbox]       = useState(null)
   const uc = UC_MAP[ucSel]
   const user = useAuthStore(s => s.user)
   const allowedUsecases = user?.allowedUsecases || []
   const isVehicleDetection = ucSel === 'vehicle_detection' || ucSel === 'traffic'
+  const isPeopleCount = ucSel === 'people_count'
+
 
   const CATEGORIES = [
     { id: 'all', label: '🌐 All Intelligence Suites' },
@@ -114,6 +123,7 @@ export default function Reports() {
     setRan(false)
     setData(null)
     setAnprDetections([])
+    setPplEvents([])
     setToast({
       msg: '⏳ Generating Report — Please Wait',
       sub: `${ucLabel} · ${camName} · ${fmtRange()}`,
@@ -136,6 +146,34 @@ export default function Reports() {
         setRan(true)
         setToast({
           msg: `✅ Report Ready — ${res.total} Records Found`,
+          sub: `${ucLabel} · ${camName} · ${fmtRange()}`,
+          type: 'success'
+        })
+      } else if (isPeopleCount) {
+        const [d, pplRes] = await Promise.all([
+          reportAPI.get({
+            ...(camSel ? { camera_id: camSel } : {}),
+            usecase: ucSel,
+            start_time: new Date(startDtm).toISOString(),
+            end_time: new Date(endDtm).toISOString(),
+          }),
+          peopleEventAPI.list({
+            ...(camSel ? { camera_id: camSel } : {}),
+            start_time: new Date(startDtm).toISOString(),
+            end_time: new Date(endDtm).toISOString(),
+            page: pplPage,
+            page_size: pplPageSize,
+          }).catch(err => {
+            console.warn('People events list failed:', err)
+            return { events: [], total: 0 }
+          })
+        ])
+        setData(d)
+        setPplEvents(pplRes.events || [])
+        setPplTotal(pplRes.total || 0)
+        setRan(true)
+        setToast({
+          msg: `✅ Report Ready — ${pplRes.total || d.summary?.total_count || 0} Records`,
           sub: `${ucLabel} · ${camName} · ${fmtRange()}`,
           type: 'success'
         })
@@ -183,6 +221,30 @@ export default function Reports() {
       setBusy(false)
     }
   }
+
+  // ── People Events pagination handler ──────────────────────────────────
+  const handlePplPageChange = async (newPage) => {
+    setPplPage(newPage)
+    setBusy(true)
+    setToast({ msg: `⏳ Loading page ${newPage}…`, type: 'info' })
+    try {
+      const res = await peopleEventAPI.list({
+        ...(camSel ? { camera_id: camSel } : {}),
+        start_time: new Date(startDtm).toISOString(),
+        end_time: new Date(endDtm).toISOString(),
+        page: newPage,
+        page_size: pplPageSize,
+      })
+      setPplEvents(res.events || [])
+      setPplTotal(res.total || 0)
+      setToast({ msg: `✅ Page ${newPage} loaded`, type: 'success' })
+    } catch {
+      setToast({ msg: '❌ Failed to load page.', type: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
 
   const exportPdf = () => {
     if (!data?.timeline) return
@@ -635,6 +697,259 @@ export default function Reports() {
     }
   }
 
+  // ── Helper: fetch ALL people counting records in safe chunks ─────────────
+  const fetchAllPeopleForExport = async (onProgress) => {
+    if (!pplTotal) return pplEvents
+    if (pplEvents.length >= pplTotal) return pplEvents
+
+    const totalPages  = Math.ceil(pplTotal / CHUNK_SIZE)
+    const allRecords  = []
+    const exportStart = Date.now()
+
+    for (let page = 1; page <= totalPages; page++) {
+      let attempt = 0
+      let chunkDone = false
+
+      while (!chunkDone) {
+        if (Date.now() - exportStart > GLOBAL_TTL_MS) {
+          if (allRecords.length > 0) return allRecords
+          throw new Error('Export timed out. Please try a shorter date range.')
+        }
+
+        try {
+          if (attempt > 0) {
+            const waitMs = Math.min(RETRY_BASE_MS * Math.pow(2, attempt - 1), MAX_BACKOFF_MS)
+            onProgress && onProgress(
+              allRecords.length, pplTotal, page, totalPages,
+              `Retrying chunk ${page} (attempt ${attempt + 1})`
+            )
+            await new Promise(r => setTimeout(r, waitMs))
+          }
+
+          const res = await peopleEventAPI.list({
+            ...(camSel ? { camera_id: camSel } : {}),
+            start_time: new Date(startDtm).toISOString(),
+            end_time:   new Date(endDtm).toISOString(),
+            page,
+            page_size: CHUNK_SIZE,
+          })
+
+          const fetched = res.events || []
+          allRecords.push(...fetched)
+          chunkDone = true
+          attempt   = 0
+
+          onProgress && onProgress(allRecords.length, pplTotal, page, totalPages, null)
+
+          if (fetched.length === 0 || allRecords.length >= pplTotal) {
+            break
+          }
+        } catch (err) {
+          const is4xx = err?.status >= 400 && err?.status < 500 || String(err?.message || '').includes('HTTP 4')
+          if (is4xx) {
+            console.error('[Export] Client error, aborting chunk:', err)
+            if (allRecords.length > 0) return allRecords
+            throw err
+          }
+          attempt++
+          if (attempt >= 3) {
+            console.warn(`[Export] Chunk ${page} failed after 3 attempts, continuing.`)
+            chunkDone = true
+          }
+        }
+      }
+
+      if (allRecords.length >= pplTotal) break
+    }
+
+    return allRecords.length > 0 ? allRecords : pplEvents
+  }
+
+  // ── People CSV export ──────────────────────────────────────────────────
+  const exportPeopleCsv = async () => {
+    if (!pplEvents.length && !data?.summary?.total_count) return
+    const ucLabel = uc?.label || ucSel || 'People Counting'
+    const camName  = cameras.find(c => c.id === camSel)?.name || camSel || 'All Cameras'
+    const totalCount = data?.summary?.total_count ?? pplTotal
+    const totalIn = data?.summary?.total_in ?? 0
+    const totalOut = data?.summary?.total_out ?? 0
+
+    setExportBusy(true)
+    setToast({
+      msg: `⏳ Preparing CSV — Fetching All ${pplTotal || totalCount} Records`,
+      sub: `${ucLabel} · ${camName} · ${new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`,
+      type: 'info'
+    })
+    try {
+      const allRecords = await fetchAllPeopleForExport((fetched, total, chunk, totalChunks, retryMsg) => {
+        if (retryMsg) {
+          setToast({ msg: `🔄 ${retryMsg}`, sub: `${fetched} of ${total} records fetched so far`, type: 'info' })
+        }
+      })
+
+      const header = [
+        `${ucLabel} Report`,
+        `Camera,"${camName}"`,
+        `Period,"${startDtm} → ${endDtm}"`,
+        `Total Count,${totalCount}`,
+        `Total IN,${totalIn}`,
+        `Total OUT,${totalOut}`,
+        `Total Records,${allRecords.length}`,
+        `Generated At,"${new Date().toLocaleString()}"`,
+        '',
+        'S.No.,Capture Time,Camera Name,Camera ID,Cumulative IN,Cumulative OUT,Cumulative Total,Delta Count,People In Frame,Event ID',
+      ]
+      const rows = allRecords.map((d, i) => [
+        i + 1,
+        `"${new Date(d.timestamp).toLocaleString()}"`,
+        `"${d.cameraName || ''}"`,
+        `"${d.cameraId}"`,
+        d.cumulativeIn ?? 0,
+        d.cumulativeOut ?? 0,
+        d.cumulativeTotal ?? 0,
+        d.newPeopleCounted ?? 0,
+        d.peopleInFrame ?? 0,
+        `"${d.id}"`,
+      ].join(','))
+
+      const blob = new Blob([[...header, ...rows].join('\n')], { type: 'text/csv' })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = buildFilename('csv')
+      a.click()
+      URL.revokeObjectURL(url)
+
+      setToast({
+        msg: `✅ CSV Downloaded — ${allRecords.length} Records`,
+        sub: `${ucLabel} · ${camName}`,
+        type: 'success'
+      })
+    } catch (err) {
+      setToast({ msg: '❌ Export Failed — Please try again.', sub: null, type: 'error' })
+    } finally {
+      setExportBusy(false)
+    }
+  }
+
+  // ── People PDF export (Portrait A4) ────────────────────────────────────
+  const exportPeoplePdf = async () => {
+    if (!pplEvents.length && !data?.summary?.total_count) return
+    const ucLabel = uc?.label || ucSel || 'People Counting Report'
+    const camName  = cameras.find(c => c.id === camSel)?.name || camSel || 'All Cameras'
+    const totalCount = data?.summary?.total_count ?? pplTotal
+    const totalIn = data?.summary?.total_in ?? 0
+    const totalOut = data?.summary?.total_out ?? 0
+
+    setExportBusy(true)
+    setToast({
+      msg: `⏳ Preparing PDF — Fetching All ${pplTotal || totalCount} Records`,
+      sub: `${ucLabel} · ${camName} · ${new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`,
+      type: 'info'
+    })
+    try {
+      const allRecords = await fetchAllPeopleForExport((fetched, total, chunk, totalChunks, retryMsg) => {
+        if (retryMsg) {
+          setToast({ msg: `🔄 ${retryMsg}`, sub: `${fetched} of ${total} records fetched so far`, type: 'info' })
+        }
+      })
+
+      const rowsHtml = allRecords.map((d, i) => `
+        <tr>
+          <td style="color:#64748b;font-size:9px;text-align:center">${i + 1}</td>
+          <td style="white-space:nowrap;font-size:10px">${new Date(d.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'medium' })}</td>
+          <td style="padding:4px;text-align:center">
+            ${d.snapshotUrl
+              ? `<img src="${d.snapshotUrl}" style="width:70px;height:44px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;display:block;margin:0 auto" />`
+              : '<span style="color:#94a3b8;font-size:9px">No snapshot</span>'}
+          </td>
+          <td style="font-size:9px;color:#334155;font-weight:600">${d.cameraName || d.cameraId}</td>
+          <td style="font-size:10px;font-weight:700;color:#16a34a;text-align:center">${d.cumulativeIn ?? 0}</td>
+          <td style="font-size:10px;font-weight:700;color:#f59e0b;text-align:center">${d.cumulativeOut ?? 0}</td>
+          <td style="font-size:10px;font-weight:800;color:#2563eb;text-align:center">${d.cumulativeTotal ?? ((d.cumulativeIn ?? 0) + (d.cumulativeOut ?? 0))}</td>
+          <td style="font-size:10px;font-weight:700;text-align:center;color:${(d.newPeopleCounted ?? 0) > 0 ? '#16a34a' : '#64748b'}">${(d.newPeopleCounted ?? 0) > 0 ? `+${d.newPeopleCounted}` : 0}</td>
+          <td style="font-size:10px;font-weight:600;text-align:center">${d.peopleInFrame ?? 0}</td>
+        </tr>
+      `).join('')
+
+      const printWin = window.open('', '_blank')
+      if (!printWin) {
+        setToast({ msg: '❌ Popup blocked. Please allow popups and retry.', sub: null, type: 'error' })
+        setExportBusy(false)
+        return
+      }
+
+      const html = `<!DOCTYPE html><html><head>
+        <title>${ucLabel} Report — ${camName}</title>
+        <style>
+          body{font-family:'Segoe UI',Arial,sans-serif;margin:25px;color:#0f172a;background:#fff}
+          .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #2563eb;padding-bottom:10px;margin-bottom:16px}
+          .logo{font-size:16px;font-weight:800;color:#2563eb}
+          .badge{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase}
+          .meta{background:#f8fafc;border:1px solid #e2e8f0;padding:10px 14px;border-radius:6px;margin-bottom:16px;font-size:11px;display:flex;flex-wrap:wrap;gap:18px}
+          .meta-item{display:flex;flex-direction:column}
+          .meta-label{font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px}
+          .meta-val{font-size:12px;font-weight:700;color:#0f172a;margin-top:2px}
+          .section-title{font-size:13px;font-weight:800;margin:0 0 10px;color:#0f172a;border-left:4px solid #2563eb;padding-left:8px}
+          table{width:100%;border-collapse:collapse;font-size:10px}
+          th{background:#f1f5f9;padding:7px 8px;text-align:left;font-size:9px;font-weight:700;color:#475569;border-bottom:2px solid #cbd5e1;text-transform:uppercase;white-space:nowrap}
+          td{padding:6px 8px;border-bottom:1px solid #e2e8f0;vertical-align:middle}
+          tr:nth-child(even){background:#f8fafc}
+          img{max-width:100%;display:block}
+          .footer{margin-top:30px;border-top:1px solid #e2e8f0;padding-top:10px;font-size:9px;color:#94a3b8;text-align:center}
+          @media print{
+            body{margin:0}
+            @page{margin:1cm;size:A4 portrait}
+            tr{page-break-inside:avoid}
+          }
+        </style>
+      </head><body>
+        <div class="header">
+          <div class="logo">👥 FRAME-X · ${ucLabel.toUpperCase()} REPORT</div>
+          <div class="badge">OFFICIAL REPORT</div>
+        </div>
+        <div class="meta">
+          <div class="meta-item"><span class="meta-label">Camera</span><span class="meta-val">${camName}</span></div>
+          <div class="meta-item"><span class="meta-label">Period</span><span class="meta-val">${startDtm} → ${endDtm}</span></div>
+          <div class="meta-item"><span class="meta-label">Total People</span><span class="meta-val">${totalCount}</span></div>
+          <div class="meta-item"><span class="meta-label">Total IN</span><span class="meta-val" style="color:#16a34a">${totalIn}</span></div>
+          <div class="meta-item"><span class="meta-label">Total OUT</span><span class="meta-val" style="color:#f59e0b">${totalOut}</span></div>
+          <div class="meta-item"><span class="meta-label">Total Records</span><span class="meta-val">${allRecords.length}</span></div>
+          <div class="meta-item"><span class="meta-label">Generated At</span><span class="meta-val">${new Date().toLocaleString()}</span></div>
+        </div>
+        <div class="section-title">Complete People Intelligence Log — ${allRecords.length} Records</div>
+        <table>
+          <thead><tr>
+            <th>#</th><th>Capture Time</th><th>Snapshot</th><th>Camera</th>
+            <th>IN</th><th>OUT</th><th>Total</th><th>Delta</th><th>In Frame</th>
+          </tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+        <div class="footer">Confidential &amp; Proprietary • Generated by FrameX AI Video Analytics Engine • ${new Date().toLocaleString()}</div>
+        <script>window.onload = function() { setTimeout(function() { window.print(); }, 1000); }<\/script>
+      </body></html>`
+
+      printWin.document.write(html)
+      printWin.document.close()
+
+      setToast({
+        msg: `✅ PDF Ready — ${allRecords.length} Records with Snapshots`,
+        sub: `${ucLabel} · ${camName}`,
+        type: 'success'
+      })
+    } catch (err) {
+      const isTimeout = err?.message?.includes('Export timed out')
+      setToast({
+        msg: isTimeout ? '⏱️ Export Timed Out — 10 min limit reached' : '❌ Export Failed — Please try again.',
+        sub: isTimeout ? 'Try a shorter date range or split into multiple exports.' : null,
+        type: 'error'
+      })
+    } finally {
+      setExportBusy(false)
+    }
+  }
+
+
   // Build 24-hour timeline grid (00:00 to 23:00) so bars render at exact hourly slots
   const fullTimeline = Array.from({ length: 24 }, (_, h) => {
     const hourStr = `${h.toString().padStart(2, '0')}:00`
@@ -739,10 +1054,10 @@ export default function Reports() {
           {busy ? 'Generating…' : 'Generate Report'}
         </button>
 
-        {ran && (data || anprDetections.length > 0) && (
+        {ran && (data || anprDetections.length > 0 || pplEvents.length > 0) && (
           <div style={{ display: 'flex', gap: 10 }}>
             <button
-              onClick={isVehicleDetection ? exportAnprPdf : exportPdf}
+              onClick={isVehicleDetection ? exportAnprPdf : isPeopleCount ? exportPeoplePdf : exportPdf}
               disabled={exportBusy}
               style={{
                 background: exportBusy ? 'var(--surface-2)' : 'var(--accent-bg)',
@@ -755,7 +1070,7 @@ export default function Reports() {
               <FileText size={13} /> {exportBusy ? 'Preparing…' : 'Export PDF'}
             </button>
             <button
-              onClick={isVehicleDetection ? exportAnprCsv : exportCsv}
+              onClick={isVehicleDetection ? exportAnprCsv : isPeopleCount ? exportPeopleCsv : exportCsv}
               disabled={exportBusy}
               style={{
                 background: exportBusy ? 'var(--surface-2)' : 'var(--green-bg)',
@@ -862,34 +1177,246 @@ export default function Reports() {
             </div>
           </div>
 
-          {/* Timeline table */}
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
-            <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Timeline Data</span>
-            </div>
-            <div style={{ maxHeight: 320, overflowY: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                <thead>
-                  <tr style={{ background: 'var(--surface-2)', position: 'sticky', top: 0 }}>
-                    <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 700, color: 'var(--text-3)', fontSize: 10, letterSpacing: '0.07em', textTransform: 'uppercase' }}>Time</th>
-                    <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 700, color: 'var(--text-3)', fontSize: 10, letterSpacing: '0.07em', textTransform: 'uppercase' }}>Count</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.timeline?.map((d, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid var(--border-2)', background: i % 2 === 0 ? 'var(--surface)' : 'var(--surface-2)' }}>
-                      <td style={{ padding: '10px 16px', color: 'var(--text-2)', fontWeight: 500 }}>{d.time || d.hour}</td>
-                      <td style={{ padding: '10px 16px' }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: uc?.color || '#2563eb' }}>{d.count}</span>
-                      </td>
-                    </tr>
+          {/* People Counting Intelligence Log table */}
+          {isPeopleCount && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Summary strip + page-size selector */}
+              <div style={{
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)', padding: '16px 24px',
+                display: 'flex', alignItems: 'center', gap: 32, flexWrap: 'wrap',
+                boxShadow: 'var(--shadow)',
+              }}>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Total Crossing Events</div>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: '#2563eb', marginTop: 2 }}>{pplTotal || data.summary?.total_count || 0}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Showing Events</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>{pplEvents.length} records</div>
+                </div>
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)' }}>Rows per page:</span>
+                  {[10, 25, 50].map(size => (
+                    <button key={size} onClick={() => setPplPageSize(size)}
+                      style={{
+                        padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                        border: '1px solid var(--border)', cursor: 'pointer',
+                        background: pplPageSize === size ? '#2563eb' : 'var(--surface-2)',
+                        color: pplPageSize === size ? '#fff' : 'var(--text)',
+                      }}
+                    >{size}</button>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              </div>
+
+              {/* People events table */}
+              <div style={{
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--shadow)',
+              }}>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
+                      <tr>
+                        {['S.No.', 'Capture Time', 'Snapshot', 'Camera Source', 'Directional IN', 'Directional OUT', 'Cumulative Total', 'Delta (Frame)', 'In Frame', 'Inspect'].map(h => (
+                          <th key={h} style={{
+                            padding: '13px 14px', textAlign: 'left', fontSize: 10,
+                            color: 'var(--text-3)', fontWeight: 800, textTransform: 'uppercase',
+                            letterSpacing: '0.05em', whiteSpace: 'nowrap',
+                          }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pplEvents.length === 0 ? (
+                        <tr>
+                          <td colSpan={10} style={{ padding: 40, textAlign: 'center', color: 'var(--text-3)', fontSize: 12, fontWeight: 600 }}>
+                            No individual people crossing records captured in this interval.
+                          </td>
+                        </tr>
+                      ) : (
+                        pplEvents.map((ev, idx) => (
+                          <tr key={ev.id}
+                            style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                          >
+                            {/* S.No. */}
+                            <td style={{ padding: '11px 14px', fontSize: 12, fontWeight: 700, color: 'var(--text-3)' }}>
+                              {((pplPage - 1) * pplPageSize) + idx + 1}
+                            </td>
+
+                            {/* Capture Time */}
+                            <td style={{ padding: '11px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
+                              {new Date(ev.timestamp).toLocaleString()}
+                            </td>
+
+                            {/* Snapshot */}
+                            <td style={{ padding: '11px 14px' }}>
+                              <div
+                                onClick={() => setPplLightbox(ev)}
+                                style={{
+                                  width: 52, height: 38, background: '#0f172a', borderRadius: 6,
+                                  overflow: 'hidden', cursor: 'pointer', border: '1px solid #334155',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  transition: 'transform 0.15s',
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
+                                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                              >
+                                {ev.snapshotUrl ? (
+                                  <img src={ev.snapshotUrl} loading="lazy" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'cover' }} alt="Snapshot" onError={e => { e.target.style.display = 'none' }} />
+                                ) : (
+                                  <Users size={16} style={{ color: '#64748b' }} />
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Camera */}
+                            <td style={{ padding: '11px 14px' }}>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>
+                                {ev.cameraName || ev.cameraId}
+                              </div>
+                              <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 500 }}>
+                                {ev.cameraId}
+                              </div>
+                            </td>
+
+                            {/* Directional IN */}
+                            <td style={{ padding: '11px 14px' }}>
+                              <span style={{
+                                fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 20,
+                                background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)',
+                                color: '#16a34a',
+                              }}>
+                                IN: {ev.cumulativeIn ?? 0}
+                              </span>
+                            </td>
+
+                            {/* Directional OUT */}
+                            <td style={{ padding: '11px 14px' }}>
+                              <span style={{
+                                fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 20,
+                                background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)',
+                                color: '#f59e0b',
+                              }}>
+                                OUT: {ev.cumulativeOut ?? 0}
+                              </span>
+                            </td>
+
+                            {/* Cumulative Total */}
+                            <td style={{ padding: '11px 14px' }}>
+                              <span style={{
+                                fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 20,
+                                background: 'rgba(37,99,235,0.12)', border: '1px solid rgba(37,99,235,0.3)',
+                                color: '#2563eb',
+                              }}>
+                                {ev.cumulativeTotal ?? ((ev.cumulativeIn ?? 0) + (ev.cumulativeOut ?? 0))}
+                              </span>
+                            </td>
+
+                            {/* Delta count this frame */}
+                            <td style={{ padding: '11px 14px', fontSize: 12, fontWeight: 700, color: (ev.newPeopleCounted ?? 0) > 0 ? '#16a34a' : 'var(--text-3)' }}>
+                              {(ev.newPeopleCounted ?? 0) > 0 ? `+${ev.newPeopleCounted}` : 0}
+                            </td>
+
+                            {/* People visible in frame */}
+                            <td style={{ padding: '11px 14px', fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>
+                              {ev.peopleInFrame ?? 0}
+                            </td>
+
+                            {/* Action */}
+                            <td style={{ padding: '11px 14px' }}>
+                              <button
+                                onClick={() => setPplLightbox(ev)}
+                                style={{
+                                  background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8,
+                                  padding: '5px 9px', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: 'var(--text)',
+                                  display: 'flex', alignItems: 'center', gap: 4,
+                                }}
+                              >
+                                <Eye size={12} /> View
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination footer */}
+                {pplTotal > pplPageSize && (
+                  <div style={{
+                    padding: '14px 24px', background: 'var(--surface)',
+                    borderTop: '1px solid var(--border)',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600 }}>
+                      Showing {((pplPage - 1) * pplPageSize) + 1}–{Math.min(pplPage * pplPageSize, pplTotal)} of {pplTotal}
+                    </span>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <button
+                        disabled={pplPage === 1}
+                        onClick={() => handlePplPageChange(pplPage - 1)}
+                        style={{
+                          background: pplPage === 1 ? 'transparent' : 'var(--surface-2)',
+                          border: '1px solid var(--border)', padding: '6px 14px', borderRadius: 8,
+                          cursor: pplPage === 1 ? 'not-allowed' : 'pointer',
+                          fontSize: 12, fontWeight: 700, color: 'var(--text)',
+                        }}
+                      >← Prev</button>
+                      <span style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700, color: 'var(--text-2)' }}>
+                        {pplPage} / {Math.ceil(pplTotal / pplPageSize)}
+                      </span>
+                      <button
+                        disabled={pplPage >= Math.ceil(pplTotal / pplPageSize)}
+                        onClick={() => handlePplPageChange(pplPage + 1)}
+                        style={{
+                          background: 'var(--surface-2)', border: '1px solid var(--border)',
+                          padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
+                          fontSize: 12, fontWeight: 700, color: 'var(--text)',
+                        }}
+                      >Next →</button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Timeline table for non-people usecases */}
+          {!isPeopleCount && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
+              <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Timeline Data</span>
+              </div>
+              <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--surface-2)', position: 'sticky', top: 0 }}>
+                      <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 700, color: 'var(--text-3)', fontSize: 10, letterSpacing: '0.07em', textTransform: 'uppercase' }}>Time</th>
+                      <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 700, color: 'var(--text-3)', fontSize: 10, letterSpacing: '0.07em', textTransform: 'uppercase' }}>Count</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.timeline?.map((d, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid var(--border-2)', background: i % 2 === 0 ? 'var(--surface)' : 'var(--surface-2)' }}>
+                        <td style={{ padding: '10px 16px', color: 'var(--text-2)', fontWeight: 500 }}>{d.time || d.hour}</td>
+                        <td style={{ padding: '10px 16px' }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: uc?.color || '#2563eb' }}>{d.count}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
+
 
       {/* ── ANPR / Vehicle Detection table ──────────────────────────────── */}
       {isVehicleDetection && ran && !busy && anprDetections.length > 0 && (
@@ -1207,7 +1734,105 @@ export default function Reports() {
         </div>
       )}
 
+      {/* ── People Lightbox modal ────────────────────────────────────── */}
+
+      {pplLightbox && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+            zIndex: 1000, display: 'flex', alignItems: 'center',
+            justifyContent: 'center', backdropFilter: 'blur(8px)',
+          }}
+          onClick={() => setPplLightbox(null)}
+        >
+          <div
+            style={{
+              background: 'var(--surface)', borderRadius: 20, width: '96%',
+              maxWidth: 900, overflow: 'hidden', boxShadow: '0 30px 60px rgba(0,0,0,0.4)',
+              border: '1px solid var(--border)', display: 'flex', flexDirection: 'column',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  👥 People Crossing Evidence
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, marginTop: 2 }}>
+                  Event #{pplLightbox.id?.slice(-8)} | Camera: {pplLightbox.cameraName || pplLightbox.cameraId}
+                </div>
+              </div>
+              <button
+                onClick={() => setPplLightbox(null)}
+                style={{ background: 'var(--surface-2)', border: 'none', padding: 8, borderRadius: '50%', cursor: 'pointer', display: 'flex', color: 'var(--text)' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Two-column: Full Frame | Properties */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', minHeight: 380 }}>
+              <div style={{ background: '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', borderRight: '1px solid #222' }}>
+                <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 6, letterSpacing: '0.05em' }}>SNAPSHOT FRAME</div>
+                {pplLightbox.snapshotUrl ? (
+                  <img src={pplLightbox.snapshotUrl} style={{ maxWidth: '100%', maxHeight: '420px', objectFit: 'contain' }} alt="Snapshot" />
+                ) : (
+                  <div style={{ color: '#94a3b8', fontSize: 14, fontWeight: 600, textAlign: 'center', padding: 24 }}>
+                    <Users size={36} style={{ color: '#64748b', marginBottom: 8, display: 'inline-block' }} />
+                    <div>No image snapshot captured for this frame</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Metadata column */}
+              <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', background: 'var(--surface)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Crossing Properties</span>
+                  {[
+                    { label: 'Camera Name', value: pplLightbox.cameraName || pplLightbox.cameraId },
+                    { label: 'Camera ID', value: pplLightbox.cameraId },
+                    { label: 'Timestamp', value: new Date(pplLightbox.timestamp).toLocaleString() },
+                    { label: 'Cumulative IN', value: pplLightbox.cumulativeIn ?? 0, color: '#16a34a' },
+                    { label: 'Cumulative OUT', value: pplLightbox.cumulativeOut ?? 0, color: '#f59e0b' },
+                    { label: 'Cumulative Total', value: pplLightbox.cumulativeTotal ?? ((pplLightbox.cumulativeIn ?? 0) + (pplLightbox.cumulativeOut ?? 0)), color: '#2563eb' },
+                    { label: 'Delta (This Frame)', value: pplLightbox.newPeopleCounted ?? 0 },
+                    { label: 'In Frame Right Now', value: pplLightbox.peopleInFrame ?? 0 },
+                  ].map((item, idx) => (
+                    <div key={idx} style={{ borderBottom: '1px solid var(--border)', paddingBottom: 6 }}>
+                      <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600 }}>{item.label}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: item.color || 'var(--text)', marginTop: 2 }}>
+                        {item.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {pplLightbox.snapshotUrl && (
+                  <div style={{ marginTop: 16 }}>
+                    <a
+                      href={pplLightbox.snapshotUrl}
+                      download={`people_${pplLightbox.id}.jpg`}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                        background: '#2563eb', color: '#fff', padding: '9px 16px', borderRadius: 8,
+                        fontSize: 12, fontWeight: 700, textDecoration: 'none',
+                      }}
+                    >
+                      <Download size={13} /> Download Snapshot
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Right-side toast notification ──────────────────────────────── */}
+
       <style>{`
         @keyframes slideInRight {
           from { transform: translateX(120%); opacity: 0; }
