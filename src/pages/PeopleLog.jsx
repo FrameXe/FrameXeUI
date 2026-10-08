@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { usePeopleDetections } from '../hooks/usePeopleDetections.js'
 import { Loading } from '../components/shared/index.jsx'
 import {
@@ -49,8 +50,8 @@ export default function PeopleLog() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: 60 }}>
 
-      {/* DETAIL MODAL */}
-      {viewingDetection && (
+      {/* DETAIL MODAL — rendered via portal so position:fixed works correctly */}
+      {viewingDetection && createPortal(
         <div
           style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
@@ -147,7 +148,8 @@ export default function PeopleLog() {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
+
 
       {/* HEADER SECTION */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
